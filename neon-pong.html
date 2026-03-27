@@ -1,0 +1,1589 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Neon Pong</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #050505;
+            font-family: 'Courier New', Courier, monospace;
+            touch-action: none; /* Prevent scrolling on touch devices */
+        }
+        canvas {
+            display: block;
+        }
+        .neon-text-pink {
+            text-shadow: 0 0 5px #fff, 0 0 10px #ff00ff, 0 0 20px #ff00ff, 0 0 40px #ff00ff;
+        }
+        .neon-text-cyan {
+            text-shadow: 0 0 5px #fff, 0 0 10px #00ffff, 0 0 20px #00ffff, 0 0 40px #00ffff;
+        }
+        .neon-text-yellow {
+            text-shadow: 0 0 5px #fff, 0 0 10px #ffff00, 0 0 20px #ffff00, 0 0 40px #ffff00;
+        }
+        
+        /* CRT scanline effect */
+        .scanlines {
+            background: linear-gradient(
+                to bottom,
+                rgba(255,255,255,0),
+                rgba(255,255,255,0) 50%,
+                rgba(0,0,0,0.1) 50%,
+                rgba(0,0,0,0.1)
+            );
+            background-size: 100% 4px;
+            pointer-events: none;
+        }
+
+        /* Custom Input styling */
+        input.name-input {
+            background: transparent;
+            text-align: center;
+            border: none;
+            outline: none;
+            border-bottom: 2px solid;
+            width: 180px;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- UI Overlay -->
+    <div id="uiLayer" class="absolute inset-0 pointer-events-none flex flex-col z-10 scanlines">
+        
+        <!-- Score Board -->
+        <div class="flex justify-between w-full px-12 md:px-32 py-8 text-5xl md:text-8xl font-bold opacity-40 transition-opacity duration-300 relative" id="scoreBoard">
+            <span id="score1" class="neon-text-pink text-[#ff00ff]">0</span>
+            <span id="score2" class="neon-text-cyan text-[#00ffff]">0</span>
+        </div>
+
+        <!-- Best of 3 Set Indicators -->
+        <div id="setIndicators" class="absolute top-[120px] left-0 right-0 flex justify-between px-16 md:px-40 hidden opacity-60 transition-opacity duration-300">
+            <div id="p1SetsDisplay" class="flex gap-3"></div>
+            <div id="p2SetsDisplay" class="flex gap-3"></div>
+        </div>
+
+        <!-- Co-op Score Display -->
+        <div id="coopScoreDisplay" class="absolute top-12 left-0 right-0 flex flex-col items-center hidden opacity-60 transition-opacity duration-300">
+             <span id="coopTimer" class="neon-text-yellow text-[#ffff00] text-6xl md:text-8xl font-bold">0.0s</span>
+             <span id="coopRally" class="mt-2 text-gray-300 text-xl md:text-3xl tracking-widest font-bold">0 HITS</span>
+        </div>
+
+        <!-- Start Screen -->
+        <div id="startScreen" class="absolute inset-0 flex flex-col items-center justify-center bg-black/90 pointer-events-auto transition-opacity duration-500 z-40">
+            <h1 class="text-6xl md:text-8xl font-bold neon-text-yellow text-yellow-300 mb-8 tracking-widest text-center">NEON PONG</h1>
+            
+            <!-- Game Mode Menu -->
+            <div class="mb-10 flex flex-col items-center">
+                <label class="text-gray-400 mb-2 tracking-widest text-sm uppercase">Select Game Mode</label>
+                <select id="gameModeSelect" class="bg-black border-2 border-yellow-300 text-yellow-300 text-xl md:text-2xl font-bold rounded p-3 outline-none cursor-pointer shadow-[0_0_15px_rgba(255,255,0,0.3)] text-center w-72">
+                    <option value="CLASSIC">Classic (To 7)</option>
+                    <option value="PRO">Pro (To 15)</option>
+                    <option value="DEUCE">Deuce (Win by 2)</option>
+                    <option value="BEST_OF_3">Best of 3 Sets</option>
+                    <option value="COOP">Co-op Survival</option>
+                </select>
+            </div>
+            
+            <div class="flex gap-16 mb-12 text-center">
+                <div class="flex flex-col items-center">
+                    <input type="text" id="p1NameInput" value="PLAYER 1" maxlength="10" class="name-input text-pink-400 border-pink-400 font-bold text-2xl mb-4 neon-text-pink uppercase">
+                    <p class="text-white text-xl border-2 border-pink-400 rounded p-2 px-4 shadow-[0_0_10px_#ff00ff] mb-2 w-full">W / S</p>
+                    <p class="text-sm text-yellow-300 mb-1">Hold 'D' for Overdrive</p>
+                    <p class="text-sm text-blue-300">Press 'SPACE' for Repulse</p>
+                </div>
+                <div class="flex flex-col items-center">
+                    <input type="text" id="p2NameInput" value="PLAYER 2" maxlength="10" class="name-input text-cyan-400 border-cyan-400 font-bold text-2xl mb-4 neon-text-cyan uppercase">
+                    <p class="text-white text-xl border-2 border-cyan-400 rounded p-2 px-4 shadow-[0_0_10px_#00ffff] mb-2 w-full">UP / DOWN</p>
+                    <p class="text-sm text-yellow-300 mb-1">Hold 'LEFT' for Overdrive</p>
+                    <p class="text-sm text-blue-300">Press 'ENTER' for Repulse</p>
+                </div>
+            </div>
+
+            <div class="flex gap-4">
+                <button id="startBtn" class="px-8 py-4 bg-transparent border-2 border-yellow-300 text-yellow-300 text-2xl font-bold rounded hover:bg-yellow-300 hover:text-black transition-all shadow-[0_0_20px_rgba(255,255,0,0.5)] cursor-pointer">
+                    START GAME
+                </button>
+                <button id="showLeaderboardBtn" class="px-6 py-4 bg-transparent border-2 border-gray-400 text-gray-400 text-xl font-bold rounded hover:bg-gray-400 hover:text-black transition-all cursor-pointer">
+                    LEADERBOARD
+                </button>
+            </div>
+        </div>
+
+        <!-- Leaderboard Screen -->
+        <div id="leaderboardScreen" class="absolute inset-0 flex flex-col items-center justify-start py-16 bg-black/95 pointer-events-auto hidden transition-opacity duration-300 z-50 overflow-y-auto">
+            <h1 class="text-5xl md:text-6xl font-bold mb-8 tracking-widest text-center uppercase neon-text-yellow text-yellow-300">CSV LEADERBOARD</h1>
+            
+            <div class="w-11/12 max-w-5xl bg-gray-900 border-2 border-gray-700 rounded-lg p-4 overflow-x-auto shadow-[0_0_20px_rgba(255,255,255,0.1)]">
+                <table class="w-full text-left text-gray-300 text-sm md:text-base border-collapse">
+                    <thead>
+                        <tr class="border-b-2 border-gray-700 text-white">
+                            <th class="p-2">Date</th>
+                            <th class="p-2">Time</th>
+                            <th class="p-2">Mode</th>
+                            <th class="p-2">Winner</th>
+                            <th class="p-2">Loser</th>
+                            <th class="p-2">Score/Time</th>
+                            <th class="p-2">Max Rally</th>
+                        </tr>
+                    </thead>
+                    <tbody id="leaderboardBody">
+                        <!-- CSV Data Injected Here -->
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="flex gap-6 mt-8">
+                <button id="downloadCsvBtn" class="px-6 py-3 bg-transparent border-2 border-green-400 text-green-400 font-bold rounded hover:bg-green-400 hover:text-black transition-all cursor-pointer">
+                    DOWNLOAD CSV
+                </button>
+                <button id="closeLeaderboardBtn" class="px-6 py-3 bg-transparent border-2 border-red-400 text-red-400 font-bold rounded hover:bg-red-400 hover:text-black transition-all cursor-pointer">
+                    CLOSE
+                </button>
+            </div>
+        </div>
+
+        <!-- Pause Screen -->
+        <div id="pauseScreen" class="absolute inset-0 flex flex-col items-center justify-center bg-black/80 pointer-events-auto hidden z-40">
+            <h1 class="text-6xl font-bold neon-text-yellow text-yellow-300 mb-12 tracking-widest text-center uppercase">PAUSED</h1>
+            <div class="flex flex-col gap-6">
+                <button id="resumeBtn" class="px-8 py-4 bg-transparent border-2 border-white text-white text-2xl font-bold rounded hover:bg-white hover:text-black transition-all cursor-pointer shadow-[0_0_15px_#fff]">
+                    RESUME
+                </button>
+                <button id="quitBtn" class="px-8 py-4 bg-transparent border-2 border-red-500 text-red-500 text-xl font-bold rounded hover:bg-red-500 hover:text-black transition-all cursor-pointer">
+                    QUIT TO MENU
+                </button>
+            </div>
+        </div>
+
+        <!-- Roguelike Upgrade Screen -->
+        <div id="upgradeScreen" class="absolute inset-0 flex flex-col items-center justify-center bg-black/95 pointer-events-auto hidden transition-opacity duration-300 z-30">
+            <h1 id="upgradeTitle" class="text-5xl md:text-7xl font-bold mb-4 tracking-widest text-center uppercase"></h1>
+            <p class="text-gray-300 mb-12 tracking-widest uppercase text-sm md:text-xl">Pick your upgrade</p>
+            <div id="upgradeCards" class="flex flex-wrap justify-center gap-8 px-4">
+                <!-- Cards injected here -->
+            </div>
+        </div>
+
+        <!-- Winner Screen -->
+        <div id="winnerScreen" class="absolute inset-0 flex flex-col items-center justify-center bg-black/95 pointer-events-auto opacity-0 hidden transition-opacity duration-500 z-30 overflow-y-auto py-12">
+             <h1 id="winnerText" class="text-6xl md:text-8xl font-bold mb-6 tracking-widest text-center uppercase"></h1>
+             
+             <!-- Match Stats & Analysis -->
+             <div class="bg-gray-900 border-2 border-gray-700 rounded-lg p-6 md:p-8 mb-10 w-11/12 max-w-2xl shadow-[0_0_30px_rgba(255,255,255,0.1)]">
+                 <h2 class="text-2xl font-bold text-white mb-4 border-b border-gray-700 pb-2 uppercase tracking-widest">Match Analysis</h2>
+                 <p id="analysisText" class="text-yellow-300 text-lg md:text-xl font-bold mb-6 italic"></p>
+                 
+                 <div class="grid grid-cols-2 gap-x-8 gap-y-4 text-sm md:text-base">
+                     <div class="flex justify-between border-b border-gray-800 pb-1">
+                         <span class="text-gray-400 uppercase tracking-wider">Duration</span>
+                         <span id="statDuration" class="text-white font-bold"></span>
+                     </div>
+                     <div class="flex justify-between border-b border-gray-800 pb-1">
+                         <span class="text-gray-400 uppercase tracking-wider">Longest Rally</span>
+                         <span id="statRally" class="text-white font-bold"></span>
+                     </div>
+                     <div class="flex justify-between border-b border-gray-800 pb-1">
+                         <span class="text-gray-400 uppercase tracking-wider">Max Speed</span>
+                         <span id="statSpeed" class="text-white font-bold"></span>
+                     </div>
+                     <div class="flex justify-between border-b border-gray-800 pb-1">
+                         <span class="text-gray-400 uppercase tracking-wider">Tokens Grabbed</span>
+                         <span id="statTokens" class="text-white font-bold"></span>
+                     </div>
+                     <div class="flex justify-between border-b border-gray-800 pb-1">
+                         <span class="text-gray-400 uppercase tracking-wider">Overdrives Used</span>
+                         <span id="statOverdrives" class="text-white font-bold"></span>
+                     </div>
+                     <div class="flex justify-between border-b border-gray-800 pb-1">
+                         <span class="text-gray-400 uppercase tracking-wider">Repulses Fired</span>
+                         <span id="statRepulses" class="text-white font-bold"></span>
+                     </div>
+                 </div>
+             </div>
+
+             <div class="flex gap-6">
+                <button id="restartBtn" class="px-8 py-4 bg-transparent border-2 border-white text-white text-2xl font-bold rounded hover:bg-white hover:text-black transition-all cursor-pointer shadow-[0_0_15px_#fff]">
+                    PLAY AGAIN
+                </button>
+                <button id="menuBtn" class="px-8 py-4 bg-transparent border-2 border-gray-500 text-gray-400 text-xl font-bold rounded hover:bg-gray-500 hover:text-black transition-all cursor-pointer">
+                    MAIN MENU
+                </button>
+             </div>
+        </div>
+    </div>
+
+    <canvas id="gameCanvas"></canvas>
+
+    <script>
+        /** * NEON PONG - Game Engine & Logic
+         */
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d', { alpha: false }); 
+        
+        // UI Elements
+        const score1El = document.getElementById('score1');
+        const score2El = document.getElementById('score2');
+        const startScreen = document.getElementById('startScreen');
+        const gameModeSelect = document.getElementById('gameModeSelect');
+        const setIndicators = document.getElementById('setIndicators');
+        const p1SetsDisplay = document.getElementById('p1SetsDisplay');
+        const p2SetsDisplay = document.getElementById('p2SetsDisplay');
+        const coopScoreDisplay = document.getElementById('coopScoreDisplay');
+        const coopTimer = document.getElementById('coopTimer');
+        const coopRally = document.getElementById('coopRally');
+        const upgradeScreen = document.getElementById('upgradeScreen');
+        const upgradeTitle = document.getElementById('upgradeTitle');
+        const upgradeCardsContainer = document.getElementById('upgradeCards');
+        const winnerScreen = document.getElementById('winnerScreen');
+        const winnerText = document.getElementById('winnerText');
+        const startBtn = document.getElementById('startBtn');
+        const restartBtn = document.getElementById('restartBtn');
+        const menuBtn = document.getElementById('menuBtn');
+        const scoreBoard = document.getElementById('scoreBoard');
+        
+        // Pause & Leaderboard UI
+        const pauseScreen = document.getElementById('pauseScreen');
+        const resumeBtn = document.getElementById('resumeBtn');
+        const quitBtn = document.getElementById('quitBtn');
+        const leaderboardScreen = document.getElementById('leaderboardScreen');
+        const showLeaderboardBtn = document.getElementById('showLeaderboardBtn');
+        const closeLeaderboardBtn = document.getElementById('closeLeaderboardBtn');
+        const downloadCsvBtn = document.getElementById('downloadCsvBtn');
+        const leaderboardBody = document.getElementById('leaderboardBody');
+
+        // Name Inputs
+        const p1NameInput = document.getElementById('p1NameInput');
+        const p2NameInput = document.getElementById('p2NameInput');
+
+        // Game State
+        let gameState = 'START'; // START, PLAYING, GAMEOVER, UPGRADE, PAUSED
+        let gameMode = 'CLASSIC'; 
+        let isPaused = false;
+        let lastTime = 0;
+        let p1Score = 0;
+        let p2Score = 0;
+        let p1Sets = 0;
+        let p2Sets = 0;
+        let survivalTime = 0;
+        let rallyCount = 0;
+        
+        // Player Names
+        let p1Name = "PLAYER 1";
+        let p2Name = "PLAYER 2";
+
+        // Advanced Stats Tracking
+        let matchStats = {
+            duration: 0,
+            maxRally: 0,
+            maxSpeed: 0,
+            tokensGrabbed: 0,
+            overdrivesUsed: 0,
+            repulsesFired: 0
+        };
+
+        let screenShake = 0;
+        let bgPulse = 0; 
+        let tokenSpawnTimer = 0;
+        let activeTokens = [];
+        let floatingTexts = [];
+        let obstacles = [];
+        let currentMapType = 0;
+        const MAP_COUNT = 7; 
+        
+        const TOKEN_TYPES = [
+            { type: 'GROW', color: '#00ff00', label: '+' },
+            { type: 'SHRINK', color: '#ff0000', label: '-' },
+            { type: 'FAST', color: '#ff8800', label: '>>>' },
+            { type: 'SLOW', color: '#0088ff', label: '<<<' }, 
+            { type: 'CONFUSE', color: '#ff00aa', label: '?' }, 
+            { type: 'SHIELD', color: '#ffffff', label: '[|]' } 
+        ];
+
+        // CSV Local Storage Key
+        const CSV_STORAGE_KEY = 'neonPongLeaderboardCSV';
+        const CSV_HEADER = "Date,Time,Mode,Winner,Loser,Score/Time,MaxRally\n";
+
+        // Roguelike Upgrade Pool
+        const UPGRADES = [
+            { name: "EXTENDED PADDLE", desc: "+25% Paddle Height", action: p => { p.stats.heightMult += 0.25; resize(); }, color: "text-green-400" },
+            { name: "TURBO MOTORS", desc: "+25% Move Speed", action: p => p.stats.speedMult += 0.25, color: "text-blue-400" },
+            { name: "BATTERY BANK", desc: "+50 Max Energy", action: p => { p.stats.maxEnergy += 50; p.energy = p.stats.maxEnergy; }, color: "text-yellow-400" },
+            { name: "QUICK CHARGE", desc: "+40% Energy Regen", action: p => p.stats.regenMult += 0.40, color: "text-purple-400" },
+            { name: "KINETIC SMASH", desc: "+30% Overdrive Speed", action: p => p.stats.smashMult += 0.30, color: "text-red-400" },
+            { name: "AUTO-SHIELD", desc: "Start every round with a Shield", action: p => p.stats.shieldStart = true, color: "text-white" }
+        ];
+
+        // Audio Context (Initialized on user interaction)
+        let audioCtx;
+
+        // Colors
+        const COLOR_P1 = '#ff00ff';
+        const COLOR_P2 = '#00ffff';
+        const COLOR_BALL = '#ffff00';
+        const COLOR_BG = '#050505';
+
+        // Keyboard Input State
+        const keys = {
+            KeyW: false,
+            KeyS: false,
+            KeyD: false, 
+            ArrowUp: false,
+            ArrowDown: false,
+            ArrowLeft: false 
+        };
+
+        window.addEventListener('keydown', (e) => {
+            // Pause Game
+            if (e.code === 'Escape') {
+                if (gameState === 'PLAYING') {
+                    togglePause(true);
+                } else if (gameState === 'PAUSED') {
+                    togglePause(false);
+                }
+                e.preventDefault();
+                return;
+            }
+
+            if (keys.hasOwnProperty(e.code)) {
+                keys[e.code] = true;
+                e.preventDefault(); 
+            }
+
+            // EDGE TRIGGERS for Defensive Pulse
+            if (e.code === 'Space' && gameState === 'PLAYING' && !isPaused) {
+                triggerPulse(player1, 1);
+                e.preventDefault();
+            }
+            if (e.code === 'Enter' && gameState === 'PLAYING' && !isPaused) {
+                triggerPulse(player2, 2);
+                e.preventDefault();
+            }
+            // Quick Restart
+            if (e.code === 'KeyR' && (gameState === 'PLAYING' || gameState === 'GAMEOVER')) {
+                startGame();
+            }
+        });
+
+        window.addEventListener('keyup', (e) => {
+            if (keys.hasOwnProperty(e.code)) {
+                keys[e.code] = false;
+            }
+        });
+
+        // Entity Definitions
+        const paddle = {
+            width: 20,
+            speed: 850 
+        };
+
+        const createPlayerStats = () => ({
+            heightMult: 1.0,
+            speedMult: 1.0,
+            maxEnergy: 100,
+            regenMult: 1.0,
+            smashMult: 1.0,
+            shieldStart: false
+        });
+
+        const player1 = {
+            x: 0,
+            y: 0,
+            color: COLOR_P1,
+            height: 200,
+            defaultHeight: 200,
+            effectTimer: 0,
+            confusedTimer: 0,
+            shield: false,
+            energy: 100, 
+            isOverdrive: false,
+            pulseTimer: 0, 
+            stats: createPlayerStats()
+        };
+
+        const player2 = {
+            x: 0,
+            y: 0,
+            color: COLOR_P2,
+            height: 200,
+            defaultHeight: 200,
+            effectTimer: 0,
+            confusedTimer: 0,
+            shield: false,
+            energy: 100, 
+            isOverdrive: false,
+            pulseTimer: 0, 
+            stats: createPlayerStats()
+        }
+
+        const ball = {
+            x: 0,
+            y: 0,
+            radius: 7,
+            vx: 0,
+            vy: 0,
+            baseSpeed: 700,
+            speedMultiplier: 1.05,
+            color: COLOR_BALL,
+            trail: [],
+            lastHitBy: 0, 
+            isStarting: false 
+        };
+
+        const particles = [];
+
+        // Setup & Resize
+        function generateMap() {
+            obstacles = [];
+            const cw = canvas.width;
+            const ch = canvas.height;
+            const cx = cw / 2;
+            const cy = ch / 2;
+
+            if (currentMapType === 1) { 
+                obstacles.push({ type: 'rect', x: cx - cw*0.0075, y: 0, w: cw*0.015, h: cy - ch*0.15, color: '#aa00ff' });
+                obstacles.push({ type: 'rect', x: cx - cw*0.0075, y: cy + ch*0.15, w: cw*0.015, h: ch, color: '#aa00ff' });
+            } else if (currentMapType === 2) { 
+                obstacles.push({ type: 'rect', x: cx - cw*0.15, y: cy - ch*0.25, w: cw*0.02, h: ch*0.08, color: '#00ffaa' });
+                obstacles.push({ type: 'rect', x: cx + cw*0.13, y: cy - ch*0.25, w: cw*0.02, h: ch*0.08, color: '#00ffaa' });
+                obstacles.push({ type: 'rect', x: cx - cw*0.15, y: cy + ch*0.17, w: cw*0.02, h: ch*0.08, color: '#00ffaa' });
+                obstacles.push({ type: 'rect', x: cx + cw*0.13, y: cy + ch*0.17, w: cw*0.02, h: ch*0.08, color: '#00ffaa' });
+            } else if (currentMapType === 3) { 
+                obstacles.push({ type: 'rect', x: cx - cw*0.1, y: cy - ch*0.2, w: cw*0.2, h: ch*0.02, color: '#ff0055' });
+                obstacles.push({ type: 'rect', x: cx - cw*0.1, y: cy + ch*0.18, w: cw*0.2, h: ch*0.02, color: '#ff0055' });
+            } else if (currentMapType === 4) { 
+                obstacles.push({ type: 'rect', x: cx - cw*0.05, y: cy - ch*0.3, w: cw*0.015, h: ch*0.6, color: '#ffaa00' });
+                obstacles.push({ type: 'rect', x: cx + cw*0.035, y: cy - ch*0.3, w: cw*0.015, h: ch*0.6, color: '#ffaa00' });
+            } else if (currentMapType === 5) { 
+                obstacles.push({ type: 'rect', x: cx - cw*0.1, y: ch*0.2, w: cw*0.02, h: ch*0.15, color: '#00aaff', vy: 250, minY: ch*0.1, maxY: ch*0.75 });
+                obstacles.push({ type: 'rect', x: cx + cw*0.08, y: ch*0.6, w: cw*0.02, h: ch*0.15, color: '#00aaff', vy: -250, minY: ch*0.1, maxY: ch*0.75 });
+            } else if (currentMapType === 6) { 
+                obstacles.push({ type: 'circle', x: cx, y: cy, r: ch*0.07, color: '#ffff00' });
+                obstacles.push({ type: 'circle', x: cx - cw*0.15, y: cy - ch*0.2, r: ch*0.05, color: '#ff0055' });
+                obstacles.push({ type: 'circle', x: cx + cw*0.15, y: cy + ch*0.2, r: ch*0.05, color: '#ff0055' });
+            }
+
+            // Assign Health to all generated obstacles
+            obstacles.forEach(obs => {
+                obs.health = 3;
+                obs.maxHealth = 3;
+            });
+        }
+
+        function resize() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            
+            paddle.width = Math.max(8, canvas.width * 0.01);
+            const baseHeight = Math.max(70, canvas.height * 0.15); 
+            
+            player1.defaultHeight = baseHeight * player1.stats.heightMult;
+            player2.defaultHeight = baseHeight * player2.stats.heightMult;
+            
+            if(player1.effectTimer <= 0) player1.height = player1.defaultHeight;
+            if(player2.effectTimer <= 0) player2.height = player2.defaultHeight;
+            
+            player1.x = 40;
+            player2.x = canvas.width - 40 - paddle.width;
+
+            generateMap();
+
+            if (gameState === 'START') {
+                resetBall();
+                player1.y = canvas.height / 2 - player1.height / 2;
+                player2.y = canvas.height / 2 - player2.height / 2;
+            }
+        }
+        window.addEventListener('resize', resize);
+
+        function resetBall() {
+            ball.x = canvas.width / 2;
+            ball.y = canvas.height / 2;
+            ball.trail = [];
+            ball.lastHitBy = 0;
+            ball.color = COLOR_BALL;
+            ball.isStarting = true; 
+            
+            const angle = (Math.random() * Math.PI / 2) - (Math.PI / 4); 
+            const direction = Math.random() > 0.5 ? 1 : -1; 
+            
+            const startSpeed = 60; 
+            ball.vx = Math.cos(angle) * startSpeed * direction;
+            ball.vy = Math.sin(angle) * startSpeed;
+
+            if (gameMode !== 'COOP') rallyCount = 0; // Reset rally on point score
+        }
+
+        // --- PAUSE MENU LOGIC ---
+        function togglePause(forcePause) {
+            isPaused = forcePause;
+            if (isPaused) {
+                gameState = 'PAUSED';
+                pauseScreen.classList.remove('hidden');
+            } else {
+                gameState = 'PLAYING';
+                pauseScreen.classList.add('hidden');
+                // Prevent massive delta-time jump
+                lastTime = performance.now();
+            }
+        }
+
+        resumeBtn.addEventListener('click', () => togglePause(false));
+        quitBtn.addEventListener('click', () => {
+            togglePause(false);
+            returnToMenu();
+        });
+
+        function returnToMenu() {
+            gameState = 'START';
+            startScreen.classList.remove('hidden');
+            startScreen.classList.remove('opacity-0');
+            winnerScreen.classList.add('hidden');
+            winnerScreen.classList.add('opacity-0');
+            upgradeScreen.classList.add('hidden');
+            scoreBoard.classList.add('opacity-0');
+            setIndicators.classList.add('opacity-0');
+            coopScoreDisplay.classList.add('opacity-0');
+            
+            // Re-center ball and paddles for background
+            resize();
+        }
+        menuBtn.addEventListener('click', returnToMenu);
+
+        // --- CSV / LEADERBOARD LOGIC ---
+        function saveToCSV(winner, loser, finalScore) {
+            let csvData = localStorage.getItem(CSV_STORAGE_KEY);
+            if (!csvData) {
+                csvData = CSV_HEADER;
+            }
+
+            const now = new Date();
+            const dateStr = now.toLocaleDateString();
+            const timeStr = now.toLocaleTimeString();
+            
+            // Format line: Date, Time, Mode, Winner, Loser, Score, Duration, MaxRally
+            const newLine = `${dateStr},${timeStr},${gameMode},${winner},${loser},${finalScore},${matchStats.duration.toFixed(1)}s,${matchStats.maxRally}\n`;
+            
+            csvData += newLine;
+            localStorage.setItem(CSV_STORAGE_KEY, csvData);
+        }
+
+        function parseCSV() {
+            const csvData = localStorage.getItem(CSV_STORAGE_KEY) || CSV_HEADER;
+            const lines = csvData.trim().split('\n');
+            const data = [];
+            
+            // Skip header (index 0)
+            for(let i = 1; i < lines.length; i++) {
+                const parts = lines[i].split(',');
+                if (parts.length >= 7) {
+                    data.push({
+                        date: parts[0],
+                        time: parts[1],
+                        mode: parts[2],
+                        winner: parts[3],
+                        loser: parts[4],
+                        score: parts[5],
+                        maxRally: parts[7] || '0'
+                    });
+                }
+            }
+            return data.reverse(); // Newest first
+        }
+
+        function displayLeaderboard() {
+            leaderboardScreen.classList.remove('hidden');
+            const data = parseCSV();
+            
+            leaderboardBody.innerHTML = '';
+            if (data.length === 0) {
+                leaderboardBody.innerHTML = '<tr><td colspan="7" class="p-4 text-center text-gray-500">No match records found. Play a game to generate CSV data!</td></tr>';
+                return;
+            }
+
+            data.forEach((row, i) => {
+                const tr = document.createElement('tr');
+                tr.className = `border-b border-gray-800 ${i % 2 === 0 ? 'bg-gray-800/50' : ''} hover:bg-gray-700/50 transition-colors`;
+                tr.innerHTML = `
+                    <td class="p-2 whitespace-nowrap">${row.date}</td>
+                    <td class="p-2 whitespace-nowrap text-gray-400">${row.time}</td>
+                    <td class="p-2 font-bold text-yellow-300">${row.mode}</td>
+                    <td class="p-2 font-bold text-green-400">${row.winner}</td>
+                    <td class="p-2 text-red-400">${row.loser}</td>
+                    <td class="p-2">${row.score}</td>
+                    <td class="p-2 text-center font-bold">${row.maxRally}</td>
+                `;
+                leaderboardBody.appendChild(tr);
+            });
+        }
+
+        showLeaderboardBtn.addEventListener('click', displayLeaderboard);
+        closeLeaderboardBtn.addEventListener('click', () => {
+            leaderboardScreen.classList.add('hidden');
+        });
+
+        downloadCsvBtn.addEventListener('click', () => {
+            const csvData = localStorage.getItem(CSV_STORAGE_KEY) || CSV_HEADER;
+            const blob = new Blob([csvData], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.setAttribute('hidden', '');
+            a.setAttribute('href', url);
+            a.setAttribute('download', 'neon_pong_leaderboard.csv');
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        });
+
+        function triggerPulse(p, num) {
+            if (p.energy < 40) return;
+            p.energy -= 40;
+            p.pulseTimer = 0.3; 
+            playSound('powerup');
+            matchStats.repulsesFired++;
+            
+            const paddleCenterX = p.x + paddle.width/2;
+            const paddleCenterY = p.y + p.height/2;
+            const dx = ball.x - paddleCenterX;
+            const dy = ball.y - paddleCenterY;
+            const dist = Math.sqrt(dx*dx + dy*dy);
+            
+            if (dist < 250) { 
+                screenShake = 10;
+                bgPulse = 0.3;
+                createParticles(ball.x, ball.y, '#ffffff', 25, num === 1 ? 1 : -1);
+                
+                const currentSpeed = Math.max(Math.sqrt(ball.vx*ball.vx + ball.vy*ball.vy), ball.baseSpeed);
+                
+                if (num === 1) {
+                    ball.vx = Math.abs(ball.vx) + 200; 
+                } else {
+                    ball.vx = -Math.abs(ball.vx) - 200; 
+                }
+                
+                ball.vy += (Math.random() - 0.5) * 600;
+                ball.lastHitBy = num;
+                ball.isStarting = false;
+                addFloatingText(ball.x, ball.y, "REPULSED!", '#00aaff');
+            }
+        }
+
+        // --- Roguelike System ---
+        function showUpgradeScreen(playerNum) {
+            gameState = 'UPGRADE';
+            const targetPlayer = playerNum === 1 ? player1 : player2;
+            const targetName = playerNum === 1 ? p1Name : p2Name;
+            
+            upgradeTitle.innerText = `${targetName} DRAFT`;
+            upgradeTitle.className = `text-5xl md:text-7xl font-bold mb-4 neon-text-${playerNum === 1 ? 'pink' : 'cyan'} text-${playerNum === 1 ? 'pink' : 'cyan'}-400 uppercase tracking-widest text-center truncate px-4`;
+            
+            let shuffled = [...UPGRADES].sort(() => 0.5 - Math.random());
+            let selected = shuffled.slice(0, 3);
+            
+            upgradeCardsContainer.innerHTML = '';
+            selected.forEach(upg => {
+                const btn = document.createElement('button');
+                btn.className = "flex flex-col items-center justify-center p-6 bg-gray-900 border-2 border-gray-600 rounded-lg hover:border-white hover:bg-gray-800 transition-all cursor-pointer w-64 h-64 group shadow-[0_0_15px_rgba(0,0,0,0.5)]";
+                btn.innerHTML = `
+                    <h3 class="text-2xl font-bold mb-4 text-center ${upg.color}">${upg.name}</h3>
+                    <p class="text-gray-300 text-center">${upg.desc}</p>
+                `;
+                btn.onclick = () => {
+                    upg.action(targetPlayer);
+                    upgradeScreen.classList.add('hidden');
+                    
+                    currentMapType = Math.floor(Math.random() * MAP_COUNT); 
+                    generateMap();
+                    
+                    if (player1.stats.shieldStart) player1.shield = true;
+                    if (player2.stats.shieldStart) player2.shield = true;
+                    
+                    activeTokens = [];
+                    resetBall();
+                    gameState = 'PLAYING';
+                    lastTime = performance.now(); // Reset time to avoid jump
+                };
+                upgradeCardsContainer.appendChild(btn);
+            });
+            
+            upgradeScreen.classList.remove('hidden');
+        }
+
+        // --- Token & Effects System ---
+        function spawnToken() {
+            const typeInfo = TOKEN_TYPES[Math.floor(Math.random() * TOKEN_TYPES.length)];
+            const x = canvas.width * 0.25 + Math.random() * (canvas.width * 0.5);
+            const y = canvas.height * 0.2 + Math.random() * (canvas.height * 0.6);
+            activeTokens.push({ x, y, radius: 10, ...typeInfo });
+        }
+
+        function addFloatingText(x, y, text, color) {
+            floatingTexts.push({ x, y, text, color, life: 1.5 });
+        }
+
+        function activateToken(token, playerNum) {
+            playSound('powerup');
+            createParticles(token.x, token.y, token.color, 30, 0);
+            screenShake = 10;
+            addFloatingText(token.x, token.y, token.type, token.color);
+            matchStats.tokensGrabbed++;
+
+            if (playerNum === 0) return; 
+
+            const target = playerNum === 1 ? player1 : player2;
+            const opponent = playerNum === 1 ? player2 : player1;
+
+            if (token.type === 'GROW') {
+                target.height = Math.min(target.height * 1.5, canvas.height * 0.9); 
+                target.effectTimer += 8; 
+            } else if (token.type === 'SHRINK') {
+                opponent.height = Math.max(opponent.height * 0.6, 25); 
+                opponent.effectTimer += 8; 
+            } else if (token.type === 'FAST') {
+                const currentSpeed = Math.sqrt(ball.vx*ball.vx + ball.vy*ball.vy);
+                if (currentSpeed < 2500) { 
+                    ball.vx *= 1.4;
+                    ball.vy *= 1.4;
+                }
+                ball.color = '#ffaa00'; 
+            } else if (token.type === 'SLOW') {
+                ball.vx *= 0.6;
+                ball.vy *= 0.6;
+                ball.color = '#0088ff';
+            } else if (token.type === 'CONFUSE') {
+                opponent.confusedTimer += 6;
+            } else if (token.type === 'SHIELD') {
+                target.shield = true;
+            }
+        }
+
+        // --- Audio System ---
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+        }
+
+        function playSound(type) {
+            if (!audioCtx) return;
+            const osc = audioCtx.createOscillator();
+            const gainNode = audioCtx.createGain();
+            osc.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+            const now = audioCtx.currentTime;
+
+            if (type === 'hit') {
+                osc.type = 'square';
+                osc.frequency.setValueAtTime(300, now);
+                osc.frequency.exponentialRampToValueAtTime(600, now + 0.1);
+                gainNode.gain.setValueAtTime(0.1, now);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
+                osc.start(now);
+                osc.stop(now + 0.1);
+            } else if (type === 'wall') {
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(150, now);
+                osc.frequency.exponentialRampToValueAtTime(100, now + 0.1);
+                gainNode.gain.setValueAtTime(0.1, now);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
+                osc.start(now);
+                osc.stop(now + 0.1);
+            } else if (type === 'score') {
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(400, now);
+                osc.frequency.linearRampToValueAtTime(800, now + 0.2);
+                osc.frequency.linearRampToValueAtTime(1200, now + 0.4);
+                gainNode.gain.setValueAtTime(0.1, now);
+                gainNode.gain.linearRampToValueAtTime(0, now + 0.4);
+                osc.start(now);
+                osc.stop(now + 0.4);
+            } else if (type === 'powerup') {
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(400, now);
+                osc.frequency.exponentialRampToValueAtTime(1500, now + 0.4);
+                gainNode.gain.setValueAtTime(0.2, now);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.4);
+                osc.start(now);
+                osc.stop(now + 0.4);
+            }
+        }
+
+        // --- Particle System ---
+        function createParticles(x, y, color, count, directionX) {
+            for (let i = 0; i < count; i++) {
+                const angle = (Math.random() - 0.5) * Math.PI;
+                const speed = Math.random() * 300 + 100;
+                particles.push({
+                    x: x, y: y,
+                    vx: Math.cos(angle) * speed * directionX,
+                    vy: Math.sin(angle) * speed,
+                    life: 1.0, color: color,
+                    size: Math.random() * 4 + 2
+                });
+            }
+        }
+
+        function updateParticles(dt) {
+            for (let i = particles.length - 1; i >= 0; i--) {
+                const p = particles[i];
+                p.x += p.vx * dt;
+                p.y += p.vy * dt;
+                p.life -= dt * 2; 
+                if (p.life <= 0) particles.splice(i, 1);
+            }
+        }
+
+        // --- Core Logic ---
+        function updateSetUI() {
+            p1SetsDisplay.innerHTML = '';
+            p2SetsDisplay.innerHTML = '';
+            for(let i=0; i<2; i++) {
+                p1SetsDisplay.innerHTML += `<div class="w-5 h-5 md:w-8 md:h-8 rounded-full border-4 border-pink-500 ${i < p1Sets ? 'bg-pink-500 shadow-[0_0_15px_#ff00ff]' : ''}"></div>`;
+                p2SetsDisplay.innerHTML += `<div class="w-5 h-5 md:w-8 md:h-8 rounded-full border-4 border-cyan-500 ${i < p2Sets ? 'bg-cyan-500 shadow-[0_0_15px_#00ffff]' : ''}"></div>`;
+            }
+        }
+
+        function update(dt) {
+            matchStats.duration += dt;
+
+            if (screenShake > 0) {
+                screenShake -= dt * 30;
+                if (screenShake < 0) screenShake = 0;
+            }
+            if (bgPulse > 0) {
+                bgPulse -= dt;
+                if (bgPulse < 0) bgPulse = 0;
+            }
+
+            // Co-op Survival Timer
+            if (gameMode === 'COOP') {
+                survivalTime += dt;
+                coopTimer.innerText = survivalTime.toFixed(1) + 's';
+            }
+
+            // Player Stat/Effect Updates
+            [player1, player2].forEach(p => {
+                if (p.effectTimer > 0) {
+                    p.effectTimer -= dt;
+                    if (p.effectTimer <= 0) p.height = p.defaultHeight; 
+                }
+                if (p.confusedTimer > 0) p.confusedTimer -= dt;
+                if (p.pulseTimer > 0) p.pulseTimer -= dt;
+            });
+
+            // Overdrive Energy Management
+            [{ p: player1, key: keys.KeyD }, { p: player2, key: keys.ArrowLeft }].forEach(({ p, key }) => {
+                if (key && p.energy > 0) {
+                    p.isOverdrive = true;
+                    p.energy -= 40 * dt; 
+                } else {
+                    p.isOverdrive = false;
+                    p.energy += (15 * p.stats.regenMult) * dt; 
+                    if (p.energy > p.stats.maxEnergy) p.energy = p.stats.maxEnergy;
+                }
+            });
+
+            // Player 1 Movement
+            let p1Up = keys.KeyW;
+            let p1Down = keys.KeyS;
+            if (player1.confusedTimer > 0) { p1Up = keys.KeyS; p1Down = keys.KeyW; } 
+
+            let p1SpeedMult = (player1.isOverdrive ? 1.6 : 1) * player1.stats.speedMult;
+            if (p1Up && player1.y > 0) {
+                player1.y -= paddle.speed * p1SpeedMult * dt;
+            }
+            if (p1Down && player1.y < canvas.height - player1.height) {
+                player1.y += paddle.speed * p1SpeedMult * dt;
+            }
+
+            // Player 2 Movement
+            let p2Up = keys.ArrowUp;
+            let p2Down = keys.ArrowDown;
+            if (player2.confusedTimer > 0) { p2Up = keys.ArrowDown; p2Down = keys.ArrowUp; } 
+
+            let p2SpeedMult = (player2.isOverdrive ? 1.6 : 1) * player2.stats.speedMult;
+            if (p2Up && player2.y > 0) {
+                player2.y -= paddle.speed * p2SpeedMult * dt;
+            }
+            if (p2Down && player2.y < canvas.height - player2.height) {
+                player2.y += paddle.speed * p2SpeedMult * dt;
+            }
+
+            // Ball Trail update
+            ball.trail.push({x: ball.x, y: ball.y});
+            const speed = Math.sqrt(ball.vx*ball.vx + ball.vy*ball.vy);
+            
+            if (speed > matchStats.maxSpeed) {
+                matchStats.maxSpeed = speed;
+            }
+
+            const maxTrail = Math.min(40, Math.floor(speed / 30)); 
+            if (ball.trail.length > maxTrail) ball.trail.shift();
+
+            // --- SUB-STEPPING PHYSICS ENGINE ---
+            const steps = Math.max(1, Math.ceil((speed * dt) / (ball.radius * 0.5)));
+            const subDt = dt / steps;
+            let pointScored = false;
+
+            for (let s = 0; s < steps; s++) {
+                if (pointScored) break;
+
+                // Ball Startup Acceleration
+                if (ball.isStarting) {
+                    const currentSpeed = Math.sqrt(ball.vx*ball.vx + ball.vy*ball.vy);
+                    const newSpeed = currentSpeed + (600 * subDt); 
+                    if (newSpeed >= ball.baseSpeed) {
+                        const scale = ball.baseSpeed / currentSpeed;
+                        ball.vx *= scale;
+                        ball.vy *= scale;
+                        ball.isStarting = false;
+                    } else {
+                        const scale = newSpeed / currentSpeed;
+                        ball.vx *= scale;
+                        ball.vy *= scale;
+                    }
+                }
+
+                // Ball Movement
+                ball.x += ball.vx * subDt;
+                ball.y += ball.vy * subDt;
+
+                // Top / Bottom Wall Collision
+                if (ball.y - ball.radius < 0) {
+                    ball.y = ball.radius;
+                    ball.vy *= -1;
+                    playSound('wall');
+                    createParticles(ball.x, 0, '#ffffff', 5, 0);
+                } else if (ball.y + ball.radius > canvas.height) {
+                    ball.y = canvas.height - ball.radius;
+                    ball.vy *= -1;
+                    playSound('wall');
+                    createParticles(ball.x, canvas.height, '#ffffff', 5, 0);
+                }
+
+                // Obstacle Collision
+                for (let i = obstacles.length - 1; i >= 0; i--) {
+                    let obs = obstacles[i];
+                    if (obs.vy) {
+                        obs.y += obs.vy * subDt;
+                        if (obs.y < obs.minY || obs.y + obs.h > obs.maxY) obs.vy *= -1;
+                    }
+
+                    let hit = false;
+                    if (obs.type === 'circle') {
+                        const dx = ball.x - obs.x;
+                        const dy = ball.y - obs.y;
+                        const dist = Math.sqrt(dx*dx + dy*dy);
+                        if (dist < ball.radius + obs.r) {
+                            hit = true;
+                            playSound('wall');
+                            createParticles(ball.x, ball.y, obs.color, 20, 0);
+                            screenShake = 5;
+                            bgPulse = 0.1;
+
+                            const nx = dx / dist;
+                            const ny = dy / dist;
+                            const dot = ball.vx * nx + ball.vy * ny;
+                            ball.vx = ball.vx - 2 * dot * nx;
+                            ball.vy = ball.vy - 2 * dot * ny;
+                            ball.x = obs.x + nx * (ball.radius + obs.r);
+                        }
+                    } else {
+                        const closestX = Math.max(obs.x, Math.min(ball.x, obs.x + (obs.w || 0)));
+                        const closestY = Math.max(obs.y, Math.min(ball.y, obs.y + (obs.h || 0)));
+                        const dx = ball.x - closestX;
+                        const dy = ball.y - closestY;
+                        const distanceSquared = dx * dx + dy * dy;
+
+                        if (distanceSquared < ball.radius * ball.radius) {
+                            hit = true;
+                            playSound('wall');
+                            createParticles(closestX, closestY, obs.color, 15, 0);
+                            screenShake = 3;
+                            bgPulse = 0.1;
+
+                            const rectCenterX = obs.x + obs.w / 2;
+                            const rectCenterY = obs.y + obs.h / 2;
+                            const dirX = ball.x - rectCenterX;
+                            const dirY = ball.y - rectCenterY;
+
+                            if (Math.abs(dirX) / obs.w > Math.abs(dirY) / obs.h) {
+                                ball.vx *= -1;
+                                ball.x = dirX > 0 ? obs.x + obs.w + ball.radius : obs.x - ball.radius;
+                            } else {
+                                ball.vy *= -1;
+                                ball.y = dirY > 0 ? obs.y + obs.h + ball.radius : obs.y - ball.radius;
+                            }
+                        }
+                    }
+
+                    // Breakable Health Logic
+                    if (hit) {
+                        const hitSpeed = Math.sqrt(ball.vx*ball.vx + ball.vy*ball.vy);
+                        if (hitSpeed > 1000) { 
+                            obs.health -= 1;
+                            if (obs.health <= 0) {
+                                createParticles(obs.x + (obs.w/2 || 0), obs.y + (obs.h/2 || 0), '#ffffff', 40, 0);
+                                playSound('score'); 
+                                obstacles.splice(i, 1);
+                            }
+                        }
+                    }
+                }
+
+                // Paddle 1 Collision
+                if (ball.x - ball.radius < player1.x + paddle.width &&
+                    ball.x + ball.radius > player1.x &&
+                    ball.y + ball.radius > player1.y &&
+                    ball.y - ball.radius < player1.y + player1.height) {
+                    
+                    ball.x = player1.x + paddle.width + ball.radius;
+                    ball.lastHitBy = 1;
+                    ball.color = player1.isOverdrive ? '#ffffff' : COLOR_BALL; 
+                    ball.isStarting = false; 
+                    
+                    rallyCount++;
+                    if(gameMode === 'COOP') {
+                        coopRally.innerText = `${rallyCount} HITS`;
+                    }
+                    if (rallyCount > matchStats.maxRally) matchStats.maxRally = rallyCount;
+                    
+                    const hitPos = (ball.y - (player1.y + player1.height/2)) / (player1.height/2);
+                    const angle = hitPos * (Math.PI / 4);
+                    
+                    const currentSpeed = Math.max(Math.sqrt(ball.vx*ball.vx + ball.vy*ball.vy), ball.baseSpeed);
+                    const overdriveBoost = player1.isOverdrive ? (1.5 * player1.stats.smashMult) : 1.0;
+                    const newSpeed = currentSpeed * ball.speedMultiplier * overdriveBoost;
+                    
+                    ball.vx = Math.cos(angle) * newSpeed;
+                    ball.vy = Math.sin(angle) * newSpeed;
+                    
+                    if (player1.isOverdrive) {
+                        playSound('powerup');
+                        screenShake = 12;
+                        bgPulse = 0.3;
+                        createParticles(ball.x, ball.y, '#ffffff', 30, 1);
+                        matchStats.overdrivesUsed++;
+                    } else {
+                        playSound('hit');
+                        screenShake = 4;
+                        bgPulse = 0.15;
+                        createParticles(ball.x, ball.y, player1.color, 15, 1);
+                    }
+                }
+
+                // Paddle 2 Collision
+                if (ball.x + ball.radius > player2.x &&
+                    ball.x - ball.radius < player2.x + paddle.width &&
+                    ball.y + ball.radius > player2.y &&
+                    ball.y - ball.radius < player2.y + player2.height) {
+                    
+                    ball.x = player2.x - ball.radius;
+                    ball.lastHitBy = 2;
+                    ball.color = player2.isOverdrive ? '#ffffff' : COLOR_BALL;
+                    ball.isStarting = false; 
+
+                    rallyCount++;
+                    if(gameMode === 'COOP') {
+                        coopRally.innerText = `${rallyCount} HITS`;
+                    }
+                    if (rallyCount > matchStats.maxRally) matchStats.maxRally = rallyCount;
+
+                    const hitPos = (ball.y - (player2.y + player2.height/2)) / (player2.height/2);
+                    const angle = hitPos * (Math.PI / 4);
+                    
+                    const currentSpeed = Math.max(Math.sqrt(ball.vx*ball.vx + ball.vy*ball.vy), ball.baseSpeed);
+                    const overdriveBoost = player2.isOverdrive ? (1.5 * player2.stats.smashMult) : 1.0;
+                    const newSpeed = currentSpeed * ball.speedMultiplier * overdriveBoost;
+                    
+                    ball.vx = -Math.cos(angle) * newSpeed;
+                    ball.vy = Math.sin(angle) * newSpeed;
+
+                    if (player2.isOverdrive) {
+                        playSound('powerup');
+                        screenShake = 12;
+                        bgPulse = 0.3;
+                        createParticles(ball.x, ball.y, '#ffffff', 30, -1);
+                        matchStats.overdrivesUsed++;
+                    } else {
+                        playSound('hit');
+                        screenShake = 4;
+                        bgPulse = 0.15;
+                        createParticles(ball.x, ball.y, player2.color, 15, -1);
+                    }
+                }
+
+                // Scoring / Game Over bounds checking
+                if (ball.x < 0) {
+                    if (player1.shield) {
+                        player1.shield = false;
+                        ball.x = ball.radius;
+                        ball.vx *= -1;
+                        playSound('wall');
+                        createParticles(0, ball.y, '#ffffff', 40, 1);
+                        screenShake = 15;
+                        addFloatingText(100, ball.y, "SHIELD BROKE", '#ffffff');
+                    } else {
+                        if (gameMode === 'COOP') {
+                            triggerGameOverCOOP();
+                        } else {
+                            p2Score++;
+                            score2El.innerText = p2Score;
+                            playSound('score');
+                            screenShake = 15;
+                            bgPulse = 0.5;
+
+                            if (checkWinCondition(2)) {
+                                handleWin(2);
+                            } else {
+                                showUpgradeScreen(2); 
+                            }
+                        }
+                        pointScored = true;
+                    }
+                } else if (ball.x > canvas.width) {
+                    if (player2.shield) {
+                        player2.shield = false;
+                        ball.x = canvas.width - ball.radius;
+                        ball.vx *= -1;
+                        playSound('wall');
+                        createParticles(canvas.width, ball.y, '#ffffff', 40, -1);
+                        screenShake = 15;
+                        addFloatingText(canvas.width - 100, ball.y, "SHIELD BROKE", '#ffffff');
+                    } else {
+                        if (gameMode === 'COOP') {
+                            triggerGameOverCOOP();
+                        } else {
+                            p1Score++;
+                            score1El.innerText = p1Score;
+                            playSound('score');
+                            screenShake = 15;
+                            bgPulse = 0.5;
+
+                            if (checkWinCondition(1)) {
+                                handleWin(1);
+                            } else {
+                                showUpgradeScreen(1); 
+                            }
+                        }
+                        pointScored = true;
+                    }
+                }
+            } // --- END SUB-STEPPING LOOP ---
+
+            // Token Spawning (Disabled for pure COOP survival)
+            if (gameMode !== 'COOP') {
+                tokenSpawnTimer += dt;
+                if (tokenSpawnTimer > 8 && activeTokens.length < 3) { 
+                    spawnToken();
+                    tokenSpawnTimer = 0;
+                }
+            }
+
+            for (let i = activeTokens.length - 1; i >= 0; i--) {
+                let t = activeTokens[i];
+                let dx = ball.x - t.x;
+                let dy = ball.y - t.y;
+                if (Math.sqrt(dx*dx + dy*dy) < ball.radius + t.radius) {
+                    activateToken(t, ball.lastHitBy);
+                    activeTokens.splice(i, 1);
+                }
+            }
+
+            // Floating Text
+            for (let i = floatingTexts.length - 1; i >= 0; i--) {
+                let ft = floatingTexts[i];
+                ft.y -= dt * 40;
+                ft.life -= dt;
+                if (ft.life <= 0) floatingTexts.splice(i, 1);
+            }
+
+            updateParticles(dt);
+        }
+
+        // --- Winning Logic & Analysis Handlers ---
+        function checkWinCondition(playerNum) {
+            const score = playerNum === 1 ? p1Score : p2Score;
+            const oppScore = playerNum === 1 ? p2Score : p1Score;
+            
+            if (gameMode === 'CLASSIC') return score >= 7;
+            if (gameMode === 'PRO') return score >= 15;
+            if (gameMode === 'DEUCE') return score >= 7 && (score - oppScore) >= 2;
+            if (gameMode === 'BEST_OF_3') return score >= 7; // Wins the SET
+            return false;
+        }
+
+        function handleWin(winnerNum) {
+            if (gameMode === 'BEST_OF_3') {
+                if (winnerNum === 1) p1Sets++;
+                else p2Sets++;
+                
+                updateSetUI();
+
+                if (p1Sets >= 2 || p2Sets >= 2) {
+                    triggerGameOver(winnerNum);
+                } else {
+                    // Set Won - prep for next set
+                    p1Score = 0; 
+                    p2Score = 0;
+                    score1El.innerText = p1Score;
+                    score2El.innerText = p2Score;
+                    
+                    // The loser of the set gets the upgrade draft!
+                    showUpgradeScreen(winnerNum === 1 ? 2 : 1); 
+                }
+            } else {
+                triggerGameOver(winnerNum);
+            }
+        }
+
+        function generateAnalysisText() {
+            if (matchStats.maxSpeed > 2200) return "BLISTERING SPEED: A hyper-velocity slugfest!";
+            if (matchStats.repulsesFired >= 5) return "DEFENSIVE MASTERCLASS: Excellent use of Repulse shockwaves.";
+            if (matchStats.overdrivesUsed >= 8) return "AGGRESSIVE ASSAULT: Heavy reliance on Overdrive smashes.";
+            if (matchStats.maxRally >= 15) return "ENDURANCE BATTLE: Incredible volley streaks.";
+            if (matchStats.tokensGrabbed >= 6) return "RESOURCEFUL: Great map control and token gathering.";
+            if (matchStats.duration < 30) return "QUICK DOMINATION: A fast and brutal match.";
+            return "TACTICAL SHOWDOWN: A well-rounded performance.";
+        }
+
+        function populateStatsUI() {
+            document.getElementById('statDuration').innerText = matchStats.duration.toFixed(1) + 's';
+            document.getElementById('statRally').innerText = matchStats.maxRally;
+            document.getElementById('statSpeed').innerText = Math.round(matchStats.maxSpeed) + ' px/s';
+            document.getElementById('statTokens').innerText = matchStats.tokensGrabbed;
+            document.getElementById('statOverdrives').innerText = matchStats.overdrivesUsed;
+            document.getElementById('statRepulses').innerText = matchStats.repulsesFired;
+            document.getElementById('analysisText').innerText = generateAnalysisText();
+        }
+
+        function triggerGameOver(winnerNum) {
+            gameState = 'GAMEOVER';
+            winnerScreen.classList.remove('hidden');
+            setTimeout(() => winnerScreen.classList.remove('opacity-0'), 50);
+            
+            scoreBoard.classList.add('opacity-0');
+            setIndicators.classList.add('opacity-0');
+            coopScoreDisplay.classList.add('opacity-0');
+            
+            const winnerName = winnerNum === 1 ? p1Name : p2Name;
+            const loserName = winnerNum === 1 ? p2Name : p1Name;
+            const scoreStr = gameMode === 'BEST_OF_3' ? `${p1Sets} - ${p2Sets} (Sets)` : `${p1Score} - ${p2Score}`;
+
+            if (winnerNum === 1) {
+                winnerText.innerHTML = `${winnerName} WINS!`;
+                winnerText.className = "text-5xl md:text-7xl font-bold mb-6 tracking-widest text-center uppercase neon-text-pink text-pink-400 truncate w-full px-4";
+            } else {
+                winnerText.innerHTML = `${winnerName} WINS!`;
+                winnerText.className = "text-5xl md:text-7xl font-bold mb-6 tracking-widest text-center uppercase neon-text-cyan text-cyan-400 truncate w-full px-4";
+            }
+
+            populateStatsUI();
+            saveToCSV(winnerName, loserName, scoreStr);
+        }
+
+        function triggerGameOverCOOP() {
+            playSound('wall');
+            screenShake = 20;
+            bgPulse = 1.0;
+            gameState = 'GAMEOVER';
+            winnerScreen.classList.remove('hidden');
+            setTimeout(() => winnerScreen.classList.remove('opacity-0'), 50);
+            
+            scoreBoard.classList.add('opacity-0');
+            setIndicators.classList.add('opacity-0');
+            coopScoreDisplay.classList.add('opacity-0');
+            
+            winnerText.innerHTML = `GAME OVER`;
+            winnerText.className = "text-5xl md:text-7xl font-bold mb-6 tracking-widest text-center uppercase text-white";
+            
+            populateStatsUI();
+            
+            // Format Co-op for CSV
+            const players = `${p1Name} & ${p2Name}`;
+            saveToCSV("Co-op Team", "The Wall", `${survivalTime.toFixed(1)}s`);
+        }
+
+        // --- Rendering ---
+        function drawGlowRect(x, y, w, h, color) {
+            ctx.shadowBlur = 20;
+            ctx.shadowColor = color;
+            ctx.fillStyle = color;
+            ctx.fillRect(x, y, w, h);
+            ctx.shadowBlur = 0;
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(x + w*0.3, y + 2, w*0.4, h - 4);
+        }
+
+        function drawGlowCircle(x, y, r, color) {
+            ctx.shadowBlur = 20;
+            ctx.shadowColor = color;
+            ctx.fillStyle = color;
+            ctx.beginPath();
+            ctx.arc(x, y, r, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.shadowBlur = 0;
+            ctx.fillStyle = '#ffffff';
+            ctx.beginPath();
+            ctx.arc(x, y, r * 0.5, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        function draw() {
+            ctx.save();
+            
+            if (screenShake > 0) {
+                const dx = (Math.random() - 0.5) * screenShake;
+                const dy = (Math.random() - 0.5) * screenShake;
+                ctx.translate(dx, dy);
+            }
+
+            ctx.fillStyle = COLOR_BG;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            if (bgPulse > 0) {
+                ctx.fillStyle = `rgba(255, 255, 255, ${bgPulse * 0.2})`; 
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+            }
+
+            ctx.beginPath();
+            ctx.setLineDash([15, 20]);
+            ctx.moveTo(canvas.width / 2, 0);
+            ctx.lineTo(canvas.width / 2, canvas.height);
+            ctx.lineWidth = 4;
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+            ctx.stroke();
+            ctx.setLineDash([]); 
+
+            if (player1.shield) drawGlowRect(10, 0, 5, canvas.height, 'rgba(255, 255, 255, 0.6)');
+            if (player2.shield) drawGlowRect(canvas.width - 15, 0, 5, canvas.height, 'rgba(255, 255, 255, 0.6)');
+
+            const time = Date.now() / 1000;
+            activeTokens.forEach(t => {
+                const pulse = Math.sin(time * 8 + t.x) * 3;
+                drawGlowCircle(t.x, t.y, t.radius + pulse, t.color);
+                ctx.fillStyle = '#ffffff';
+                ctx.font = 'bold 16px Courier New';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.shadowBlur = 0;
+                ctx.fillText(t.label, t.x, t.y);
+            });
+
+            obstacles.forEach(obs => {
+                ctx.globalAlpha = obs.health / obs.maxHealth;
+                if (obs.type === 'circle') drawGlowCircle(obs.x, obs.y, obs.r, obs.color);
+                else drawGlowRect(obs.x, obs.y, obs.w, obs.h, obs.color);
+                ctx.globalAlpha = 1.0; 
+            });
+
+            // Draw Defensive Pulses
+            [player1, player2].forEach((p) => {
+                if (p.pulseTimer > 0) {
+                    const maxRadius = 250;
+                    const progress = 1 - (p.pulseTimer / 0.3);
+                    const radius = maxRadius * progress;
+                    ctx.beginPath();
+                    ctx.arc(p.x + paddle.width/2, p.y + p.height/2, radius, 0, Math.PI * 2);
+                    ctx.strokeStyle = `rgba(255, 255, 255, ${p.pulseTimer / 0.3})`;
+                    ctx.lineWidth = 10;
+                    ctx.stroke();
+                }
+            });
+
+            const p1Color = player1.isOverdrive ? '#ffffff' : player1.color;
+            const p2Color = player2.isOverdrive ? '#ffffff' : player2.color;
+            drawGlowRect(player1.x, player1.y, paddle.width, player1.height, p1Color);
+            drawGlowRect(player2.x, player2.y, paddle.width, player2.height, p2Color);
+
+            // Dynamically Scaled Energy Bars
+            const energyBarWidth = 4;
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.2)';
+            ctx.fillRect(player1.x - 12, player1.y, energyBarWidth, player1.height);
+            ctx.fillRect(player2.x + paddle.width + 8, player2.y, energyBarWidth, player2.height);
+            
+            ctx.fillStyle = '#ffff00'; 
+            ctx.shadowBlur = 10;
+            ctx.shadowColor = '#ffff00';
+            const p1EnergyH = player1.height * (player1.energy / player1.stats.maxEnergy);
+            ctx.fillRect(player1.x - 12, player1.y + (player1.height - p1EnergyH), energyBarWidth, p1EnergyH);
+            const p2EnergyH = player2.height * (player2.energy / player2.stats.maxEnergy);
+            ctx.fillRect(player2.x + paddle.width + 8, player2.y + (player2.height - p2EnergyH), energyBarWidth, p2EnergyH);
+            ctx.shadowBlur = 0;
+
+            if (player1.confusedTimer > 0) {
+                ctx.fillStyle = '#ff00aa';
+                ctx.font = 'bold 24px Courier New';
+                ctx.fillText('?', player1.x + paddle.width/2, player1.y - 20);
+            }
+            if (player2.confusedTimer > 0) {
+                ctx.fillStyle = '#ff00aa';
+                ctx.font = 'bold 24px Courier New';
+                ctx.fillText('?', player2.x + paddle.width/2, player2.y - 20);
+            }
+
+            if (ball.trail.length > 0) {
+                ctx.beginPath();
+                ctx.moveTo(ball.trail[0].x, ball.trail[0].y);
+                for (let i = 1; i < ball.trail.length; i++) {
+                    ctx.lineTo(ball.trail[i].x, ball.trail[i].y);
+                }
+                ctx.strokeStyle = ball.color;
+                ctx.lineWidth = ball.radius;
+                ctx.lineCap = 'round';
+                ctx.lineJoin = 'round';
+                ctx.shadowBlur = 10;
+                ctx.shadowColor = ball.color;
+                ctx.globalAlpha = 0.3;
+                ctx.stroke();
+                ctx.globalAlpha = 1.0;
+                ctx.shadowBlur = 0;
+            }
+
+            if (gameState === 'PLAYING' || gameState === 'GAMEOVER' || gameState === 'PAUSED') {
+                drawGlowCircle(ball.x, ball.y, ball.radius, ball.color);
+            }
+
+            particles.forEach(p => {
+                ctx.globalAlpha = p.life;
+                ctx.shadowBlur = 10;
+                ctx.shadowColor = p.color;
+                ctx.fillStyle = p.color;
+                ctx.fillRect(p.x, p.y, p.size, p.size);
+            });
+            ctx.globalAlpha = 1.0;
+            ctx.shadowBlur = 0;
+
+            floatingTexts.forEach(ft => {
+                ctx.globalAlpha = Math.max(0, ft.life); 
+                ctx.fillStyle = ft.color;
+                ctx.shadowBlur = 10;
+                ctx.shadowColor = ft.color;
+                ctx.font = 'bold 24px Courier New';
+                ctx.textAlign = 'center';
+                ctx.fillText(ft.text, ft.x, ft.y);
+            });
+            ctx.globalAlpha = 1.0;
+            ctx.shadowBlur = 0;
+
+            ctx.restore();
+        }
+
+        function gameLoop(timestamp) {
+            let dt = (timestamp - lastTime) / 1000;
+            if (dt > 0.1) dt = 0.1; 
+            lastTime = timestamp;
+
+            if (gameState === 'PLAYING') {
+                update(dt);
+            }
+            draw();
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        function startGame() {
+            initAudio();
+            gameState = 'PLAYING';
+            isPaused = false;
+            p1Score = 0;
+            p2Score = 0;
+            score1El.innerText = p1Score;
+            score2El.innerText = p2Score;
+            
+            // Read Custom Player Names
+            p1Name = p1NameInput.value.trim() || "PLAYER 1";
+            p2Name = p2NameInput.value.trim() || "PLAYER 2";
+
+            // Reset Match Stats
+            matchStats = {
+                duration: 0, maxRally: 0, maxSpeed: 0,
+                tokensGrabbed: 0, overdrivesUsed: 0, repulsesFired: 0
+            };
+
+            gameMode = gameModeSelect.value;
+            p1Sets = 0;
+            p2Sets = 0;
+            survivalTime = 0;
+            rallyCount = 0;
+            updateSetUI();
+
+            // Handle UI Visibility based on mode
+            if (gameMode === 'COOP') {
+                scoreBoard.classList.add('hidden');
+                coopScoreDisplay.classList.remove('hidden');
+                coopScoreDisplay.classList.remove('opacity-0');
+                setIndicators.classList.add('hidden');
+                coopTimer.innerText = '0.0s';
+                coopRally.innerText = '0 HITS';
+            } else {
+                scoreBoard.classList.remove('hidden');
+                scoreBoard.classList.remove('opacity-0');
+                coopScoreDisplay.classList.add('hidden');
+                if (gameMode === 'BEST_OF_3') {
+                    setIndicators.classList.remove('hidden');
+                    setIndicators.classList.remove('opacity-0');
+                } else {
+                    setIndicators.classList.add('hidden');
+                }
+            }
+            
+            currentMapType = Math.floor(Math.random() * MAP_COUNT); 
+            activeTokens = [];
+            tokenSpawnTimer = 0;
+            screenShake = 0;
+            bgPulse = 0;
+            floatingTexts = [];
+            
+            // Wipe stats for new game
+            player1.stats = createPlayerStats();
+            player2.stats = createPlayerStats();
+            
+            player1.effectTimer = 0;
+            player2.effectTimer = 0;
+            player1.confusedTimer = 0;
+            player2.confusedTimer = 0;
+            player1.shield = false;
+            player2.shield = false;
+            player1.energy = 100;
+            player2.energy = 100;
+            player1.isOverdrive = false;
+            player2.isOverdrive = false;
+
+            startScreen.classList.add('opacity-0');
+            winnerScreen.classList.add('opacity-0');
+            upgradeScreen.classList.add('hidden');
+            pauseScreen.classList.add('hidden');
+            
+            setTimeout(() => {
+                startScreen.classList.add('hidden');
+                winnerScreen.classList.add('hidden');
+            }, 500);
+            
+            resize(); 
+            resetBall();
+        }
+
+        startBtn.addEventListener('click', startGame);
+
+        resize();
+        player1.y = canvas.height / 2 - player1.height / 2;
+        player2.y = canvas.height / 2 - player2.height / 2;
+        requestAnimationFrame((timestamp) => {
+            lastTime = timestamp;
+            gameLoop(timestamp);
+        });
+
+    </script>
+</body>
+</html>
