@@ -14,35 +14,21 @@
             overflow: hidden;
             background-color: #050505;
             font-family: 'Courier New', Courier, monospace;
-            touch-action: none; /* Prevent scrolling on touch devices */
+            touch-action: none;
         }
         canvas {
             display: block;
         }
-        .neon-text-pink {
-            text-shadow: 0 0 5px #fff, 0 0 10px #ff00ff, 0 0 20px #ff00ff, 0 0 40px #ff00ff;
-        }
-        .neon-text-cyan {
-            text-shadow: 0 0 5px #fff, 0 0 10px #00ffff, 0 0 20px #00ffff, 0 0 40px #00ffff;
-        }
-        .neon-text-yellow {
-            text-shadow: 0 0 5px #fff, 0 0 10px #ffff00, 0 0 20px #ffff00, 0 0 40px #ffff00;
-        }
+        .neon-text-pink { text-shadow: 0 0 5px #fff, 0 0 10px #ff00ff, 0 0 20px #ff00ff, 0 0 40px #ff00ff; }
+        .neon-text-cyan { text-shadow: 0 0 5px #fff, 0 0 10px #00ffff, 0 0 20px #00ffff, 0 0 40px #00ffff; }
+        .neon-text-yellow { text-shadow: 0 0 5px #fff, 0 0 10px #ffff00, 0 0 20px #ffff00, 0 0 40px #ffff00; }
         
-        /* CRT scanline effect */
         .scanlines {
-            background: linear-gradient(
-                to bottom,
-                rgba(255,255,255,0),
-                rgba(255,255,255,0) 50%,
-                rgba(0,0,0,0.1) 50%,
-                rgba(0,0,0,0.1)
-            );
+            background: linear-gradient(to bottom, rgba(255,255,255,0), rgba(255,255,255,0) 50%, rgba(0,0,0,0.1) 50%, rgba(0,0,0,0.1));
             background-size: 100% 4px;
             pointer-events: none;
         }
 
-        /* Custom Input styling */
         input.name-input {
             background: transparent;
             text-align: center;
@@ -80,7 +66,6 @@
         <div id="startScreen" class="absolute inset-0 flex flex-col items-center justify-center bg-black/90 pointer-events-auto transition-opacity duration-500 z-40">
             <h1 class="text-6xl md:text-8xl font-bold neon-text-yellow text-yellow-300 mb-8 tracking-widest text-center">NEON PONG</h1>
             
-            <!-- Game Mode Menu -->
             <div class="mb-10 flex flex-col items-center">
                 <label class="text-gray-400 mb-2 tracking-widest text-sm uppercase">Select Game Mode</label>
                 <select id="gameModeSelect" class="bg-black border-2 border-yellow-300 text-yellow-300 text-xl md:text-2xl font-bold rounded p-3 outline-none cursor-pointer shadow-[0_0_15px_rgba(255,255,0,0.3)] text-center w-72">
@@ -112,14 +97,15 @@
                     START GAME
                 </button>
                 <button id="showLeaderboardBtn" class="px-6 py-4 bg-transparent border-2 border-gray-400 text-gray-400 text-xl font-bold rounded hover:bg-gray-400 hover:text-black transition-all cursor-pointer">
-                    LEADERBOARD
+                    GLOBAL LEADERBOARD
                 </button>
             </div>
         </div>
 
         <!-- Leaderboard Screen -->
         <div id="leaderboardScreen" class="absolute inset-0 flex flex-col items-center justify-start py-16 bg-black/95 pointer-events-auto hidden transition-opacity duration-300 z-50 overflow-y-auto">
-            <h1 class="text-5xl md:text-6xl font-bold mb-8 tracking-widest text-center uppercase neon-text-yellow text-yellow-300">CSV LEADERBOARD</h1>
+            <h1 class="text-5xl md:text-6xl font-bold mb-8 tracking-widest text-center uppercase neon-text-yellow text-yellow-300">GLOBAL LEADERBOARD</h1>
+            <p id="leaderboardStatus" class="text-gray-400 mb-4 tracking-widest text-sm uppercase">Connecting to Cloud Database...</p>
             
             <div class="w-11/12 max-w-5xl bg-gray-900 border-2 border-gray-700 rounded-lg p-4 overflow-x-auto shadow-[0_0_20px_rgba(255,255,255,0.1)]">
                 <table class="w-full text-left text-gray-300 text-sm md:text-base border-collapse">
@@ -135,7 +121,7 @@
                         </tr>
                     </thead>
                     <tbody id="leaderboardBody">
-                        <!-- CSV Data Injected Here -->
+                        <!-- Data Injected Here -->
                     </tbody>
                 </table>
             </div>
@@ -179,7 +165,7 @@
              <!-- Match Stats & Analysis -->
              <div class="bg-gray-900 border-2 border-gray-700 rounded-lg p-6 md:p-8 mb-10 w-11/12 max-w-2xl shadow-[0_0_30px_rgba(255,255,255,0.1)]">
                  <h2 class="text-2xl font-bold text-white mb-4 border-b border-gray-700 pb-2 uppercase tracking-widest">Match Analysis</h2>
-                 <p id="analysisText" class="text-yellow-300 text-lg md:text-xl font-bold mb-6 italic"></p>
+                 <p id="analysisText" class="text-yellow-300 text-lg md:text-xl font-bold mb-6 italic text-center"></p>
                  
                  <div class="grid grid-cols-2 gap-x-8 gap-y-4 text-sm md:text-base">
                      <div class="flex justify-between border-b border-gray-800 pb-1">
@@ -195,6 +181,10 @@
                          <span id="statSpeed" class="text-white font-bold"></span>
                      </div>
                      <div class="flex justify-between border-b border-gray-800 pb-1">
+                         <span class="text-gray-400 uppercase tracking-wider">Total Distance</span>
+                         <span id="statDistance" class="text-white font-bold"></span>
+                     </div>
+                     <div class="flex justify-between border-b border-gray-800 pb-1">
                          <span class="text-gray-400 uppercase tracking-wider">Tokens Grabbed</span>
                          <span id="statTokens" class="text-white font-bold"></span>
                      </div>
@@ -202,7 +192,7 @@
                          <span class="text-gray-400 uppercase tracking-wider">Overdrives Used</span>
                          <span id="statOverdrives" class="text-white font-bold"></span>
                      </div>
-                     <div class="flex justify-between border-b border-gray-800 pb-1">
+                     <div class="flex justify-between border-b border-gray-800 pb-1 col-span-2">
                          <span class="text-gray-400 uppercase tracking-wider">Repulses Fired</span>
                          <span id="statRepulses" class="text-white font-bold"></span>
                      </div>
@@ -222,9 +212,72 @@
 
     <canvas id="gameCanvas"></canvas>
 
-    <script>
-        /** * NEON PONG - Game Engine & Logic
-         */
+    <!-- App Logic as a Module for Firebase Compatibility -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, addDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // ==========================================
+        // FIREBASE SETUP - PASTE YOUR CONFIG HERE!
+        // ==========================================
+        const firebaseConfig = {
+            apiKey: "AIzaSyDyYNPRUBoSwCjWR2IQWVQGbVaT0FHjWuE",
+            authDomain: "smol-games-69.firebaseapp.com",
+            projectId: "smol-games-69",
+            storageBucket: "smol-games-69.firebasestorage.app",
+            messagingSenderId: "1031854129604",
+            appId: "1:1031854129604:web:a10eadca41f19516cbe491",
+            measurementId: "G-YJKSE32X55"
+        };
+        // ==========================================
+
+        let db = null;
+        let auth = null;
+        let currentUser = null;
+        let appId = 'neon-pong'; // Static app ID for database path
+        let globalLeaderboardData = []; // Cloud fetched data
+        let cloudConnected = false;
+        
+        const leaderboardStatus = document.getElementById('leaderboardStatus');
+
+        try {
+            const app = initializeApp(firebaseConfig);
+            auth = getAuth(app);
+            db = getFirestore(app);
+
+            // Login Anonymously so users can write scores to the DB without creating an account
+            signInAnonymously(auth).catch((error) => {
+                console.error("Anonymous auth failed (Did you enable it in Firebase Console?):", error);
+            });
+
+            onAuthStateChanged(auth, (user) => {
+                currentUser = user;
+                if (user && db) {
+                    cloudConnected = true;
+                    // Subscribe to global public leaderboard
+                    const leaderboardRef = collection(db, 'artifacts', appId, 'public', 'data', 'leaderboard');
+                    onSnapshot(leaderboardRef, (snapshot) => {
+                        const data = [];
+                        snapshot.forEach(doc => data.push({ id: doc.id, ...doc.data() }));
+                        // Sort descending by timestamp
+                        data.sort((a, b) => b.timestamp - a.timestamp);
+                        globalLeaderboardData = data;
+                        
+                        if (!document.getElementById('leaderboardScreen').classList.contains('hidden')) {
+                            renderLeaderboardUI();
+                        }
+                    }, (error) => {
+                        console.error("Leaderboard sync error:", error);
+                        leaderboardStatus.innerText = "Error syncing with cloud. Check security rules.";
+                    });
+                }
+            });
+        } catch (e) {
+            console.warn("Firebase config invalid. Falling back to local storage.", e);
+        }
+
+        // --- GAME ENGINE & LOGIC ---
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d', { alpha: false }); 
         
@@ -264,7 +317,7 @@
         const p2NameInput = document.getElementById('p2NameInput');
 
         // Game State
-        let gameState = 'START'; // START, PLAYING, GAMEOVER, UPGRADE, PAUSED
+        let gameState = 'START';
         let gameMode = 'CLASSIC'; 
         let isPaused = false;
         let lastTime = 0;
@@ -280,14 +333,7 @@
         let p2Name = "PLAYER 2";
 
         // Advanced Stats Tracking
-        let matchStats = {
-            duration: 0,
-            maxRally: 0,
-            maxSpeed: 0,
-            tokensGrabbed: 0,
-            overdrivesUsed: 0,
-            repulsesFired: 0
-        };
+        let matchStats = { duration: 0, maxRally: 0, maxSpeed: 0, distance: 0, tokensGrabbed: 0, overdrivesUsed: 0, repulsesFired: 0 };
 
         let screenShake = 0;
         let bgPulse = 0; 
@@ -295,6 +341,7 @@
         let activeTokens = [];
         let floatingTexts = [];
         let obstacles = [];
+        let debrisParticles = [];
         let currentMapType = 0;
         const MAP_COUNT = 7; 
         
@@ -307,10 +354,6 @@
             { type: 'SHIELD', color: '#ffffff', label: '[|]' } 
         ];
 
-        // CSV Local Storage Key
-        const CSV_STORAGE_KEY = 'neonPongLeaderboardCSV';
-        const CSV_HEADER = "Date,Time,Mode,Winner,Loser,Score/Time,MaxRally\n";
-
         // Roguelike Upgrade Pool
         const UPGRADES = [
             { name: "EXTENDED PADDLE", desc: "+25% Paddle Height", action: p => { p.stats.heightMult += 0.25; resize(); }, color: "text-green-400" },
@@ -318,36 +361,22 @@
             { name: "BATTERY BANK", desc: "+50 Max Energy", action: p => { p.stats.maxEnergy += 50; p.energy = p.stats.maxEnergy; }, color: "text-yellow-400" },
             { name: "QUICK CHARGE", desc: "+40% Energy Regen", action: p => p.stats.regenMult += 0.40, color: "text-purple-400" },
             { name: "KINETIC SMASH", desc: "+30% Overdrive Speed", action: p => p.stats.smashMult += 0.30, color: "text-red-400" },
-            { name: "AUTO-SHIELD", desc: "Start every round with a Shield", action: p => p.stats.shieldStart = true, color: "text-white" }
+            { name: "AUTO-SHIELD", desc: "+1 Stackable Auto-Shield per round (Max 3)", action: p => { p.stats.shieldStart = Math.min(3, p.stats.shieldStart + 1); p.shields = p.stats.shieldStart; }, color: "text-white" }
         ];
 
-        // Audio Context (Initialized on user interaction)
         let audioCtx;
 
-        // Colors
         const COLOR_P1 = '#ff00ff';
         const COLOR_P2 = '#00ffff';
         const COLOR_BALL = '#ffff00';
         const COLOR_BG = '#050505';
 
-        // Keyboard Input State
-        const keys = {
-            KeyW: false,
-            KeyS: false,
-            KeyD: false, 
-            ArrowUp: false,
-            ArrowDown: false,
-            ArrowLeft: false 
-        };
+        const keys = { KeyW: false, KeyS: false, KeyD: false, ArrowUp: false, ArrowDown: false, ArrowLeft: false };
 
         window.addEventListener('keydown', (e) => {
-            // Pause Game
             if (e.code === 'Escape') {
-                if (gameState === 'PLAYING') {
-                    togglePause(true);
-                } else if (gameState === 'PAUSED') {
-                    togglePause(false);
-                }
+                if (gameState === 'PLAYING') togglePause(true);
+                else if (gameState === 'PAUSED') togglePause(false);
                 e.preventDefault();
                 return;
             }
@@ -357,7 +386,6 @@
                 e.preventDefault(); 
             }
 
-            // EDGE TRIGGERS for Defensive Pulse
             if (e.code === 'Space' && gameState === 'PLAYING' && !isPaused) {
                 triggerPulse(player1, 1);
                 e.preventDefault();
@@ -366,86 +394,26 @@
                 triggerPulse(player2, 2);
                 e.preventDefault();
             }
-            // Quick Restart
             if (e.code === 'KeyR' && (gameState === 'PLAYING' || gameState === 'GAMEOVER')) {
                 startGame();
             }
         });
 
         window.addEventListener('keyup', (e) => {
-            if (keys.hasOwnProperty(e.code)) {
-                keys[e.code] = false;
-            }
+            if (keys.hasOwnProperty(e.code)) keys[e.code] = false;
         });
 
-        // Entity Definitions
-        const paddle = {
-            width: 20,
-            speed: 850 
-        };
+        const paddle = { width: 20, speed: 850 };
 
-        const createPlayerStats = () => ({
-            heightMult: 1.0,
-            speedMult: 1.0,
-            maxEnergy: 100,
-            regenMult: 1.0,
-            smashMult: 1.0,
-            shieldStart: false
-        });
+        const createPlayerStats = () => ({ heightMult: 1.0, speedMult: 1.0, maxEnergy: 100, regenMult: 1.0, smashMult: 1.0, shieldStart: 0 });
 
-        const player1 = {
-            x: 0,
-            y: 0,
-            color: COLOR_P1,
-            height: 200,
-            defaultHeight: 200,
-            effectTimer: 0,
-            confusedTimer: 0,
-            shield: false,
-            energy: 100, 
-            isOverdrive: false,
-            pulseTimer: 0, 
-            stats: createPlayerStats()
-        };
+        const player1 = { x: 0, y: 0, color: COLOR_P1, height: 200, defaultHeight: 200, effectTimer: 0, confusedTimer: 0, shields: 0, energy: 100, isOverdrive: false, pulseTimer: 0, stats: createPlayerStats() };
+        const player2 = { x: 0, y: 0, color: COLOR_P2, height: 200, defaultHeight: 200, effectTimer: 0, confusedTimer: 0, shields: 0, energy: 100, isOverdrive: false, pulseTimer: 0, stats: createPlayerStats() };
+        const ball = { x: 0, y: 0, radius: 7, vx: 0, vy: 0, baseSpeed: 700, speedMultiplier: 1.05, color: COLOR_BALL, trail: [], lastHitBy: 0, isStarting: false };
 
-        const player2 = {
-            x: 0,
-            y: 0,
-            color: COLOR_P2,
-            height: 200,
-            defaultHeight: 200,
-            effectTimer: 0,
-            confusedTimer: 0,
-            shield: false,
-            energy: 100, 
-            isOverdrive: false,
-            pulseTimer: 0, 
-            stats: createPlayerStats()
-        }
-
-        const ball = {
-            x: 0,
-            y: 0,
-            radius: 7,
-            vx: 0,
-            vy: 0,
-            baseSpeed: 700,
-            speedMultiplier: 1.05,
-            color: COLOR_BALL,
-            trail: [],
-            lastHitBy: 0, 
-            isStarting: false 
-        };
-
-        const particles = [];
-
-        // Setup & Resize
         function generateMap() {
             obstacles = [];
-            const cw = canvas.width;
-            const ch = canvas.height;
-            const cx = cw / 2;
-            const cy = ch / 2;
+            const cw = canvas.width, ch = canvas.height, cx = cw / 2, cy = ch / 2;
 
             if (currentMapType === 1) { 
                 obstacles.push({ type: 'rect', x: cx - cw*0.0075, y: 0, w: cw*0.015, h: cy - ch*0.15, color: '#aa00ff' });
@@ -470,11 +438,7 @@
                 obstacles.push({ type: 'circle', x: cx + cw*0.15, y: cy + ch*0.2, r: ch*0.05, color: '#ff0055' });
             }
 
-            // Assign Health to all generated obstacles
-            obstacles.forEach(obs => {
-                obs.health = 3;
-                obs.maxHealth = 3;
-            });
+            obstacles.forEach(obs => { obs.health = 3; obs.maxHealth = 3; });
         }
 
         function resize() {
@@ -518,10 +482,9 @@
             ball.vx = Math.cos(angle) * startSpeed * direction;
             ball.vy = Math.sin(angle) * startSpeed;
 
-            if (gameMode !== 'COOP') rallyCount = 0; // Reset rally on point score
+            if (gameMode !== 'COOP') rallyCount = 0; 
         }
 
-        // --- PAUSE MENU LOGIC ---
         function togglePause(forcePause) {
             isPaused = forcePause;
             if (isPaused) {
@@ -530,16 +493,12 @@
             } else {
                 gameState = 'PLAYING';
                 pauseScreen.classList.add('hidden');
-                // Prevent massive delta-time jump
                 lastTime = performance.now();
             }
         }
 
         resumeBtn.addEventListener('click', () => togglePause(false));
-        quitBtn.addEventListener('click', () => {
-            togglePause(false);
-            returnToMenu();
-        });
+        quitBtn.addEventListener('click', () => { togglePause(false); returnToMenu(); });
 
         function returnToMenu() {
             gameState = 'START';
@@ -551,92 +510,123 @@
             scoreBoard.classList.add('opacity-0');
             setIndicators.classList.add('opacity-0');
             coopScoreDisplay.classList.add('opacity-0');
-            
-            // Re-center ball and paddles for background
             resize();
         }
         menuBtn.addEventListener('click', returnToMenu);
 
-        // --- CSV / LEADERBOARD LOGIC ---
-        function saveToCSV(winner, loser, finalScore) {
-            let csvData = localStorage.getItem(CSV_STORAGE_KEY);
-            if (!csvData) {
-                csvData = CSV_HEADER;
-            }
+        // --- DATABASE / LEADERBOARD HANDLING ---
+        const CSV_STORAGE_KEY = 'neonPongLeaderboardCSV';
+        const CSV_HEADER = "Date,Time,Mode,Winner,Loser,Score/Time,MaxRally\n";
 
+        async function saveMatchRecord(winner, loser, finalScore) {
             const now = new Date();
             const dateStr = now.toLocaleDateString();
             const timeStr = now.toLocaleTimeString();
-            
-            // Format line: Date, Time, Mode, Winner, Loser, Score, Duration, MaxRally
-            const newLine = `${dateStr},${timeStr},${gameMode},${winner},${loser},${finalScore},${matchStats.duration.toFixed(1)}s,${matchStats.maxRally}\n`;
-            
+
+            const record = {
+                date: dateStr,
+                time: timeStr,
+                mode: gameMode,
+                winner: winner,
+                loser: loser,
+                score: finalScore,
+                duration: matchStats.duration.toFixed(1) + 's',
+                maxRally: matchStats.maxRally.toString(),
+                timestamp: Date.now()
+            };
+
+            // 1. Try pushing to Global Cloud DB
+            if (cloudConnected && db) {
+                try {
+                    const leaderboardRef = collection(db, 'artifacts', appId, 'public', 'data', 'leaderboard');
+                    await addDoc(leaderboardRef, record);
+                    return; // Successfully pushed
+                } catch (e) {
+                    console.error("Failed to save to cloud:", e);
+                }
+            }
+
+            // 2. Fallback to Local Storage CSV string
+            let csvData = localStorage.getItem(CSV_STORAGE_KEY) || CSV_HEADER;
+            const newLine = `${record.date},${record.time},${record.mode},${record.winner},${record.loser},${record.score},${record.maxRally}\n`;
             csvData += newLine;
             localStorage.setItem(CSV_STORAGE_KEY, csvData);
         }
 
-        function parseCSV() {
-            const csvData = localStorage.getItem(CSV_STORAGE_KEY) || CSV_HEADER;
-            const lines = csvData.trim().split('\n');
-            const data = [];
-            
-            // Skip header (index 0)
-            for(let i = 1; i < lines.length; i++) {
-                const parts = lines[i].split(',');
-                if (parts.length >= 7) {
-                    data.push({
-                        date: parts[0],
-                        time: parts[1],
-                        mode: parts[2],
-                        winner: parts[3],
-                        loser: parts[4],
-                        score: parts[5],
-                        maxRally: parts[7] || '0'
-                    });
-                }
-            }
-            return data.reverse(); // Newest first
-        }
-
-        function displayLeaderboard() {
-            leaderboardScreen.classList.remove('hidden');
-            const data = parseCSV();
-            
+        function renderLeaderboardUI() {
             leaderboardBody.innerHTML = '';
-            if (data.length === 0) {
-                leaderboardBody.innerHTML = '<tr><td colspan="7" class="p-4 text-center text-gray-500">No match records found. Play a game to generate CSV data!</td></tr>';
+            let renderData = [];
+
+            if (cloudConnected && globalLeaderboardData.length > 0) {
+                leaderboardStatus.innerText = "Showing Global Cloud Leaderboard";
+                leaderboardStatus.className = "text-green-400 font-bold mb-4 tracking-widest text-sm uppercase";
+                renderData = globalLeaderboardData;
+            } else {
+                leaderboardStatus.innerText = "Offline Mode - Showing Local Storage Scores";
+                leaderboardStatus.className = "text-yellow-400 font-bold mb-4 tracking-widest text-sm uppercase";
+                
+                const csvData = localStorage.getItem(CSV_STORAGE_KEY) || CSV_HEADER;
+                const lines = csvData.trim().split('\n');
+                for(let i = 1; i < lines.length; i++) {
+                    const parts = lines[i].split(',');
+                    if (parts.length >= 7) {
+                        renderData.push({
+                            date: parts[0], time: parts[1], mode: parts[2],
+                            winner: parts[3], loser: parts[4], score: parts[5], maxRally: parts[6] || '0'
+                        });
+                    }
+                }
+                renderData.reverse(); 
+            }
+
+            if (renderData.length === 0) {
+                leaderboardBody.innerHTML = '<tr><td colspan="7" class="p-4 text-center text-gray-500">No match records found yet!</td></tr>';
                 return;
             }
 
-            data.forEach((row, i) => {
+            renderData.forEach((row, i) => {
                 const tr = document.createElement('tr');
                 tr.className = `border-b border-gray-800 ${i % 2 === 0 ? 'bg-gray-800/50' : ''} hover:bg-gray-700/50 transition-colors`;
                 tr.innerHTML = `
-                    <td class="p-2 whitespace-nowrap">${row.date}</td>
-                    <td class="p-2 whitespace-nowrap text-gray-400">${row.time}</td>
-                    <td class="p-2 font-bold text-yellow-300">${row.mode}</td>
-                    <td class="p-2 font-bold text-green-400">${row.winner}</td>
-                    <td class="p-2 text-red-400">${row.loser}</td>
-                    <td class="p-2">${row.score}</td>
-                    <td class="p-2 text-center font-bold">${row.maxRally}</td>
+                    <td class="p-2 whitespace-nowrap">${row.date || '-'}</td>
+                    <td class="p-2 whitespace-nowrap text-gray-400">${row.time || '-'}</td>
+                    <td class="p-2 font-bold text-yellow-300">${row.mode || '-'}</td>
+                    <td class="p-2 font-bold text-green-400">${row.winner || '-'}</td>
+                    <td class="p-2 text-red-400">${row.loser || '-'}</td>
+                    <td class="p-2">${row.score || '-'}</td>
+                    <td class="p-2 text-center font-bold">${row.maxRally || '0'}</td>
                 `;
                 leaderboardBody.appendChild(tr);
             });
         }
 
-        showLeaderboardBtn.addEventListener('click', displayLeaderboard);
+        showLeaderboardBtn.addEventListener('click', () => {
+            leaderboardScreen.classList.remove('hidden');
+            renderLeaderboardUI();
+        });
+        
         closeLeaderboardBtn.addEventListener('click', () => {
             leaderboardScreen.classList.add('hidden');
         });
 
         downloadCsvBtn.addEventListener('click', () => {
-            const csvData = localStorage.getItem(CSV_STORAGE_KEY) || CSV_HEADER;
-            const blob = new Blob([csvData], { type: 'text/csv' });
+            let exportCSV = CSV_HEADER;
+            
+            // Generate CSV from cloud data if connected, else use local string
+            if (cloudConnected && globalLeaderboardData.length > 0) {
+                globalLeaderboardData.forEach(r => {
+                    exportCSV += `${r.date},${r.time},${r.mode},${r.winner},${r.loser},${r.score},${r.maxRally}\n`;
+                });
+            } else {
+                exportCSV = localStorage.getItem(CSV_STORAGE_KEY) || CSV_HEADER;
+            }
+
+            const blob = new Blob([exportCSV], { type: 'text/csv' });
             const url = window.URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.setAttribute('hidden', '');
             a.setAttribute('href', url);
-            a.setAttribute('download', 'neon_pong_leaderboard.csv');
+            a.setAttribute('download', 'neon_pong_global_leaderboard.csv');
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
@@ -702,13 +692,14 @@
                     currentMapType = Math.floor(Math.random() * MAP_COUNT); 
                     generateMap();
                     
-                    if (player1.stats.shieldStart) player1.shield = true;
-                    if (player2.stats.shieldStart) player2.shield = true;
+                    player1.shields = player1.stats.shieldStart;
+                    player2.shields = player2.stats.shieldStart;
                     
                     activeTokens = [];
+                    debrisParticles = [];
                     resetBall();
                     gameState = 'PLAYING';
-                    lastTime = performance.now(); // Reset time to avoid jump
+                    lastTime = performance.now(); 
                 };
                 upgradeCardsContainer.appendChild(btn);
             });
@@ -732,7 +723,6 @@
             playSound('powerup');
             createParticles(token.x, token.y, token.color, 30, 0);
             screenShake = 10;
-            addFloatingText(token.x, token.y, token.type, token.color);
             matchStats.tokensGrabbed++;
 
             if (playerNum === 0) return; 
@@ -741,37 +731,53 @@
             const opponent = playerNum === 1 ? player2 : player1;
 
             if (token.type === 'GROW') {
-                target.height = Math.min(target.height * 1.5, canvas.height * 0.9); 
-                target.effectTimer += 8; 
+                const limit = canvas.height * 0.9;
+                if (target.height >= limit) {
+                    addFloatingText(token.x, token.y, "MAX SIZE!", '#ffffff');
+                } else {
+                    target.height = Math.min(target.height * 1.5, limit); 
+                    target.effectTimer += 8; 
+                    addFloatingText(token.x, token.y, "+ GROW", token.color);
+                }
             } else if (token.type === 'SHRINK') {
-                opponent.height = Math.max(opponent.height * 0.6, 25); 
-                opponent.effectTimer += 8; 
+                if (opponent.height <= 25) {
+                    addFloatingText(token.x, token.y, "MIN SIZE!", '#ffffff');
+                } else {
+                    opponent.height = Math.max(opponent.height * 0.6, 25); 
+                    opponent.effectTimer += 8; 
+                    addFloatingText(token.x, token.y, "- SHRINK", token.color);
+                }
             } else if (token.type === 'FAST') {
                 const currentSpeed = Math.sqrt(ball.vx*ball.vx + ball.vy*ball.vy);
-                if (currentSpeed < 2500) { 
+                if (currentSpeed >= 2500) { 
+                    addFloatingText(token.x, token.y, "SPEED CAPPED!", '#ffffff');
+                } else {
                     ball.vx *= 1.4;
                     ball.vy *= 1.4;
+                    ball.color = '#ffaa00'; 
+                    addFloatingText(token.x, token.y, ">>> FAST", token.color);
                 }
-                ball.color = '#ffaa00'; 
             } else if (token.type === 'SLOW') {
                 ball.vx *= 0.6;
                 ball.vy *= 0.6;
                 ball.color = '#0088ff';
+                addFloatingText(token.x, token.y, "<<< SLOW", token.color);
             } else if (token.type === 'CONFUSE') {
                 opponent.confusedTimer += 6;
+                addFloatingText(token.x, token.y, "? CONFUSE", token.color);
             } else if (token.type === 'SHIELD') {
-                target.shield = true;
+                if (target.shields >= 3) {
+                    addFloatingText(token.x, token.y, "MAX SHIELDS!", '#ffffff');
+                } else {
+                    target.shields++;
+                    addFloatingText(token.x, token.y, "[|] SHIELD", token.color);
+                }
             }
         }
 
-        // --- Audio System ---
         function initAudio() {
-            if (!audioCtx) {
-                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-            }
-            if (audioCtx.state === 'suspended') {
-                audioCtx.resume();
-            }
+            if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            if (audioCtx.state === 'suspended') audioCtx.resume();
         }
 
         function playSound(type) {
@@ -788,16 +794,14 @@
                 osc.frequency.exponentialRampToValueAtTime(600, now + 0.1);
                 gainNode.gain.setValueAtTime(0.1, now);
                 gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
-                osc.start(now);
-                osc.stop(now + 0.1);
+                osc.start(now); osc.stop(now + 0.1);
             } else if (type === 'wall') {
                 osc.type = 'triangle';
                 osc.frequency.setValueAtTime(150, now);
                 osc.frequency.exponentialRampToValueAtTime(100, now + 0.1);
                 gainNode.gain.setValueAtTime(0.1, now);
                 gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
-                osc.start(now);
-                osc.stop(now + 0.1);
+                osc.start(now); osc.stop(now + 0.1);
             } else if (type === 'score') {
                 osc.type = 'sawtooth';
                 osc.frequency.setValueAtTime(400, now);
@@ -805,30 +809,46 @@
                 osc.frequency.linearRampToValueAtTime(1200, now + 0.4);
                 gainNode.gain.setValueAtTime(0.1, now);
                 gainNode.gain.linearRampToValueAtTime(0, now + 0.4);
-                osc.start(now);
-                osc.stop(now + 0.4);
+                osc.start(now); osc.stop(now + 0.4);
             } else if (type === 'powerup') {
                 osc.type = 'sine';
                 osc.frequency.setValueAtTime(400, now);
                 osc.frequency.exponentialRampToValueAtTime(1500, now + 0.4);
                 gainNode.gain.setValueAtTime(0.2, now);
                 gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.4);
-                osc.start(now);
-                osc.stop(now + 0.4);
+                osc.start(now); osc.stop(now + 0.4);
+            } else if (type === 'explosion') {
+                osc.type = 'square';
+                osc.frequency.setValueAtTime(100, now);
+                osc.frequency.exponentialRampToValueAtTime(10, now + 0.5);
+                gainNode.gain.setValueAtTime(0.3, now);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.5);
+                osc.start(now); osc.stop(now + 0.5);
             }
         }
 
-        // --- Particle System ---
         function createParticles(x, y, color, count, directionX) {
             for (let i = 0; i < count; i++) {
                 const angle = (Math.random() - 0.5) * Math.PI;
                 const speed = Math.random() * 300 + 100;
-                particles.push({
-                    x: x, y: y,
-                    vx: Math.cos(angle) * speed * directionX,
-                    vy: Math.sin(angle) * speed,
-                    life: 1.0, color: color,
-                    size: Math.random() * 4 + 2
+                particles.push({ x: x, y: y, vx: Math.cos(angle) * speed * directionX, vy: Math.sin(angle) * speed, life: 1.0, color: color, size: Math.random() * 4 + 2 });
+            }
+        }
+
+        function createDebris(obs) {
+            const count = obs.type === 'circle' ? 6 : 8;
+            for(let j=0; j<count; j++) {
+                debrisParticles.push({
+                    x: obs.x + (obs.w ? obs.w/2 : 0),
+                    y: obs.y + (obs.h ? obs.h/2 : 0),
+                    vx: (Math.random() - 0.5) * 600,
+                    vy: (Math.random() - 0.5) * 600,
+                    vr: (Math.random() - 0.5) * 10,
+                    angle: Math.random() * Math.PI * 2,
+                    size: obs.type === 'circle' ? obs.r/2 : Math.min(obs.w, obs.h)/2,
+                    color: obs.color,
+                    life: 1.5,
+                    type: obs.type
                 });
             }
         }
@@ -836,17 +856,19 @@
         function updateParticles(dt) {
             for (let i = particles.length - 1; i >= 0; i--) {
                 const p = particles[i];
-                p.x += p.vx * dt;
-                p.y += p.vy * dt;
-                p.life -= dt * 2; 
+                p.x += p.vx * dt; p.y += p.vy * dt; p.life -= dt * 2; 
                 if (p.life <= 0) particles.splice(i, 1);
+            }
+
+            for(let i=debrisParticles.length-1; i>=0; i--) {
+                let d = debrisParticles[i];
+                d.x += d.vx * dt; d.y += d.vy * dt; d.angle += d.vr * dt; d.life -= dt;
+                if(d.life <= 0) debrisParticles.splice(i,1);
             }
         }
 
-        // --- Core Logic ---
         function updateSetUI() {
-            p1SetsDisplay.innerHTML = '';
-            p2SetsDisplay.innerHTML = '';
+            p1SetsDisplay.innerHTML = ''; p2SetsDisplay.innerHTML = '';
             for(let i=0; i<2; i++) {
                 p1SetsDisplay.innerHTML += `<div class="w-5 h-5 md:w-8 md:h-8 rounded-full border-4 border-pink-500 ${i < p1Sets ? 'bg-pink-500 shadow-[0_0_15px_#ff00ff]' : ''}"></div>`;
                 p2SetsDisplay.innerHTML += `<div class="w-5 h-5 md:w-8 md:h-8 rounded-full border-4 border-cyan-500 ${i < p2Sets ? 'bg-cyan-500 shadow-[0_0_15px_#00ffff]' : ''}"></div>`;
@@ -856,81 +878,56 @@
         function update(dt) {
             matchStats.duration += dt;
 
-            if (screenShake > 0) {
-                screenShake -= dt * 30;
-                if (screenShake < 0) screenShake = 0;
-            }
-            if (bgPulse > 0) {
-                bgPulse -= dt;
-                if (bgPulse < 0) bgPulse = 0;
-            }
+            if (screenShake > 0) { screenShake -= dt * 30; if (screenShake < 0) screenShake = 0; }
+            if (bgPulse > 0) { bgPulse -= dt; if (bgPulse < 0) bgPulse = 0; }
 
-            // Co-op Survival Timer
             if (gameMode === 'COOP') {
                 survivalTime += dt;
                 coopTimer.innerText = survivalTime.toFixed(1) + 's';
             }
 
-            // Player Stat/Effect Updates
             [player1, player2].forEach(p => {
-                if (p.effectTimer > 0) {
-                    p.effectTimer -= dt;
-                    if (p.effectTimer <= 0) p.height = p.defaultHeight; 
-                }
+                if (p.effectTimer > 0) { p.effectTimer -= dt; if (p.effectTimer <= 0) p.height = p.defaultHeight; }
                 if (p.confusedTimer > 0) p.confusedTimer -= dt;
                 if (p.pulseTimer > 0) p.pulseTimer -= dt;
             });
 
-            // Overdrive Energy Management
             [{ p: player1, key: keys.KeyD }, { p: player2, key: keys.ArrowLeft }].forEach(({ p, key }) => {
-                if (key && p.energy > 0) {
-                    p.isOverdrive = true;
-                    p.energy -= 40 * dt; 
-                } else {
-                    p.isOverdrive = false;
-                    p.energy += (15 * p.stats.regenMult) * dt; 
-                    if (p.energy > p.stats.maxEnergy) p.energy = p.stats.maxEnergy;
-                }
+                if (key && p.energy > 0) { p.isOverdrive = true; p.energy -= 40 * dt; } 
+                else { p.isOverdrive = false; p.energy += (15 * p.stats.regenMult) * dt; if (p.energy > p.stats.maxEnergy) p.energy = p.stats.maxEnergy; }
             });
 
-            // Player 1 Movement
-            let p1Up = keys.KeyW;
-            let p1Down = keys.KeyS;
+            let oldP1Y = player1.y, oldP2Y = player2.y;
+
+            let p1Up = keys.KeyW, p1Down = keys.KeyS;
             if (player1.confusedTimer > 0) { p1Up = keys.KeyS; p1Down = keys.KeyW; } 
-
             let p1SpeedMult = (player1.isOverdrive ? 1.6 : 1) * player1.stats.speedMult;
-            if (p1Up && player1.y > 0) {
-                player1.y -= paddle.speed * p1SpeedMult * dt;
-            }
-            if (p1Down && player1.y < canvas.height - player1.height) {
-                player1.y += paddle.speed * p1SpeedMult * dt;
-            }
+            if (p1Up && player1.y > 0) player1.y -= paddle.speed * p1SpeedMult * dt;
+            if (p1Down && player1.y < canvas.height - player1.height) player1.y += paddle.speed * p1SpeedMult * dt;
 
-            // Player 2 Movement
-            let p2Up = keys.ArrowUp;
-            let p2Down = keys.ArrowDown;
+            let p2Up = keys.ArrowUp, p2Down = keys.ArrowDown;
             if (player2.confusedTimer > 0) { p2Up = keys.ArrowDown; p2Down = keys.ArrowUp; } 
-
             let p2SpeedMult = (player2.isOverdrive ? 1.6 : 1) * player2.stats.speedMult;
-            if (p2Up && player2.y > 0) {
-                player2.y -= paddle.speed * p2SpeedMult * dt;
-            }
-            if (p2Down && player2.y < canvas.height - player2.height) {
-                player2.y += paddle.speed * p2SpeedMult * dt;
-            }
+            if (p2Up && player2.y > 0) player2.y -= paddle.speed * p2SpeedMult * dt;
+            if (p2Down && player2.y < canvas.height - player2.height) player2.y += paddle.speed * p2SpeedMult * dt;
 
-            // Ball Trail update
+            matchStats.distance += Math.abs(player1.y - oldP1Y) + Math.abs(player2.y - oldP2Y);
+
             ball.trail.push({x: ball.x, y: ball.y});
-            const speed = Math.sqrt(ball.vx*ball.vx + ball.vy*ball.vy);
             
-            if (speed > matchStats.maxSpeed) {
-                matchStats.maxSpeed = speed;
+            let speed = Math.sqrt(ball.vx*ball.vx + ball.vy*ball.vy);
+            if (speed > ball.baseSpeed && !ball.isStarting) {
+                const decay = 15 * dt; 
+                const newSpeed = Math.max(ball.baseSpeed, speed - decay);
+                const scale = newSpeed / speed;
+                ball.vx *= scale; ball.vy *= scale;
+                speed = newSpeed; 
             }
+            if (speed > matchStats.maxSpeed) matchStats.maxSpeed = speed;
 
             const maxTrail = Math.min(40, Math.floor(speed / 30)); 
             if (ball.trail.length > maxTrail) ball.trail.shift();
 
-            // --- SUB-STEPPING PHYSICS ENGINE ---
             const steps = Math.max(1, Math.ceil((speed * dt) / (ball.radius * 0.5)));
             const subDt = dt / steps;
             let pointScored = false;
@@ -938,40 +935,30 @@
             for (let s = 0; s < steps; s++) {
                 if (pointScored) break;
 
-                // Ball Startup Acceleration
                 if (ball.isStarting) {
                     const currentSpeed = Math.sqrt(ball.vx*ball.vx + ball.vy*ball.vy);
                     const newSpeed = currentSpeed + (600 * subDt); 
                     if (newSpeed >= ball.baseSpeed) {
                         const scale = ball.baseSpeed / currentSpeed;
-                        ball.vx *= scale;
-                        ball.vy *= scale;
+                        ball.vx *= scale; ball.vy *= scale;
                         ball.isStarting = false;
                     } else {
                         const scale = newSpeed / currentSpeed;
-                        ball.vx *= scale;
-                        ball.vy *= scale;
+                        ball.vx *= scale; ball.vy *= scale;
                     }
                 }
 
-                // Ball Movement
                 ball.x += ball.vx * subDt;
                 ball.y += ball.vy * subDt;
 
-                // Top / Bottom Wall Collision
                 if (ball.y - ball.radius < 0) {
-                    ball.y = ball.radius;
-                    ball.vy *= -1;
-                    playSound('wall');
-                    createParticles(ball.x, 0, '#ffffff', 5, 0);
+                    ball.y = ball.radius; ball.vy *= -1;
+                    playSound('wall'); createParticles(ball.x, 0, '#ffffff', 5, 0);
                 } else if (ball.y + ball.radius > canvas.height) {
-                    ball.y = canvas.height - ball.radius;
-                    ball.vy *= -1;
-                    playSound('wall');
-                    createParticles(ball.x, canvas.height, '#ffffff', 5, 0);
+                    ball.y = canvas.height - ball.radius; ball.vy *= -1;
+                    playSound('wall'); createParticles(ball.x, canvas.height, '#ffffff', 5, 0);
                 }
 
-                // Obstacle Collision
                 for (let i = obstacles.length - 1; i >= 0; i--) {
                     let obs = obstacles[i];
                     if (obs.vy) {
@@ -981,265 +968,130 @@
 
                     let hit = false;
                     if (obs.type === 'circle') {
-                        const dx = ball.x - obs.x;
-                        const dy = ball.y - obs.y;
-                        const dist = Math.sqrt(dx*dx + dy*dy);
+                        const dx = ball.x - obs.x, dy = ball.y - obs.y, dist = Math.sqrt(dx*dx + dy*dy);
                         if (dist < ball.radius + obs.r) {
-                            hit = true;
-                            playSound('wall');
-                            createParticles(ball.x, ball.y, obs.color, 20, 0);
-                            screenShake = 5;
-                            bgPulse = 0.1;
-
-                            const nx = dx / dist;
-                            const ny = dy / dist;
-                            const dot = ball.vx * nx + ball.vy * ny;
-                            ball.vx = ball.vx - 2 * dot * nx;
-                            ball.vy = ball.vy - 2 * dot * ny;
+                            hit = true; playSound('wall'); createParticles(ball.x, ball.y, obs.color, 20, 0); screenShake = 5; bgPulse = 0.1;
+                            const nx = dx / dist, ny = dy / dist, dot = ball.vx * nx + ball.vy * ny;
+                            ball.vx = ball.vx - 2 * dot * nx; ball.vy = ball.vy - 2 * dot * ny;
                             ball.x = obs.x + nx * (ball.radius + obs.r);
                         }
                     } else {
-                        const closestX = Math.max(obs.x, Math.min(ball.x, obs.x + (obs.w || 0)));
-                        const closestY = Math.max(obs.y, Math.min(ball.y, obs.y + (obs.h || 0)));
-                        const dx = ball.x - closestX;
-                        const dy = ball.y - closestY;
-                        const distanceSquared = dx * dx + dy * dy;
-
+                        const closestX = Math.max(obs.x, Math.min(ball.x, obs.x + (obs.w || 0))), closestY = Math.max(obs.y, Math.min(ball.y, obs.y + (obs.h || 0)));
+                        const dx = ball.x - closestX, dy = ball.y - closestY, distanceSquared = dx * dx + dy * dy;
                         if (distanceSquared < ball.radius * ball.radius) {
-                            hit = true;
-                            playSound('wall');
-                            createParticles(closestX, closestY, obs.color, 15, 0);
-                            screenShake = 3;
-                            bgPulse = 0.1;
-
-                            const rectCenterX = obs.x + obs.w / 2;
-                            const rectCenterY = obs.y + obs.h / 2;
-                            const dirX = ball.x - rectCenterX;
-                            const dirY = ball.y - rectCenterY;
-
-                            if (Math.abs(dirX) / obs.w > Math.abs(dirY) / obs.h) {
-                                ball.vx *= -1;
-                                ball.x = dirX > 0 ? obs.x + obs.w + ball.radius : obs.x - ball.radius;
-                            } else {
-                                ball.vy *= -1;
-                                ball.y = dirY > 0 ? obs.y + obs.h + ball.radius : obs.y - ball.radius;
-                            }
+                            hit = true; playSound('wall'); createParticles(closestX, closestY, obs.color, 15, 0); screenShake = 3; bgPulse = 0.1;
+                            const rectCenterX = obs.x + obs.w / 2, rectCenterY = obs.y + obs.h / 2, dirX = ball.x - rectCenterX, dirY = ball.y - rectCenterY;
+                            if (Math.abs(dirX) / obs.w > Math.abs(dirY) / obs.h) { ball.vx *= -1; ball.x = dirX > 0 ? obs.x + obs.w + ball.radius : obs.x - ball.radius; } 
+                            else { ball.vy *= -1; ball.y = dirY > 0 ? obs.y + obs.h + ball.radius : obs.y - ball.radius; }
                         }
                     }
 
-                    // Breakable Health Logic
                     if (hit) {
                         const hitSpeed = Math.sqrt(ball.vx*ball.vx + ball.vy*ball.vy);
                         if (hitSpeed > 1000) { 
                             obs.health -= 1;
-                            if (obs.health <= 0) {
-                                createParticles(obs.x + (obs.w/2 || 0), obs.y + (obs.h/2 || 0), '#ffffff', 40, 0);
-                                playSound('score'); 
-                                obstacles.splice(i, 1);
-                            }
+                            if (obs.health <= 0) { createDebris(obs); playSound('explosion'); screenShake = 15; obstacles.splice(i, 1); }
                         }
                     }
                 }
 
-                // Paddle 1 Collision
-                if (ball.x - ball.radius < player1.x + paddle.width &&
-                    ball.x + ball.radius > player1.x &&
-                    ball.y + ball.radius > player1.y &&
-                    ball.y - ball.radius < player1.y + player1.height) {
-                    
-                    ball.x = player1.x + paddle.width + ball.radius;
-                    ball.lastHitBy = 1;
-                    ball.color = player1.isOverdrive ? '#ffffff' : COLOR_BALL; 
-                    ball.isStarting = false; 
+                if (ball.x - ball.radius < player1.x + paddle.width && ball.x + ball.radius > player1.x && ball.y + ball.radius > player1.y && ball.y - ball.radius < player1.y + player1.height) {
+                    ball.x = player1.x + paddle.width + ball.radius; ball.lastHitBy = 1; ball.color = player1.isOverdrive ? '#ffffff' : COLOR_BALL; ball.isStarting = false; 
                     
                     rallyCount++;
-                    if(gameMode === 'COOP') {
-                        coopRally.innerText = `${rallyCount} HITS`;
-                    }
+                    if(gameMode === 'COOP') coopRally.innerText = `${rallyCount} HITS`;
                     if (rallyCount > matchStats.maxRally) matchStats.maxRally = rallyCount;
                     
-                    const hitPos = (ball.y - (player1.y + player1.height/2)) / (player1.height/2);
-                    const angle = hitPos * (Math.PI / 4);
-                    
-                    const currentSpeed = Math.max(Math.sqrt(ball.vx*ball.vx + ball.vy*ball.vy), ball.baseSpeed);
-                    const overdriveBoost = player1.isOverdrive ? (1.5 * player1.stats.smashMult) : 1.0;
+                    const hitPos = (ball.y - (player1.y + player1.height/2)) / (player1.height/2), angle = hitPos * (Math.PI / 4);
+                    const currentSpeed = Math.max(Math.sqrt(ball.vx*ball.vx + ball.vy*ball.vy), ball.baseSpeed), overdriveBoost = player1.isOverdrive ? (1.5 * player1.stats.smashMult) : 1.0;
                     const newSpeed = currentSpeed * ball.speedMultiplier * overdriveBoost;
                     
-                    ball.vx = Math.cos(angle) * newSpeed;
-                    ball.vy = Math.sin(angle) * newSpeed;
+                    ball.vx = Math.cos(angle) * newSpeed; ball.vy = Math.sin(angle) * newSpeed;
                     
-                    if (player1.isOverdrive) {
-                        playSound('powerup');
-                        screenShake = 12;
-                        bgPulse = 0.3;
-                        createParticles(ball.x, ball.y, '#ffffff', 30, 1);
-                        matchStats.overdrivesUsed++;
-                    } else {
-                        playSound('hit');
-                        screenShake = 4;
-                        bgPulse = 0.15;
-                        createParticles(ball.x, ball.y, player1.color, 15, 1);
-                    }
+                    if (player1.isOverdrive) { playSound('powerup'); screenShake = 12; bgPulse = 0.3; createParticles(ball.x, ball.y, '#ffffff', 30, 1); matchStats.overdrivesUsed++; } 
+                    else { playSound('hit'); screenShake = 4; bgPulse = 0.15; createParticles(ball.x, ball.y, player1.color, 15, 1); }
                 }
 
-                // Paddle 2 Collision
-                if (ball.x + ball.radius > player2.x &&
-                    ball.x - ball.radius < player2.x + paddle.width &&
-                    ball.y + ball.radius > player2.y &&
-                    ball.y - ball.radius < player2.y + player2.height) {
-                    
-                    ball.x = player2.x - ball.radius;
-                    ball.lastHitBy = 2;
-                    ball.color = player2.isOverdrive ? '#ffffff' : COLOR_BALL;
-                    ball.isStarting = false; 
+                if (ball.x + ball.radius > player2.x && ball.x - ball.radius < player2.x + paddle.width && ball.y + ball.radius > player2.y && ball.y - ball.radius < player2.y + player2.height) {
+                    ball.x = player2.x - ball.radius; ball.lastHitBy = 2; ball.color = player2.isOverdrive ? '#ffffff' : COLOR_BALL; ball.isStarting = false; 
 
                     rallyCount++;
-                    if(gameMode === 'COOP') {
-                        coopRally.innerText = `${rallyCount} HITS`;
-                    }
+                    if(gameMode === 'COOP') coopRally.innerText = `${rallyCount} HITS`;
                     if (rallyCount > matchStats.maxRally) matchStats.maxRally = rallyCount;
 
-                    const hitPos = (ball.y - (player2.y + player2.height/2)) / (player2.height/2);
-                    const angle = hitPos * (Math.PI / 4);
-                    
-                    const currentSpeed = Math.max(Math.sqrt(ball.vx*ball.vx + ball.vy*ball.vy), ball.baseSpeed);
-                    const overdriveBoost = player2.isOverdrive ? (1.5 * player2.stats.smashMult) : 1.0;
+                    const hitPos = (ball.y - (player2.y + player2.height/2)) / (player2.height/2), angle = hitPos * (Math.PI / 4);
+                    const currentSpeed = Math.max(Math.sqrt(ball.vx*ball.vx + ball.vy*ball.vy), ball.baseSpeed), overdriveBoost = player2.isOverdrive ? (1.5 * player2.stats.smashMult) : 1.0;
                     const newSpeed = currentSpeed * ball.speedMultiplier * overdriveBoost;
                     
-                    ball.vx = -Math.cos(angle) * newSpeed;
-                    ball.vy = Math.sin(angle) * newSpeed;
+                    ball.vx = -Math.cos(angle) * newSpeed; ball.vy = Math.sin(angle) * newSpeed;
 
-                    if (player2.isOverdrive) {
-                        playSound('powerup');
-                        screenShake = 12;
-                        bgPulse = 0.3;
-                        createParticles(ball.x, ball.y, '#ffffff', 30, -1);
-                        matchStats.overdrivesUsed++;
-                    } else {
-                        playSound('hit');
-                        screenShake = 4;
-                        bgPulse = 0.15;
-                        createParticles(ball.x, ball.y, player2.color, 15, -1);
-                    }
+                    if (player2.isOverdrive) { playSound('powerup'); screenShake = 12; bgPulse = 0.3; createParticles(ball.x, ball.y, '#ffffff', 30, -1); matchStats.overdrivesUsed++; } 
+                    else { playSound('hit'); screenShake = 4; bgPulse = 0.15; createParticles(ball.x, ball.y, player2.color, 15, -1); }
                 }
 
-                // Scoring / Game Over bounds checking
                 if (ball.x < 0) {
-                    if (player1.shield) {
-                        player1.shield = false;
-                        ball.x = ball.radius;
-                        ball.vx *= -1;
-                        playSound('wall');
-                        createParticles(0, ball.y, '#ffffff', 40, 1);
-                        screenShake = 15;
+                    if (player1.shields > 0) {
+                        player1.shields--; ball.x = ball.radius; ball.vx *= -1;
+                        playSound('wall'); createParticles(0, ball.y, '#ffffff', 40, 1); screenShake = 15;
                         addFloatingText(100, ball.y, "SHIELD BROKE", '#ffffff');
                     } else {
-                        if (gameMode === 'COOP') {
-                            triggerGameOverCOOP();
-                        } else {
-                            p2Score++;
-                            score2El.innerText = p2Score;
-                            playSound('score');
-                            screenShake = 15;
-                            bgPulse = 0.5;
-
-                            if (checkWinCondition(2)) {
-                                handleWin(2);
-                            } else {
-                                showUpgradeScreen(2); 
-                            }
+                        if (gameMode === 'COOP') triggerGameOverCOOP();
+                        else {
+                            p2Score++; score2El.innerText = p2Score; playSound('score'); screenShake = 15; bgPulse = 0.5;
+                            if (checkWinCondition(2)) handleWin(2); else showUpgradeScreen(1); 
                         }
                         pointScored = true;
                     }
                 } else if (ball.x > canvas.width) {
-                    if (player2.shield) {
-                        player2.shield = false;
-                        ball.x = canvas.width - ball.radius;
-                        ball.vx *= -1;
-                        playSound('wall');
-                        createParticles(canvas.width, ball.y, '#ffffff', 40, -1);
-                        screenShake = 15;
+                    if (player2.shields > 0) {
+                        player2.shields--; ball.x = canvas.width - ball.radius; ball.vx *= -1;
+                        playSound('wall'); createParticles(canvas.width, ball.y, '#ffffff', 40, -1); screenShake = 15;
                         addFloatingText(canvas.width - 100, ball.y, "SHIELD BROKE", '#ffffff');
                     } else {
-                        if (gameMode === 'COOP') {
-                            triggerGameOverCOOP();
-                        } else {
-                            p1Score++;
-                            score1El.innerText = p1Score;
-                            playSound('score');
-                            screenShake = 15;
-                            bgPulse = 0.5;
-
-                            if (checkWinCondition(1)) {
-                                handleWin(1);
-                            } else {
-                                showUpgradeScreen(1); 
-                            }
+                        if (gameMode === 'COOP') triggerGameOverCOOP();
+                        else {
+                            p1Score++; score1El.innerText = p1Score; playSound('score'); screenShake = 15; bgPulse = 0.5;
+                            if (checkWinCondition(1)) handleWin(1); else showUpgradeScreen(2); 
                         }
                         pointScored = true;
                     }
                 }
-            } // --- END SUB-STEPPING LOOP ---
+            } 
 
-            // Token Spawning (Disabled for pure COOP survival)
             if (gameMode !== 'COOP') {
                 tokenSpawnTimer += dt;
-                if (tokenSpawnTimer > 8 && activeTokens.length < 3) { 
-                    spawnToken();
-                    tokenSpawnTimer = 0;
-                }
+                if (tokenSpawnTimer > 8 && activeTokens.length < 3) { spawnToken(); tokenSpawnTimer = 0; }
             }
 
             for (let i = activeTokens.length - 1; i >= 0; i--) {
-                let t = activeTokens[i];
-                let dx = ball.x - t.x;
-                let dy = ball.y - t.y;
-                if (Math.sqrt(dx*dx + dy*dy) < ball.radius + t.radius) {
-                    activateToken(t, ball.lastHitBy);
-                    activeTokens.splice(i, 1);
-                }
+                let t = activeTokens[i], dx = ball.x - t.x, dy = ball.y - t.y;
+                if (Math.sqrt(dx*dx + dy*dy) < ball.radius + t.radius) { activateToken(t, ball.lastHitBy); activeTokens.splice(i, 1); }
             }
 
-            // Floating Text
             for (let i = floatingTexts.length - 1; i >= 0; i--) {
-                let ft = floatingTexts[i];
-                ft.y -= dt * 40;
-                ft.life -= dt;
+                let ft = floatingTexts[i]; ft.y -= dt * 40; ft.life -= dt;
                 if (ft.life <= 0) floatingTexts.splice(i, 1);
             }
 
             updateParticles(dt);
         }
 
-        // --- Winning Logic & Analysis Handlers ---
         function checkWinCondition(playerNum) {
-            const score = playerNum === 1 ? p1Score : p2Score;
-            const oppScore = playerNum === 1 ? p2Score : p1Score;
-            
+            const score = playerNum === 1 ? p1Score : p2Score, oppScore = playerNum === 1 ? p2Score : p1Score;
             if (gameMode === 'CLASSIC') return score >= 7;
             if (gameMode === 'PRO') return score >= 15;
             if (gameMode === 'DEUCE') return score >= 7 && (score - oppScore) >= 2;
-            if (gameMode === 'BEST_OF_3') return score >= 7; // Wins the SET
+            if (gameMode === 'BEST_OF_3') return score >= 7; 
             return false;
         }
 
         function handleWin(winnerNum) {
             if (gameMode === 'BEST_OF_3') {
-                if (winnerNum === 1) p1Sets++;
-                else p2Sets++;
-                
+                if (winnerNum === 1) p1Sets++; else p2Sets++;
                 updateSetUI();
-
-                if (p1Sets >= 2 || p2Sets >= 2) {
-                    triggerGameOver(winnerNum);
-                } else {
-                    // Set Won - prep for next set
-                    p1Score = 0; 
-                    p2Score = 0;
-                    score1El.innerText = p1Score;
-                    score2El.innerText = p2Score;
-                    
-                    // The loser of the set gets the upgrade draft!
+                if (p1Sets >= 2 || p2Sets >= 2) triggerGameOver(winnerNum);
+                else {
+                    p1Score = 0; p2Score = 0; score1El.innerText = p1Score; score2El.innerText = p2Score;
                     showUpgradeScreen(winnerNum === 1 ? 2 : 1); 
                 }
             } else {
@@ -1248,19 +1100,22 @@
         }
 
         function generateAnalysisText() {
+            const aggroIndex = (matchStats.overdrivesUsed + matchStats.repulsesFired) / Math.max(1, (matchStats.duration / 60));
             if (matchStats.maxSpeed > 2200) return "BLISTERING SPEED: A hyper-velocity slugfest!";
-            if (matchStats.repulsesFired >= 5) return "DEFENSIVE MASTERCLASS: Excellent use of Repulse shockwaves.";
-            if (matchStats.overdrivesUsed >= 8) return "AGGRESSIVE ASSAULT: Heavy reliance on Overdrive smashes.";
-            if (matchStats.maxRally >= 15) return "ENDURANCE BATTLE: Incredible volley streaks.";
-            if (matchStats.tokensGrabbed >= 6) return "RESOURCEFUL: Great map control and token gathering.";
-            if (matchStats.duration < 30) return "QUICK DOMINATION: A fast and brutal match.";
-            return "TACTICAL SHOWDOWN: A well-rounded performance.";
+            if (aggroIndex >= 15) return "HYPER-AGGRESSIVE: Relentless smashes and energy burns.";
+            if (matchStats.repulsesFired >= 6 && matchStats.overdrivesUsed < 4) return "DEFENSIVE MASTERCLASS: Excellent use of Repulse shockwaves.";
+            if (matchStats.maxRally >= 15) return "ENDURANCE BATTLE: Incredible volley streaks. Iron nerves.";
+            if (matchStats.tokensGrabbed >= 6) return "RESOURCEFUL: Superior map control and powerup hunting.";
+            if (matchStats.distance > 30000) return "MARATHON RUNNERS: Intense vertical tracking from both players.";
+            if (matchStats.duration < 30) return "QUICK DOMINATION: A fast and brutal mismatch.";
+            return "TACTICAL SHOWDOWN: A well-rounded, balanced performance.";
         }
 
         function populateStatsUI() {
             document.getElementById('statDuration').innerText = matchStats.duration.toFixed(1) + 's';
             document.getElementById('statRally').innerText = matchStats.maxRally;
             document.getElementById('statSpeed').innerText = Math.round(matchStats.maxSpeed) + ' px/s';
+            document.getElementById('statDistance').innerText = Math.round(matchStats.distance / 100) + 'm'; 
             document.getElementById('statTokens').innerText = matchStats.tokensGrabbed;
             document.getElementById('statOverdrives').innerText = matchStats.overdrivesUsed;
             document.getElementById('statRepulses').innerText = matchStats.repulsesFired;
@@ -1272,12 +1127,9 @@
             winnerScreen.classList.remove('hidden');
             setTimeout(() => winnerScreen.classList.remove('opacity-0'), 50);
             
-            scoreBoard.classList.add('opacity-0');
-            setIndicators.classList.add('opacity-0');
-            coopScoreDisplay.classList.add('opacity-0');
+            scoreBoard.classList.add('opacity-0'); setIndicators.classList.add('opacity-0'); coopScoreDisplay.classList.add('opacity-0');
             
-            const winnerName = winnerNum === 1 ? p1Name : p2Name;
-            const loserName = winnerNum === 1 ? p2Name : p1Name;
+            const winnerName = winnerNum === 1 ? p1Name : p2Name, loserName = winnerNum === 1 ? p2Name : p1Name;
             const scoreStr = gameMode === 'BEST_OF_3' ? `${p1Sets} - ${p2Sets} (Sets)` : `${p1Score} - ${p2Score}`;
 
             if (winnerNum === 1) {
@@ -1289,192 +1141,111 @@
             }
 
             populateStatsUI();
-            saveToCSV(winnerName, loserName, scoreStr);
+            saveMatchRecord(winnerName, loserName, scoreStr);
         }
 
         function triggerGameOverCOOP() {
-            playSound('wall');
-            screenShake = 20;
-            bgPulse = 1.0;
-            gameState = 'GAMEOVER';
-            winnerScreen.classList.remove('hidden');
-            setTimeout(() => winnerScreen.classList.remove('opacity-0'), 50);
-            
-            scoreBoard.classList.add('opacity-0');
-            setIndicators.classList.add('opacity-0');
-            coopScoreDisplay.classList.add('opacity-0');
+            playSound('wall'); screenShake = 20; bgPulse = 1.0; gameState = 'GAMEOVER';
+            winnerScreen.classList.remove('hidden'); setTimeout(() => winnerScreen.classList.remove('opacity-0'), 50);
+            scoreBoard.classList.add('opacity-0'); setIndicators.classList.add('opacity-0'); coopScoreDisplay.classList.add('opacity-0');
             
             winnerText.innerHTML = `GAME OVER`;
             winnerText.className = "text-5xl md:text-7xl font-bold mb-6 tracking-widest text-center uppercase text-white";
-            
             populateStatsUI();
-            
-            // Format Co-op for CSV
-            const players = `${p1Name} & ${p2Name}`;
-            saveToCSV("Co-op Team", "The Wall", `${survivalTime.toFixed(1)}s`);
+            saveMatchRecord("Co-op Team", "The Wall", `${survivalTime.toFixed(1)}s`);
         }
 
-        // --- Rendering ---
         function drawGlowRect(x, y, w, h, color) {
-            ctx.shadowBlur = 20;
-            ctx.shadowColor = color;
-            ctx.fillStyle = color;
-            ctx.fillRect(x, y, w, h);
-            ctx.shadowBlur = 0;
-            ctx.fillStyle = '#ffffff';
-            ctx.fillRect(x + w*0.3, y + 2, w*0.4, h - 4);
+            ctx.shadowBlur = 20; ctx.shadowColor = color; ctx.fillStyle = color; ctx.fillRect(x, y, w, h);
+            ctx.shadowBlur = 0; ctx.fillStyle = '#ffffff'; ctx.fillRect(x + w*0.3, y + 2, w*0.4, h - 4);
         }
 
         function drawGlowCircle(x, y, r, color) {
-            ctx.shadowBlur = 20;
-            ctx.shadowColor = color;
-            ctx.fillStyle = color;
-            ctx.beginPath();
-            ctx.arc(x, y, r, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.shadowBlur = 0;
-            ctx.fillStyle = '#ffffff';
-            ctx.beginPath();
-            ctx.arc(x, y, r * 0.5, 0, Math.PI * 2);
-            ctx.fill();
+            ctx.shadowBlur = 20; ctx.shadowColor = color; ctx.fillStyle = color; ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
+            ctx.shadowBlur = 0; ctx.fillStyle = '#ffffff'; ctx.beginPath(); ctx.arc(x, y, r * 0.5, 0, Math.PI * 2); ctx.fill();
         }
 
         function draw() {
             ctx.save();
-            
-            if (screenShake > 0) {
-                const dx = (Math.random() - 0.5) * screenShake;
-                const dy = (Math.random() - 0.5) * screenShake;
-                ctx.translate(dx, dy);
-            }
+            if (screenShake > 0) { const dx = (Math.random() - 0.5) * screenShake, dy = (Math.random() - 0.5) * screenShake; ctx.translate(dx, dy); }
 
-            ctx.fillStyle = COLOR_BG;
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-            
-            if (bgPulse > 0) {
-                ctx.fillStyle = `rgba(255, 255, 255, ${bgPulse * 0.2})`; 
-                ctx.fillRect(0, 0, canvas.width, canvas.height);
-            }
+            ctx.fillStyle = COLOR_BG; ctx.fillRect(0, 0, canvas.width, canvas.height);
+            if (bgPulse > 0) { ctx.fillStyle = `rgba(255, 255, 255, ${bgPulse * 0.2})`; ctx.fillRect(0, 0, canvas.width, canvas.height); }
 
-            ctx.beginPath();
-            ctx.setLineDash([15, 20]);
-            ctx.moveTo(canvas.width / 2, 0);
-            ctx.lineTo(canvas.width / 2, canvas.height);
-            ctx.lineWidth = 4;
-            ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
-            ctx.stroke();
-            ctx.setLineDash([]); 
+            ctx.beginPath(); ctx.setLineDash([15, 20]); ctx.moveTo(canvas.width / 2, 0); ctx.lineTo(canvas.width / 2, canvas.height);
+            ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)'; ctx.stroke(); ctx.setLineDash([]); 
 
-            if (player1.shield) drawGlowRect(10, 0, 5, canvas.height, 'rgba(255, 255, 255, 0.6)');
-            if (player2.shield) drawGlowRect(canvas.width - 15, 0, 5, canvas.height, 'rgba(255, 255, 255, 0.6)');
+            if (player1.shields > 0) { for(let i=0; i<player1.shields; i++) { drawGlowRect(10 + (i*8), 0, 4, canvas.height, 'rgba(255, 255, 255, 0.5)'); } }
+            if (player2.shields > 0) { for(let i=0; i<player2.shields; i++) { drawGlowRect(canvas.width - 14 - (i*8), 0, 4, canvas.height, 'rgba(255, 255, 255, 0.5)'); } }
 
             const time = Date.now() / 1000;
             activeTokens.forEach(t => {
-                const pulse = Math.sin(time * 8 + t.x) * 3;
-                drawGlowCircle(t.x, t.y, t.radius + pulse, t.color);
-                ctx.fillStyle = '#ffffff';
-                ctx.font = 'bold 16px Courier New';
-                ctx.textAlign = 'center';
-                ctx.textBaseline = 'middle';
-                ctx.shadowBlur = 0;
-                ctx.fillText(t.label, t.x, t.y);
+                const pulse = Math.sin(time * 8 + t.x) * 3; drawGlowCircle(t.x, t.y, t.radius + pulse, t.color);
+                ctx.fillStyle = '#ffffff'; ctx.font = 'bold 16px Courier New'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.shadowBlur = 0; ctx.fillText(t.label, t.x, t.y);
             });
 
             obstacles.forEach(obs => {
                 ctx.globalAlpha = obs.health / obs.maxHealth;
-                if (obs.type === 'circle') drawGlowCircle(obs.x, obs.y, obs.r, obs.color);
-                else drawGlowRect(obs.x, obs.y, obs.w, obs.h, obs.color);
+                if (obs.type === 'circle') drawGlowCircle(obs.x, obs.y, obs.r, obs.color); else drawGlowRect(obs.x, obs.y, obs.w, obs.h, obs.color);
                 ctx.globalAlpha = 1.0; 
             });
 
-            // Draw Defensive Pulses
+            debrisParticles.forEach(d => {
+                ctx.save(); ctx.translate(d.x, d.y); ctx.rotate(d.angle); ctx.globalAlpha = Math.max(0, d.life / 1.5);
+                ctx.fillStyle = d.color; ctx.shadowBlur = 10; ctx.shadowColor = d.color;
+                if(d.type === 'circle') { ctx.beginPath(); ctx.arc(0, 0, d.size, 0, Math.PI * 2); ctx.fill(); } 
+                else { ctx.fillRect(-d.size/2, -d.size/2, d.size, d.size); }
+                ctx.restore();
+            });
+
             [player1, player2].forEach((p) => {
                 if (p.pulseTimer > 0) {
-                    const maxRadius = 250;
-                    const progress = 1 - (p.pulseTimer / 0.3);
-                    const radius = maxRadius * progress;
-                    ctx.beginPath();
-                    ctx.arc(p.x + paddle.width/2, p.y + p.height/2, radius, 0, Math.PI * 2);
-                    ctx.strokeStyle = `rgba(255, 255, 255, ${p.pulseTimer / 0.3})`;
-                    ctx.lineWidth = 10;
-                    ctx.stroke();
+                    const maxRadius = 250, progress = 1 - (p.pulseTimer / 0.3), radius = maxRadius * progress;
+                    ctx.beginPath(); ctx.arc(p.x + paddle.width/2, p.y + p.height/2, radius, 0, Math.PI * 2);
+                    ctx.strokeStyle = `rgba(255, 255, 255, ${p.pulseTimer / 0.3})`; ctx.lineWidth = 10; ctx.stroke();
                 }
             });
 
-            const p1Color = player1.isOverdrive ? '#ffffff' : player1.color;
-            const p2Color = player2.isOverdrive ? '#ffffff' : player2.color;
+            [player1, player2].forEach((p) => {
+                if(p.effectTimer > 0) {
+                    ctx.strokeStyle = p.color; ctx.lineWidth = 2 + Math.sin(time * 20) * 2; ctx.shadowBlur = 15; ctx.shadowColor = p.color;
+                    ctx.strokeRect(p.x - 4, p.y - 4, paddle.width + 8, p.height + 8); ctx.shadowBlur = 0;
+                }
+            });
+
+            const p1Color = player1.isOverdrive ? '#ffffff' : player1.color, p2Color = player2.isOverdrive ? '#ffffff' : player2.color;
             drawGlowRect(player1.x, player1.y, paddle.width, player1.height, p1Color);
             drawGlowRect(player2.x, player2.y, paddle.width, player2.height, p2Color);
 
-            // Dynamically Scaled Energy Bars
             const energyBarWidth = 4;
-            ctx.fillStyle = 'rgba(255, 255, 255, 0.2)';
-            ctx.fillRect(player1.x - 12, player1.y, energyBarWidth, player1.height);
-            ctx.fillRect(player2.x + paddle.width + 8, player2.y, energyBarWidth, player2.height);
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.2)'; ctx.fillRect(player1.x - 12, player1.y, energyBarWidth, player1.height); ctx.fillRect(player2.x + paddle.width + 8, player2.y, energyBarWidth, player2.height);
             
-            ctx.fillStyle = '#ffff00'; 
-            ctx.shadowBlur = 10;
-            ctx.shadowColor = '#ffff00';
-            const p1EnergyH = player1.height * (player1.energy / player1.stats.maxEnergy);
-            ctx.fillRect(player1.x - 12, player1.y + (player1.height - p1EnergyH), energyBarWidth, p1EnergyH);
-            const p2EnergyH = player2.height * (player2.energy / player2.stats.maxEnergy);
-            ctx.fillRect(player2.x + paddle.width + 8, player2.y + (player2.height - p2EnergyH), energyBarWidth, p2EnergyH);
+            ctx.fillStyle = '#ffff00'; ctx.shadowBlur = 10; ctx.shadowColor = '#ffff00';
+            const p1EnergyH = player1.height * (player1.energy / player1.stats.maxEnergy); ctx.fillRect(player1.x - 12, player1.y + (player1.height - p1EnergyH), energyBarWidth, p1EnergyH);
+            const p2EnergyH = player2.height * (player2.energy / player2.stats.maxEnergy); ctx.fillRect(player2.x + paddle.width + 8, player2.y + (player2.height - p2EnergyH), energyBarWidth, p2EnergyH);
             ctx.shadowBlur = 0;
 
-            if (player1.confusedTimer > 0) {
-                ctx.fillStyle = '#ff00aa';
-                ctx.font = 'bold 24px Courier New';
-                ctx.fillText('?', player1.x + paddle.width/2, player1.y - 20);
-            }
-            if (player2.confusedTimer > 0) {
-                ctx.fillStyle = '#ff00aa';
-                ctx.font = 'bold 24px Courier New';
-                ctx.fillText('?', player2.x + paddle.width/2, player2.y - 20);
-            }
+            if (player1.confusedTimer > 0) { ctx.fillStyle = '#ff00aa'; ctx.font = 'bold 24px Courier New'; ctx.fillText('?', player1.x + paddle.width/2, player1.y - 20); }
+            if (player2.confusedTimer > 0) { ctx.fillStyle = '#ff00aa'; ctx.font = 'bold 24px Courier New'; ctx.fillText('?', player2.x + paddle.width/2, player2.y - 20); }
 
             if (ball.trail.length > 0) {
-                ctx.beginPath();
-                ctx.moveTo(ball.trail[0].x, ball.trail[0].y);
-                for (let i = 1; i < ball.trail.length; i++) {
-                    ctx.lineTo(ball.trail[i].x, ball.trail[i].y);
-                }
-                ctx.strokeStyle = ball.color;
-                ctx.lineWidth = ball.radius;
-                ctx.lineCap = 'round';
-                ctx.lineJoin = 'round';
-                ctx.shadowBlur = 10;
-                ctx.shadowColor = ball.color;
-                ctx.globalAlpha = 0.3;
-                ctx.stroke();
-                ctx.globalAlpha = 1.0;
-                ctx.shadowBlur = 0;
+                ctx.beginPath(); ctx.moveTo(ball.trail[0].x, ball.trail[0].y);
+                for (let i = 1; i < ball.trail.length; i++) { ctx.lineTo(ball.trail[i].x, ball.trail[i].y); }
+                ctx.strokeStyle = ball.color; ctx.lineWidth = ball.radius; ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.shadowBlur = 10; ctx.shadowColor = ball.color;
+                ctx.globalAlpha = 0.3; ctx.stroke(); ctx.globalAlpha = 1.0; ctx.shadowBlur = 0;
             }
 
             if (gameState === 'PLAYING' || gameState === 'GAMEOVER' || gameState === 'PAUSED') {
                 drawGlowCircle(ball.x, ball.y, ball.radius, ball.color);
             }
 
-            particles.forEach(p => {
-                ctx.globalAlpha = p.life;
-                ctx.shadowBlur = 10;
-                ctx.shadowColor = p.color;
-                ctx.fillStyle = p.color;
-                ctx.fillRect(p.x, p.y, p.size, p.size);
-            });
-            ctx.globalAlpha = 1.0;
-            ctx.shadowBlur = 0;
+            particles.forEach(p => { ctx.globalAlpha = Math.max(0, p.life); ctx.shadowBlur = 10; ctx.shadowColor = p.color; ctx.fillStyle = p.color; ctx.fillRect(p.x, p.y, p.size, p.size); });
+            ctx.globalAlpha = 1.0; ctx.shadowBlur = 0;
 
             floatingTexts.forEach(ft => {
-                ctx.globalAlpha = Math.max(0, ft.life); 
-                ctx.fillStyle = ft.color;
-                ctx.shadowBlur = 10;
-                ctx.shadowColor = ft.color;
-                ctx.font = 'bold 24px Courier New';
-                ctx.textAlign = 'center';
-                ctx.fillText(ft.text, ft.x, ft.y);
+                ctx.globalAlpha = Math.max(0, ft.life); ctx.fillStyle = ft.color; ctx.shadowBlur = 10; ctx.shadowColor = ft.color; ctx.font = 'bold 24px Courier New'; ctx.textAlign = 'center'; ctx.fillText(ft.text, ft.x, ft.y);
             });
-            ctx.globalAlpha = 1.0;
-            ctx.shadowBlur = 0;
+            ctx.globalAlpha = 1.0; ctx.shadowBlur = 0;
 
             ctx.restore();
         }
@@ -1484,105 +1255,43 @@
             if (dt > 0.1) dt = 0.1; 
             lastTime = timestamp;
 
-            if (gameState === 'PLAYING') {
-                update(dt);
-            }
+            if (gameState === 'PLAYING') update(dt);
             draw();
-
             requestAnimationFrame(gameLoop);
         }
 
         function startGame() {
             initAudio();
-            gameState = 'PLAYING';
-            isPaused = false;
-            p1Score = 0;
-            p2Score = 0;
-            score1El.innerText = p1Score;
-            score2El.innerText = p2Score;
-            
-            // Read Custom Player Names
-            p1Name = p1NameInput.value.trim() || "PLAYER 1";
-            p2Name = p2NameInput.value.trim() || "PLAYER 2";
+            gameState = 'PLAYING'; isPaused = false; p1Score = 0; p2Score = 0; score1El.innerText = p1Score; score2El.innerText = p2Score;
+            p1Name = p1NameInput.value.trim() || "PLAYER 1"; p2Name = p2NameInput.value.trim() || "PLAYER 2";
+            matchStats = { duration: 0, maxRally: 0, maxSpeed: 0, distance: 0, tokensGrabbed: 0, overdrivesUsed: 0, repulsesFired: 0 };
+            gameMode = gameModeSelect.value; p1Sets = 0; p2Sets = 0; survivalTime = 0; rallyCount = 0; updateSetUI();
 
-            // Reset Match Stats
-            matchStats = {
-                duration: 0, maxRally: 0, maxSpeed: 0,
-                tokensGrabbed: 0, overdrivesUsed: 0, repulsesFired: 0
-            };
-
-            gameMode = gameModeSelect.value;
-            p1Sets = 0;
-            p2Sets = 0;
-            survivalTime = 0;
-            rallyCount = 0;
-            updateSetUI();
-
-            // Handle UI Visibility based on mode
             if (gameMode === 'COOP') {
-                scoreBoard.classList.add('hidden');
-                coopScoreDisplay.classList.remove('hidden');
-                coopScoreDisplay.classList.remove('opacity-0');
-                setIndicators.classList.add('hidden');
-                coopTimer.innerText = '0.0s';
-                coopRally.innerText = '0 HITS';
+                scoreBoard.classList.add('hidden'); coopScoreDisplay.classList.remove('hidden'); coopScoreDisplay.classList.remove('opacity-0'); setIndicators.classList.add('hidden');
+                coopTimer.innerText = '0.0s'; coopRally.innerText = '0 HITS';
             } else {
-                scoreBoard.classList.remove('hidden');
-                scoreBoard.classList.remove('opacity-0');
-                coopScoreDisplay.classList.add('hidden');
-                if (gameMode === 'BEST_OF_3') {
-                    setIndicators.classList.remove('hidden');
-                    setIndicators.classList.remove('opacity-0');
-                } else {
-                    setIndicators.classList.add('hidden');
-                }
+                scoreBoard.classList.remove('hidden'); scoreBoard.classList.remove('opacity-0'); coopScoreDisplay.classList.add('hidden');
+                if (gameMode === 'BEST_OF_3') { setIndicators.classList.remove('hidden'); setIndicators.classList.remove('opacity-0'); } 
+                else { setIndicators.classList.add('hidden'); }
             }
             
             currentMapType = Math.floor(Math.random() * MAP_COUNT); 
-            activeTokens = [];
-            tokenSpawnTimer = 0;
-            screenShake = 0;
-            bgPulse = 0;
-            floatingTexts = [];
+            activeTokens = []; debrisParticles = []; tokenSpawnTimer = 0; screenShake = 0; bgPulse = 0; floatingTexts = [];
             
-            // Wipe stats for new game
-            player1.stats = createPlayerStats();
-            player2.stats = createPlayerStats();
-            
-            player1.effectTimer = 0;
-            player2.effectTimer = 0;
-            player1.confusedTimer = 0;
-            player2.confusedTimer = 0;
-            player1.shield = false;
-            player2.shield = false;
-            player1.energy = 100;
-            player2.energy = 100;
-            player1.isOverdrive = false;
-            player2.isOverdrive = false;
+            player1.stats = createPlayerStats(); player2.stats = createPlayerStats();
+            player1.effectTimer = 0; player2.effectTimer = 0; player1.confusedTimer = 0; player2.confusedTimer = 0; player1.shields = 0; player2.shields = 0; player1.energy = 100; player2.energy = 100; player1.isOverdrive = false; player2.isOverdrive = false;
 
-            startScreen.classList.add('opacity-0');
-            winnerScreen.classList.add('opacity-0');
-            upgradeScreen.classList.add('hidden');
-            pauseScreen.classList.add('hidden');
-            
-            setTimeout(() => {
-                startScreen.classList.add('hidden');
-                winnerScreen.classList.add('hidden');
-            }, 500);
-            
-            resize(); 
-            resetBall();
+            startScreen.classList.add('opacity-0'); winnerScreen.classList.add('opacity-0'); upgradeScreen.classList.add('hidden'); pauseScreen.classList.add('hidden');
+            setTimeout(() => { startScreen.classList.add('hidden'); winnerScreen.classList.add('hidden'); }, 500);
+            resize(); resetBall();
         }
 
         startBtn.addEventListener('click', startGame);
 
         resize();
-        player1.y = canvas.height / 2 - player1.height / 2;
-        player2.y = canvas.height / 2 - player2.height / 2;
-        requestAnimationFrame((timestamp) => {
-            lastTime = timestamp;
-            gameLoop(timestamp);
-        });
+        player1.y = canvas.height / 2 - player1.height / 2; player2.y = canvas.height / 2 - player2.height / 2;
+        requestAnimationFrame((timestamp) => { lastTime = timestamp; gameLoop(timestamp); });
 
     </script>
 </body>
