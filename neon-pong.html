@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Neon Pong</title>
+    <title>Neon Pong - Arcade Network</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         body, html {
@@ -37,6 +37,12 @@
             border-bottom: 2px solid;
             width: 180px;
         }
+        
+        /* Custom Scrollbar for social list */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #111; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb { background: #333; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #00e5ff; }
     </style>
 </head>
 <body>
@@ -44,6 +50,28 @@
     <!-- UI Overlay -->
     <div id="uiLayer" class="absolute inset-0 pointer-events-none flex flex-col z-10 scanlines">
         
+        <!-- TOP PROFILE WIDGET (Always visible in menus) -->
+        <div id="userProfileBar" class="absolute top-4 right-4 flex items-center gap-4 z-50 pointer-events-auto hidden transition-opacity duration-300">
+            <div id="guestState" class="flex gap-2">
+                <button id="googleLoginBtn" class="bg-white text-black font-bold px-4 py-2 rounded flex items-center gap-2 hover:bg-gray-200 shadow-[0_0_10px_rgba(255,255,255,0.3)] transition-all">
+                    <svg class="w-5 h-5" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+                    Sign In
+                </button>
+            </div>
+            <div id="loggedInState" class="hidden flex items-center gap-3 bg-black/80 border-2 border-[#00e5ff] p-2 px-3 rounded-lg cursor-pointer hover:bg-gray-900 shadow-[0_0_15px_rgba(0,229,255,0.2)] transition-all" onclick="openSocialHub()">
+                <img id="userAvatar" src="https://via.placeholder.com/40" class="w-10 h-10 rounded-full border-2 border-[#00e5ff] object-cover">
+                <div class="flex flex-col min-w-[120px]">
+                    <span id="userNameDisplay" class="text-white font-bold text-sm uppercase truncate max-w-[150px]">Player</span>
+                    <div class="flex items-center gap-2">
+                        <span id="userLevelDisplay" class="text-[#00e5ff] text-[10px] font-bold tracking-widest">LVL 1</span>
+                        <div class="flex-grow h-1.5 bg-gray-700 rounded-full overflow-hidden">
+                            <div id="userXpBar" class="h-full bg-[#00e5ff] transition-all duration-500" style="width: 0%"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- Score Board -->
         <div class="flex justify-between w-full px-12 md:px-32 py-8 text-5xl md:text-8xl font-bold opacity-40 transition-opacity duration-300 relative" id="scoreBoard">
             <span id="score1" class="neon-text-pink text-[#ff00ff]">0</span>
@@ -64,12 +92,12 @@
 
         <!-- Start Screen -->
         <div id="startScreen" class="absolute inset-0 flex flex-col items-center justify-center bg-black/90 pointer-events-auto transition-opacity duration-500 z-40">
-            <!-- Back to Library Button -->
+            
             <a href="index.html" class="absolute top-6 left-6 px-4 py-2 bg-transparent border-2 border-[#00e5ff] text-[#00e5ff] font-bold rounded hover:bg-[#00e5ff] hover:text-black transition-all cursor-pointer text-sm tracking-widest uppercase shadow-[0_0_10px_rgba(0,229,255,0.3)]">
                 &larr; Game Library
             </a>
 
-            <h1 class="text-6xl md:text-8xl font-bold neon-text-yellow text-yellow-300 mb-8 tracking-widest text-center">NEON PONG</h1>
+            <h1 class="text-6xl md:text-8xl font-bold neon-text-yellow text-yellow-300 mb-8 tracking-widest text-center" style="text-shadow: 0 0 10px rgba(255,255,0,0.5)">NEON PONG</h1>
             
             <div class="mb-10 flex flex-col items-center">
                 <label class="text-gray-400 mb-2 tracking-widest text-sm uppercase">Select Game Mode</label>
@@ -102,9 +130,101 @@
                     START GAME
                 </button>
                 <button id="showLeaderboardBtn" class="px-6 py-4 bg-transparent border-2 border-gray-400 text-gray-400 text-xl font-bold rounded hover:bg-gray-400 hover:text-black transition-all cursor-pointer">
-                    GLOBAL LEADERBOARD
+                    LEADERBOARD
+                </button>
+                <button onclick="openSocialHub()" class="px-6 py-4 bg-transparent border-2 border-[#00e5ff] text-[#00e5ff] text-xl font-bold rounded hover:bg-[#00e5ff] hover:text-black transition-all cursor-pointer shadow-[0_0_15px_rgba(0,229,255,0.3)]">
+                    SOCIAL HUB
                 </button>
             </div>
+        </div>
+
+        <!-- Social Hub & Profile Screen -->
+        <div id="socialScreen" class="absolute inset-0 flex flex-col items-center py-12 bg-black/95 pointer-events-auto hidden transition-opacity duration-300 z-50 overflow-y-auto">
+            <h1 class="text-4xl md:text-5xl font-bold mb-2 tracking-widest text-center uppercase neon-text-cyan text-[#00e5ff]">COMMAND CENTER</h1>
+            <p class="text-gray-400 mb-8 tracking-widest text-sm uppercase">Player Profile & Network</p>
+            
+            <!-- Login Warning -->
+            <div id="socialLoginWarning" class="hidden flex flex-col items-center mt-20">
+                <p class="text-2xl text-yellow-300 mb-6 font-bold text-center">You must Sign In with Google<br>to access the Social Hub.</p>
+                <button onclick="document.getElementById('googleLoginBtn').click()" class="bg-white text-black font-bold px-6 py-3 rounded text-xl flex items-center gap-2 hover:bg-gray-200 shadow-[0_0_20px_rgba(255,255,255,0.4)]">
+                    Sign In with Google
+                </button>
+            </div>
+
+            <!-- Dashboard Content -->
+            <div id="socialDashboard" class="w-11/12 max-w-6xl grid grid-cols-1 md:grid-cols-2 gap-8 hidden">
+                
+                <!-- Left Column: Profile & Stats -->
+                <div class="flex flex-col gap-6">
+                    <!-- Profile Card -->
+                    <div class="bg-gray-900 border-2 border-gray-700 p-6 rounded-lg shadow-[0_0_15px_rgba(0,0,0,0.5)] flex gap-6 items-center">
+                        <img id="hubAvatar" src="" class="w-24 h-24 rounded border-4 border-[#00e5ff] object-cover">
+                        <div class="flex flex-col w-full">
+                            <h2 id="hubName" class="text-3xl font-bold text-white uppercase mb-1"></h2>
+                            <p id="hubEmail" class="text-gray-400 text-sm mb-3"></p>
+                            
+                            <div class="flex justify-between items-end mb-1">
+                                <span id="hubLevel" class="text-[#00e5ff] font-bold text-lg"></span>
+                                <span id="hubXpText" class="text-gray-500 text-xs font-bold"></span>
+                            </div>
+                            <div class="w-full h-3 bg-gray-800 rounded-full overflow-hidden border border-gray-600">
+                                <div id="hubXpBar" class="h-full bg-gradient-to-r from-blue-500 to-[#00e5ff]" style="width: 0%"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Stats Card -->
+                    <div class="bg-gray-900 border-2 border-gray-700 p-6 rounded-lg flex flex-col flex-grow">
+                        <h3 class="text-xl font-bold text-yellow-300 mb-4 border-b border-gray-700 pb-2 uppercase tracking-widest">Career Stats</h3>
+                        <div class="grid grid-cols-2 gap-4 text-sm md:text-base">
+                            <div class="bg-black p-3 border border-gray-800 rounded">
+                                <p class="text-gray-500 text-xs mb-1 uppercase">Matches Played</p>
+                                <p id="statTotalMatches" class="text-white font-bold text-2xl">0</p>
+                            </div>
+                            <div class="bg-black p-3 border border-gray-800 rounded">
+                                <p class="text-gray-500 text-xs mb-1 uppercase">Total Wins</p>
+                                <p id="statTotalWins" class="text-green-400 font-bold text-2xl">0</p>
+                            </div>
+                            <div class="bg-black p-3 border border-gray-800 rounded">
+                                <p class="text-gray-500 text-xs mb-1 uppercase">Co-op Best Time</p>
+                                <p id="statCoopBest" class="text-[#00e5ff] font-bold text-2xl">0.0s</p>
+                            </div>
+                            <div class="bg-black p-3 border border-gray-800 rounded">
+                                <p class="text-gray-500 text-xs mb-1 uppercase">Max Rally</p>
+                                <p id="statMaxRally" class="text-pink-400 font-bold text-2xl">0</p>
+                            </div>
+                        </div>
+                        <button id="logoutBtn" class="mt-auto pt-6 text-red-500 hover:text-red-400 text-sm uppercase tracking-widest font-bold text-left">
+                            [ Disconnect Account ]
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Right Column: Friends Network -->
+                <div class="bg-gray-900 border-2 border-gray-700 p-6 rounded-lg flex flex-col h-[500px]">
+                    <h3 class="text-xl font-bold text-white mb-4 border-b border-gray-700 pb-2 uppercase tracking-widest">Friend Network</h3>
+                    
+                    <!-- Add Friend -->
+                    <div class="flex gap-2 mb-6">
+                        <input type="text" id="friendSearchInput" placeholder="Enter exact username..." class="flex-grow bg-black border border-gray-600 text-white p-2 rounded outline-none focus:border-[#00e5ff]">
+                        <button id="addFriendBtn" class="bg-[#00e5ff] text-black font-bold px-4 py-2 rounded hover:bg-white transition-colors">ADD</button>
+                    </div>
+                    <p id="friendSearchMsg" class="text-xs -mt-4 mb-4 text-yellow-400 h-4"></p>
+
+                    <!-- Friend List -->
+                    <div class="flex-grow overflow-y-auto bg-black border border-gray-800 p-2 rounded">
+                        <ul id="friendsList" class="flex flex-col gap-2">
+                            <!-- Friends injected here -->
+                            <p class="text-gray-600 text-center mt-10 italic">No friends added yet.</p>
+                        </ul>
+                    </div>
+                </div>
+
+            </div>
+
+            <button onclick="closeSocialHub()" class="mt-8 px-8 py-3 bg-transparent border-2 border-red-500 text-red-500 font-bold rounded hover:bg-red-500 hover:text-black transition-all cursor-pointer shadow-[0_0_15px_rgba(255,0,0,0.2)]">
+                CLOSE HUB
+            </button>
         </div>
 
         <!-- Leaderboard Screen -->
@@ -168,7 +288,8 @@
 
         <!-- Winner Screen -->
         <div id="winnerScreen" class="absolute inset-0 flex flex-col items-center justify-center bg-black/95 pointer-events-auto opacity-0 hidden transition-opacity duration-500 z-30 overflow-y-auto py-12">
-             <h1 id="winnerText" class="text-6xl md:text-8xl font-bold mb-6 tracking-widest text-center uppercase"></h1>
+             <h1 id="winnerText" class="text-6xl md:text-8xl font-bold mb-2 tracking-widest text-center uppercase"></h1>
+             <p id="xpGainedText" class="text-2xl text-[#00e5ff] font-bold mb-6 tracking-widest hidden">+0 XP</p>
              
              <!-- Match Stats & Analysis -->
              <div class="bg-gray-900 border-2 border-gray-700 rounded-lg p-6 md:p-8 mb-10 w-11/12 max-w-2xl shadow-[0_0_30px_rgba(255,255,255,0.1)]">
@@ -226,11 +347,11 @@
     <!-- App Logic as a Module for Firebase Compatibility -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, collection, addDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, addDoc, onSnapshot, doc, setDoc, getDoc, updateDoc, query, where, getDocs, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // ==========================================
-        // FIREBASE SETUP - PASTE YOUR CONFIG HERE!
+        // FIREBASE SETUP
         // ==========================================
         const firebaseConfig = {
             apiKey: "AIzaSyDyYNPRUBoSwCjWR2IQWVQGbVaT0FHjWuE",
@@ -241,51 +362,271 @@
             appId: "1:1031854129604:web:a10eadca41f19516cbe491",
             measurementId: "G-YJKSE32X55"
         };
-        // ==========================================
 
-        let db = null;
-        let auth = null;
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        const googleProvider = new GoogleAuthProvider();
+
         let currentUser = null;
-        let appId = 'neon-pong'; // Static app ID for database path
-        let globalLeaderboardData = []; // Cloud fetched data
-        let cloudConnected = false;
+        let userData = null; // Holds profile, level, stats
+        let userUnsubscribe = null;
+        let friendsUnsubscribe = null;
+        const appId = 'neon-pong'; // App identifier for strict DB paths
+
+        // UI Binding Functions for global scope
+        window.openSocialHub = () => {
+            const screen = document.getElementById('socialScreen');
+            screen.classList.remove('hidden');
+            if (currentUser && !currentUser.isAnonymous) {
+                document.getElementById('socialLoginWarning').classList.add('hidden');
+                document.getElementById('socialDashboard').classList.remove('hidden');
+            } else {
+                document.getElementById('socialLoginWarning').classList.remove('hidden');
+                document.getElementById('socialDashboard').classList.add('hidden');
+            }
+        };
+        window.closeSocialHub = () => document.getElementById('socialScreen').classList.add('hidden');
+
+        // --- AUTH & PROFILE LOGIC ---
+        const googleLoginBtn = document.getElementById('googleLoginBtn');
+        const logoutBtn = document.getElementById('logoutBtn');
         
-        const leaderboardStatus = document.getElementById('leaderboardStatus');
+        googleLoginBtn.addEventListener('click', async () => {
+            try {
+                await signInWithPopup(auth, googleProvider);
+            } catch (error) {
+                console.error("Login failed:", error);
+                alert("Login failed. Note: Popup blockers or iframe restrictions might prevent login here. Works perfectly on Vercel!");
+            }
+        });
 
-        try {
-            const app = initializeApp(firebaseConfig);
-            auth = getAuth(app);
-            db = getFirestore(app);
+        logoutBtn.addEventListener('click', async () => {
+            await signOut(auth);
+            // Fallback to guest
+            signInAnonymously(auth);
+            window.closeSocialHub();
+        });
 
-            // Login Anonymously so users can write scores to the DB without creating an account
-            signInAnonymously(auth).catch((error) => {
-                console.error("Anonymous auth failed (Did you enable it in Firebase Console?):", error);
-            });
+        // Determine Level from XP (1000 XP per level)
+        const calculateLevel = (xp) => Math.floor(xp / 1000) + 1;
+        const calculateXpPercentage = (xp) => (xp % 1000) / 10;
 
-            onAuthStateChanged(auth, (user) => {
+        onAuthStateChanged(auth, async (user) => {
+            document.getElementById('userProfileBar').classList.remove('hidden');
+            
+            if (userUnsubscribe) userUnsubscribe();
+            if (friendsUnsubscribe) friendsUnsubscribe();
+
+            if (user && !user.isAnonymous) {
                 currentUser = user;
-                if (user && db) {
-                    cloudConnected = true;
-                    // Subscribe to global public leaderboard
-                    const leaderboardRef = collection(db, 'artifacts', appId, 'public', 'data', 'leaderboard');
-                    onSnapshot(leaderboardRef, (snapshot) => {
-                        const data = [];
-                        snapshot.forEach(doc => data.push({ id: doc.id, ...doc.data() }));
-                        // Sort descending by timestamp
-                        data.sort((a, b) => b.timestamp - a.timestamp);
-                        globalLeaderboardData = data;
-                        
-                        if (!document.getElementById('leaderboardScreen').classList.contains('hidden')) {
-                            renderLeaderboardUI();
-                        }
-                    }, (error) => {
-                        console.error("Leaderboard sync error:", error);
-                        leaderboardStatus.innerText = "Error syncing with cloud. Check security rules.";
+                document.getElementById('guestState').classList.add('hidden');
+                document.getElementById('loggedInState').classList.remove('hidden');
+                
+                // Auto-fill Player 1 name with first name
+                const firstName = user.displayName ? user.displayName.split(' ')[0].toUpperCase() : "PLAYER 1";
+                document.getElementById('p1NameInput').value = firstName;
+
+                // Sync/Create User Profile in Firestore
+                const userRef = doc(db, 'artifacts', appId, 'users', user.uid, 'profile', 'data');
+                const userSnap = await getDoc(userRef);
+                
+                if (!userSnap.exists()) {
+                    await setDoc(userRef, {
+                        displayName: user.displayName,
+                        searchName: user.displayName.toLowerCase(),
+                        photoURL: user.photoURL,
+                        email: user.email,
+                        xp: 0,
+                        level: 1,
+                        stats: { totalMatches: 0, totalWins: 0, coopBestTime: 0, maxRally: 0 }
                     });
                 }
+
+                // Also add to public registry so friends can find them!
+                await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'userRegistry', user.uid), {
+                    displayName: user.displayName,
+                    searchName: user.displayName.toLowerCase(),
+                    photoURL: user.photoURL
+                }, { merge: true });
+
+                // Listen to profile updates
+                userUnsubscribe = onSnapshot(userRef, (docSnap) => {
+                    if (docSnap.exists()) {
+                        userData = docSnap.data();
+                        updateProfileUI(userData);
+                    }
+                });
+
+                // Listen to Friends list
+                const friendsRef = collection(db, 'artifacts', appId, 'users', user.uid, 'friends');
+                friendsUnsubscribe = onSnapshot(friendsRef, (snapshot) => {
+                    const list = document.getElementById('friendsList');
+                    list.innerHTML = '';
+                    if (snapshot.empty) {
+                        list.innerHTML = '<p class="text-gray-600 text-center mt-10 italic">No friends added yet.</p>';
+                    } else {
+                        snapshot.forEach(doc => {
+                            const friend = doc.data();
+                            list.innerHTML += `
+                                <li class="flex items-center gap-3 p-2 bg-gray-800 rounded border border-gray-700">
+                                    <img src="${friend.photoURL || 'https://via.placeholder.com/30'}" class="w-8 h-8 rounded-full border border-[#00e5ff]">
+                                    <span class="text-white font-bold text-sm">${friend.displayName}</span>
+                                    <button class="ml-auto text-red-500 hover:text-red-400 text-xs uppercase remove-friend-btn" data-id="${doc.id}">Remove</button>
+                                </li>
+                            `;
+                        });
+
+                        // Add event listeners to dynamically created remove buttons
+                        document.querySelectorAll('.remove-friend-btn').forEach(btn => {
+                            btn.addEventListener('click', async (e) => {
+                                const friendId = e.target.getAttribute('data-id');
+                                await deleteDoc(doc(db, 'artifacts', appId, 'users', currentUser.uid, 'friends', friendId));
+                            });
+                        });
+                    }
+                });
+
+            } else {
+                currentUser = null;
+                userData = null;
+                document.getElementById('guestState').classList.remove('hidden');
+                document.getElementById('loggedInState').classList.add('hidden');
+                
+                // If completely logged out, sign in anonymously for leaderboard saving
+                if (!user) {
+                    signInAnonymously(auth).catch(console.error);
+                }
+            }
+        });
+
+        function updateProfileUI(data) {
+            // Update Top Bar
+            document.getElementById('userAvatar').src = data.photoURL || 'https://via.placeholder.com/40';
+            document.getElementById('userNameDisplay').innerText = data.displayName || 'Player';
+            document.getElementById('userLevelDisplay').innerText = `LVL ${data.level}`;
+            document.getElementById('userXpBar').style.width = `${calculateXpPercentage(data.xp)}%`;
+
+            // Update Social Hub
+            document.getElementById('hubAvatar').src = data.photoURL || 'https://via.placeholder.com/100';
+            document.getElementById('hubName').innerText = data.displayName || 'Player';
+            document.getElementById('hubEmail').innerText = data.email || '';
+            document.getElementById('hubLevel').innerText = `LEVEL ${data.level}`;
+            document.getElementById('hubXpText').innerText = `${data.xp} Total XP`;
+            document.getElementById('hubXpBar').style.width = `${calculateXpPercentage(data.xp)}%`;
+
+            // Update Stats
+            if(data.stats) {
+                document.getElementById('statTotalMatches').innerText = data.stats.totalMatches || 0;
+                document.getElementById('statTotalWins').innerText = data.stats.totalWins || 0;
+                document.getElementById('statCoopBest').innerText = (data.stats.coopBestTime || 0) + 's';
+                document.getElementById('statMaxRally').innerText = data.stats.maxRally || 0;
+            }
+        }
+
+        // --- FRIENDS SYSTEM ---
+        const addFriendBtn = document.getElementById('addFriendBtn');
+        const friendSearchInput = document.getElementById('friendSearchInput');
+        const friendSearchMsg = document.getElementById('friendSearchMsg');
+
+        addFriendBtn.addEventListener('click', async () => {
+            if (!currentUser || currentUser.isAnonymous) return;
+            const searchName = friendSearchInput.value.trim().toLowerCase();
+            if (!searchName) return;
+
+            friendSearchMsg.innerText = "Searching...";
+            friendSearchMsg.className = "text-xs -mt-4 mb-4 text-blue-400 h-4";
+
+            try {
+                // Query users collection for matching display name
+                const q = query(collection(db, 'artifacts', appId, 'public', 'data', 'userRegistry'), where("searchName", "==", searchName));
+                const querySnapshot = await getDocs(q);
+
+                if (querySnapshot.empty) {
+                    friendSearchMsg.innerText = "Player not found.";
+                    friendSearchMsg.className = "text-xs -mt-4 mb-4 text-red-400 h-4";
+                } else {
+                    const friendDoc = querySnapshot.docs[0];
+                    if (friendDoc.id === currentUser.uid) {
+                        friendSearchMsg.innerText = "You can't add yourself!";
+                        friendSearchMsg.className = "text-xs -mt-4 mb-4 text-yellow-400 h-4";
+                        return;
+                    }
+
+                    // Add to friends subcollection
+                    await setDoc(doc(db, 'artifacts', appId, 'users', currentUser.uid, 'friends', friendDoc.id), {
+                        displayName: friendDoc.data().displayName,
+                        photoURL: friendDoc.data().photoURL
+                    });
+
+                    friendSearchInput.value = '';
+                    friendSearchMsg.innerText = "Friend added!";
+                    friendSearchMsg.className = "text-xs -mt-4 mb-4 text-green-400 h-4";
+                    setTimeout(() => friendSearchMsg.innerText = "", 3000);
+                }
+            } catch (e) {
+                console.error("Error adding friend:", e);
+                friendSearchMsg.innerText = "Error searching. Check database rules.";
+                friendSearchMsg.className = "text-xs -mt-4 mb-4 text-red-400 h-4";
+            }
+        });
+
+
+        // --- LEADERBOARD LOGIC ---
+        let globalLeaderboardData = []; 
+        let cloudConnected = false;
+        const leaderboardStatus = document.getElementById('leaderboardStatus');
+
+        // Check if DB is initialized before setting up leaderboard listeners
+        if (db) {
+            cloudConnected = true;
+            const leaderboardRef = collection(db, 'artifacts', appId, 'public', 'data', 'leaderboard'); // Using proper path
+            onSnapshot(leaderboardRef, (snapshot) => {
+                const data = [];
+                snapshot.forEach(doc => data.push({ id: doc.id, ...doc.data() }));
+                data.sort((a, b) => b.timestamp - a.timestamp);
+                globalLeaderboardData = data;
+                
+                if (!document.getElementById('leaderboardScreen').classList.contains('hidden')) {
+                    renderLeaderboardUI();
+                }
+            }, (error) => {
+                console.error("Leaderboard sync error:", error);
             });
-        } catch (e) {
-            console.warn("Firebase config invalid. Falling back to local storage.", e);
+        }
+
+        const CSV_STORAGE_KEY = 'neonPongLeaderboardCSV';
+        const CSV_HEADER = "Date,Time,Mode,Winner,Loser,Score/Time,MaxRally\n";
+
+        async function saveMatchRecord(winner, loser, finalScore) {
+            const now = new Date();
+            const dateStr = now.toLocaleDateString();
+            const timeStr = now.toLocaleTimeString();
+
+            const record = {
+                date: dateStr,
+                time: timeStr,
+                mode: gameMode,
+                winner: winner,
+                loser: loser,
+                score: finalScore,
+                duration: matchStats.duration.toFixed(1) + 's',
+                maxRally: matchStats.maxRally.toString(),
+                timestamp: Date.now()
+            };
+
+            // 1. Push to Global Cloud DB
+            if (cloudConnected && db) {
+                try {
+                    await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'leaderboard'), record);
+                } catch (e) { console.error("Failed to save to cloud:", e); }
+            }
+
+            // 2. Fallback to Local Storage CSV
+            let csvData = localStorage.getItem(CSV_STORAGE_KEY) || CSV_HEADER;
+            const newLine = `${record.date},${record.time},${record.mode},${record.winner},${record.loser},${record.score},${record.maxRally}\n`;
+            csvData += newLine;
+            localStorage.setItem(CSV_STORAGE_KEY, csvData);
         }
 
         // --- GAME ENGINE & LOGIC ---
@@ -308,6 +649,7 @@
         const upgradeCardsContainer = document.getElementById('upgradeCards');
         const winnerScreen = document.getElementById('winnerScreen');
         const winnerText = document.getElementById('winnerText');
+        const xpGainedText = document.getElementById('xpGainedText');
         const startBtn = document.getElementById('startBtn');
         const restartBtn = document.getElementById('restartBtn');
         const menuBtn = document.getElementById('menuBtn');
@@ -392,23 +734,11 @@
                 e.preventDefault();
                 return;
             }
+            if (keys.hasOwnProperty(e.code)) { keys[e.code] = true; e.preventDefault(); }
 
-            if (keys.hasOwnProperty(e.code)) {
-                keys[e.code] = true;
-                e.preventDefault(); 
-            }
-
-            if (e.code === 'Space' && gameState === 'PLAYING' && !isPaused) {
-                triggerPulse(player1, 1);
-                e.preventDefault();
-            }
-            if (e.code === 'Enter' && gameState === 'PLAYING' && !isPaused) {
-                triggerPulse(player2, 2);
-                e.preventDefault();
-            }
-            if (e.code === 'KeyR' && (gameState === 'PLAYING' || gameState === 'GAMEOVER')) {
-                startGame();
-            }
+            if (e.code === 'Space' && gameState === 'PLAYING' && !isPaused) { triggerPulse(player1, 1); e.preventDefault(); }
+            if (e.code === 'Enter' && gameState === 'PLAYING' && !isPaused) { triggerPulse(player2, 2); e.preventDefault(); }
+            if (e.code === 'KeyR' && (gameState === 'PLAYING' || gameState === 'GAMEOVER')) { startGame(); }
         });
 
         window.addEventListener('keyup', (e) => {
@@ -416,7 +746,6 @@
         });
 
         const paddle = { width: 20, speed: 850 };
-
         const createPlayerStats = () => ({ heightMult: 1.0, speedMult: 1.0, maxEnergy: 100, regenMult: 1.0, smashMult: 1.0, shieldStart: 0 });
 
         const player1 = { x: 0, y: 0, color: COLOR_P1, height: 200, defaultHeight: 200, effectTimer: 0, confusedTimer: 0, shields: 0, energy: 100, isOverdrive: false, pulseTimer: 0, stats: createPlayerStats() };
@@ -502,6 +831,7 @@
             if (isPaused) {
                 gameState = 'PAUSED';
                 pauseScreen.classList.remove('hidden');
+                document.getElementById('userProfileBar').classList.add('hidden');
             } else {
                 gameState = 'PLAYING';
                 pauseScreen.classList.add('hidden');
@@ -522,48 +852,10 @@
             scoreBoard.classList.add('opacity-0');
             setIndicators.classList.add('opacity-0');
             coopScoreDisplay.classList.add('opacity-0');
+            document.getElementById('userProfileBar').classList.remove('hidden');
             resize();
         }
         menuBtn.addEventListener('click', returnToMenu);
-
-        // --- DATABASE / LEADERBOARD HANDLING ---
-        const CSV_STORAGE_KEY = 'neonPongLeaderboardCSV';
-        const CSV_HEADER = "Date,Time,Mode,Winner,Loser,Score/Time,MaxRally\n";
-
-        async function saveMatchRecord(winner, loser, finalScore) {
-            const now = new Date();
-            const dateStr = now.toLocaleDateString();
-            const timeStr = now.toLocaleTimeString();
-
-            const record = {
-                date: dateStr,
-                time: timeStr,
-                mode: gameMode,
-                winner: winner,
-                loser: loser,
-                score: finalScore,
-                duration: matchStats.duration.toFixed(1) + 's',
-                maxRally: matchStats.maxRally.toString(),
-                timestamp: Date.now()
-            };
-
-            // 1. Try pushing to Global Cloud DB
-            if (cloudConnected && db) {
-                try {
-                    const leaderboardRef = collection(db, 'artifacts', appId, 'public', 'data', 'leaderboard');
-                    await addDoc(leaderboardRef, record);
-                    return; // Successfully pushed
-                } catch (e) {
-                    console.error("Failed to save to cloud:", e);
-                }
-            }
-
-            // 2. Fallback to Local Storage CSV string
-            let csvData = localStorage.getItem(CSV_STORAGE_KEY) || CSV_HEADER;
-            const newLine = `${record.date},${record.time},${record.mode},${record.winner},${record.loser},${record.score},${record.maxRally}\n`;
-            csvData += newLine;
-            localStorage.setItem(CSV_STORAGE_KEY, csvData);
-        }
 
         function renderLeaderboardUI() {
             leaderboardBody.innerHTML = '';
@@ -623,15 +915,9 @@
 
         downloadCsvBtn.addEventListener('click', () => {
             let exportCSV = CSV_HEADER;
-            
-            // Generate CSV from cloud data if connected, else use local string
             if (cloudConnected && globalLeaderboardData.length > 0) {
-                globalLeaderboardData.forEach(r => {
-                    exportCSV += `${r.date},${r.time},${r.mode},${r.winner},${r.loser},${r.score},${r.maxRally}\n`;
-                });
-            } else {
-                exportCSV = localStorage.getItem(CSV_STORAGE_KEY) || CSV_HEADER;
-            }
+                globalLeaderboardData.forEach(r => { exportCSV += `${r.date},${r.time},${r.mode},${r.winner},${r.loser},${r.score},${r.maxRally}\n`; });
+            } else { exportCSV = localStorage.getItem(CSV_STORAGE_KEY) || CSV_HEADER; }
 
             const blob = new Blob([exportCSV], { type: 'text/csv' });
             const url = window.URL.createObjectURL(blob);
@@ -651,28 +937,19 @@
             playSound('powerup');
             matchStats.repulsesFired++;
             
-            const paddleCenterX = p.x + paddle.width/2;
-            const paddleCenterY = p.y + p.height/2;
-            const dx = ball.x - paddleCenterX;
-            const dy = ball.y - paddleCenterY;
-            const dist = Math.sqrt(dx*dx + dy*dy);
+            const paddleCenterX = p.x + paddle.width/2, paddleCenterY = p.y + p.height/2;
+            const dx = ball.x - paddleCenterX, dy = ball.y - paddleCenterY, dist = Math.sqrt(dx*dx + dy*dy);
             
             if (dist < 250) { 
-                screenShake = 10;
-                bgPulse = 0.3;
+                screenShake = 10; bgPulse = 0.3;
                 createParticles(ball.x, ball.y, '#ffffff', 25, num === 1 ? 1 : -1);
                 
                 const currentSpeed = Math.max(Math.sqrt(ball.vx*ball.vx + ball.vy*ball.vy), ball.baseSpeed);
-                
-                if (num === 1) {
-                    ball.vx = Math.abs(ball.vx) + 200; 
-                } else {
-                    ball.vx = -Math.abs(ball.vx) - 200; 
-                }
+                if (num === 1) ball.vx = Math.abs(ball.vx) + 200; 
+                else ball.vx = -Math.abs(ball.vx) - 200; 
                 
                 ball.vy += (Math.random() - 0.5) * 600;
-                ball.lastHitBy = num;
-                ball.isStarting = false;
+                ball.lastHitBy = num; ball.isStarting = false;
                 addFloatingText(ball.x, ball.y, "REPULSED!", '#00aaff');
             }
         }
@@ -693,49 +970,33 @@
             selected.forEach(upg => {
                 const btn = document.createElement('button');
                 btn.className = "flex flex-col items-center justify-center p-6 bg-gray-900 border-2 border-gray-600 rounded-lg hover:border-white hover:bg-gray-800 transition-all cursor-pointer w-64 h-64 group shadow-[0_0_15px_rgba(0,0,0,0.5)]";
-                btn.innerHTML = `
-                    <h3 class="text-2xl font-bold mb-4 text-center ${upg.color}">${upg.name}</h3>
-                    <p class="text-gray-300 text-center">${upg.desc}</p>
-                `;
+                btn.innerHTML = `<h3 class="text-2xl font-bold mb-4 text-center ${upg.color}">${upg.name}</h3><p class="text-gray-300 text-center">${upg.desc}</p>`;
                 btn.onclick = () => {
                     upg.action(targetPlayer);
                     upgradeScreen.classList.add('hidden');
-                    
                     currentMapType = Math.floor(Math.random() * MAP_COUNT); 
                     generateMap();
-                    
-                    player1.shields = player1.stats.shieldStart;
-                    player2.shields = player2.stats.shieldStart;
-                    
-                    activeTokens = [];
-                    debrisParticles = [];
-                    resetBall();
-                    gameState = 'PLAYING';
-                    lastTime = performance.now(); 
+                    player1.shields = player1.stats.shieldStart; player2.shields = player2.stats.shieldStart;
+                    activeTokens = []; debrisParticles = []; resetBall();
+                    gameState = 'PLAYING'; lastTime = performance.now(); 
                 };
                 upgradeCardsContainer.appendChild(btn);
             });
-            
             upgradeScreen.classList.remove('hidden');
         }
 
         // --- Token & Effects System ---
         function spawnToken() {
             const typeInfo = TOKEN_TYPES[Math.floor(Math.random() * TOKEN_TYPES.length)];
-            const x = canvas.width * 0.25 + Math.random() * (canvas.width * 0.5);
-            const y = canvas.height * 0.2 + Math.random() * (canvas.height * 0.6);
+            const x = canvas.width * 0.25 + Math.random() * (canvas.width * 0.5), y = canvas.height * 0.2 + Math.random() * (canvas.height * 0.6);
             activeTokens.push({ x, y, radius: 10, ...typeInfo });
         }
 
-        function addFloatingText(x, y, text, color) {
-            floatingTexts.push({ x, y, text, color, life: 1.5 });
-        }
+        function addFloatingText(x, y, text, color) { floatingTexts.push({ x, y, text, color, life: 1.5 }); }
 
         function activateToken(token, playerNum) {
-            playSound('powerup');
-            createParticles(token.x, token.y, token.color, 30, 0);
-            screenShake = 10;
-            matchStats.tokensGrabbed++;
+            playSound('powerup'); createParticles(token.x, token.y, token.color, 30, 0);
+            screenShake = 10; matchStats.tokensGrabbed++;
 
             if (playerNum === 0) return; 
 
@@ -744,46 +1005,22 @@
 
             if (token.type === 'GROW') {
                 const limit = canvas.height * 0.9;
-                if (target.height >= limit) {
-                    addFloatingText(token.x, token.y, "MAX SIZE!", '#ffffff');
-                } else {
-                    target.height = Math.min(target.height * 1.5, limit); 
-                    target.effectTimer += 8; 
-                    addFloatingText(token.x, token.y, "+ GROW", token.color);
-                }
+                if (target.height >= limit) { addFloatingText(token.x, token.y, "MAX SIZE!", '#ffffff'); } 
+                else { target.height = Math.min(target.height * 1.5, limit); target.effectTimer += 8; addFloatingText(token.x, token.y, "+ GROW", token.color); }
             } else if (token.type === 'SHRINK') {
-                if (opponent.height <= 25) {
-                    addFloatingText(token.x, token.y, "MIN SIZE!", '#ffffff');
-                } else {
-                    opponent.height = Math.max(opponent.height * 0.6, 25); 
-                    opponent.effectTimer += 8; 
-                    addFloatingText(token.x, token.y, "- SHRINK", token.color);
-                }
+                if (opponent.height <= 25) { addFloatingText(token.x, token.y, "MIN SIZE!", '#ffffff'); } 
+                else { opponent.height = Math.max(opponent.height * 0.6, 25); opponent.effectTimer += 8; addFloatingText(token.x, token.y, "- SHRINK", token.color); }
             } else if (token.type === 'FAST') {
                 const currentSpeed = Math.sqrt(ball.vx*ball.vx + ball.vy*ball.vy);
-                if (currentSpeed >= 2500) { 
-                    addFloatingText(token.x, token.y, "SPEED CAPPED!", '#ffffff');
-                } else {
-                    ball.vx *= 1.4;
-                    ball.vy *= 1.4;
-                    ball.color = '#ffaa00'; 
-                    addFloatingText(token.x, token.y, ">>> FAST", token.color);
-                }
+                if (currentSpeed >= 2500) { addFloatingText(token.x, token.y, "SPEED CAPPED!", '#ffffff'); } 
+                else { ball.vx *= 1.4; ball.vy *= 1.4; ball.color = '#ffaa00'; addFloatingText(token.x, token.y, ">>> FAST", token.color); }
             } else if (token.type === 'SLOW') {
-                ball.vx *= 0.6;
-                ball.vy *= 0.6;
-                ball.color = '#0088ff';
-                addFloatingText(token.x, token.y, "<<< SLOW", token.color);
+                ball.vx *= 0.6; ball.vy *= 0.6; ball.color = '#0088ff'; addFloatingText(token.x, token.y, "<<< SLOW", token.color);
             } else if (token.type === 'CONFUSE') {
-                opponent.confusedTimer += 6;
-                addFloatingText(token.x, token.y, "? CONFUSE", token.color);
+                opponent.confusedTimer += 6; addFloatingText(token.x, token.y, "? CONFUSE", token.color);
             } else if (token.type === 'SHIELD') {
-                if (target.shields >= 3) {
-                    addFloatingText(token.x, token.y, "MAX SHIELDS!", '#ffffff');
-                } else {
-                    target.shields++;
-                    addFloatingText(token.x, token.y, "[|] SHIELD", token.color);
-                }
+                if (target.shields >= 3) { addFloatingText(token.x, token.y, "MAX SHIELDS!", '#ffffff'); } 
+                else { target.shields++; addFloatingText(token.x, token.y, "[|] SHIELD", token.color); }
             }
         }
 
@@ -794,55 +1031,36 @@
 
         function playSound(type) {
             if (!audioCtx) return;
-            const osc = audioCtx.createOscillator();
-            const gainNode = audioCtx.createGain();
-            osc.connect(gainNode);
-            gainNode.connect(audioCtx.destination);
+            const osc = audioCtx.createOscillator(), gainNode = audioCtx.createGain();
+            osc.connect(gainNode); gainNode.connect(audioCtx.destination);
             const now = audioCtx.currentTime;
 
             if (type === 'hit') {
-                osc.type = 'square';
-                osc.frequency.setValueAtTime(300, now);
-                osc.frequency.exponentialRampToValueAtTime(600, now + 0.1);
-                gainNode.gain.setValueAtTime(0.1, now);
-                gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
+                osc.type = 'square'; osc.frequency.setValueAtTime(300, now); osc.frequency.exponentialRampToValueAtTime(600, now + 0.1);
+                gainNode.gain.setValueAtTime(0.1, now); gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
                 osc.start(now); osc.stop(now + 0.1);
             } else if (type === 'wall') {
-                osc.type = 'triangle';
-                osc.frequency.setValueAtTime(150, now);
-                osc.frequency.exponentialRampToValueAtTime(100, now + 0.1);
-                gainNode.gain.setValueAtTime(0.1, now);
-                gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
+                osc.type = 'triangle'; osc.frequency.setValueAtTime(150, now); osc.frequency.exponentialRampToValueAtTime(100, now + 0.1);
+                gainNode.gain.setValueAtTime(0.1, now); gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
                 osc.start(now); osc.stop(now + 0.1);
             } else if (type === 'score') {
-                osc.type = 'sawtooth';
-                osc.frequency.setValueAtTime(400, now);
-                osc.frequency.linearRampToValueAtTime(800, now + 0.2);
-                osc.frequency.linearRampToValueAtTime(1200, now + 0.4);
-                gainNode.gain.setValueAtTime(0.1, now);
-                gainNode.gain.linearRampToValueAtTime(0, now + 0.4);
+                osc.type = 'sawtooth'; osc.frequency.setValueAtTime(400, now); osc.frequency.linearRampToValueAtTime(800, now + 0.2); osc.frequency.linearRampToValueAtTime(1200, now + 0.4);
+                gainNode.gain.setValueAtTime(0.1, now); gainNode.gain.linearRampToValueAtTime(0, now + 0.4);
                 osc.start(now); osc.stop(now + 0.4);
             } else if (type === 'powerup') {
-                osc.type = 'sine';
-                osc.frequency.setValueAtTime(400, now);
-                osc.frequency.exponentialRampToValueAtTime(1500, now + 0.4);
-                gainNode.gain.setValueAtTime(0.2, now);
-                gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.4);
+                osc.type = 'sine'; osc.frequency.setValueAtTime(400, now); osc.frequency.exponentialRampToValueAtTime(1500, now + 0.4);
+                gainNode.gain.setValueAtTime(0.2, now); gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.4);
                 osc.start(now); osc.stop(now + 0.4);
             } else if (type === 'explosion') {
-                osc.type = 'square';
-                osc.frequency.setValueAtTime(100, now);
-                osc.frequency.exponentialRampToValueAtTime(10, now + 0.5);
-                gainNode.gain.setValueAtTime(0.3, now);
-                gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.5);
+                osc.type = 'square'; osc.frequency.setValueAtTime(100, now); osc.frequency.exponentialRampToValueAtTime(10, now + 0.5);
+                gainNode.gain.setValueAtTime(0.3, now); gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.5);
                 osc.start(now); osc.stop(now + 0.5);
             }
         }
 
         function createParticles(x, y, color, count, directionX) {
             for (let i = 0; i < count; i++) {
-                const angle = (Math.random() - 0.5) * Math.PI;
-                const speed = Math.random() * 300 + 100;
+                const angle = (Math.random() - 0.5) * Math.PI, speed = Math.random() * 300 + 100;
                 particles.push({ x: x, y: y, vx: Math.cos(angle) * speed * directionX, vy: Math.sin(angle) * speed, life: 1.0, color: color, size: Math.random() * 4 + 2 });
             }
         }
@@ -851,30 +1069,21 @@
             const count = obs.type === 'circle' ? 6 : 8;
             for(let j=0; j<count; j++) {
                 debrisParticles.push({
-                    x: obs.x + (obs.w ? obs.w/2 : 0),
-                    y: obs.y + (obs.h ? obs.h/2 : 0),
-                    vx: (Math.random() - 0.5) * 600,
-                    vy: (Math.random() - 0.5) * 600,
-                    vr: (Math.random() - 0.5) * 10,
-                    angle: Math.random() * Math.PI * 2,
-                    size: obs.type === 'circle' ? obs.r/2 : Math.min(obs.w, obs.h)/2,
-                    color: obs.color,
-                    life: 1.5,
-                    type: obs.type
+                    x: obs.x + (obs.w ? obs.w/2 : 0), y: obs.y + (obs.h ? obs.h/2 : 0),
+                    vx: (Math.random() - 0.5) * 600, vy: (Math.random() - 0.5) * 600, vr: (Math.random() - 0.5) * 10,
+                    angle: Math.random() * Math.PI * 2, size: obs.type === 'circle' ? obs.r/2 : Math.min(obs.w, obs.h)/2,
+                    color: obs.color, life: 1.5, type: obs.type
                 });
             }
         }
 
         function updateParticles(dt) {
             for (let i = particles.length - 1; i >= 0; i--) {
-                const p = particles[i];
-                p.x += p.vx * dt; p.y += p.vy * dt; p.life -= dt * 2; 
+                const p = particles[i]; p.x += p.vx * dt; p.y += p.vy * dt; p.life -= dt * 2; 
                 if (p.life <= 0) particles.splice(i, 1);
             }
-
             for(let i=debrisParticles.length-1; i>=0; i--) {
-                let d = debrisParticles[i];
-                d.x += d.vx * dt; d.y += d.vy * dt; d.angle += d.vr * dt; d.life -= dt;
+                let d = debrisParticles[i]; d.x += d.vx * dt; d.y += d.vy * dt; d.angle += d.vr * dt; d.life -= dt;
                 if(d.life <= 0) debrisParticles.splice(i,1);
             }
         }
@@ -889,14 +1098,9 @@
 
         function update(dt) {
             matchStats.duration += dt;
-
             if (screenShake > 0) { screenShake -= dt * 30; if (screenShake < 0) screenShake = 0; }
             if (bgPulse > 0) { bgPulse -= dt; if (bgPulse < 0) bgPulse = 0; }
-
-            if (gameMode === 'COOP') {
-                survivalTime += dt;
-                coopTimer.innerText = survivalTime.toFixed(1) + 's';
-            }
+            if (gameMode === 'COOP') { survivalTime += dt; coopTimer.innerText = survivalTime.toFixed(1) + 's'; }
 
             [player1, player2].forEach(p => {
                 if (p.effectTimer > 0) { p.effectTimer -= dt; if (p.effectTimer <= 0) p.height = p.defaultHeight; }
@@ -910,7 +1114,6 @@
             });
 
             let oldP1Y = player1.y, oldP2Y = player2.y;
-
             let p1Up = keys.KeyW, p1Down = keys.KeyS;
             if (player1.confusedTimer > 0) { p1Up = keys.KeyS; p1Down = keys.KeyW; } 
             let p1SpeedMult = (player1.isOverdrive ? 1.6 : 1) * player1.stats.speedMult;
@@ -924,16 +1127,12 @@
             if (p2Down && player2.y < canvas.height - player2.height) player2.y += paddle.speed * p2SpeedMult * dt;
 
             matchStats.distance += Math.abs(player1.y - oldP1Y) + Math.abs(player2.y - oldP2Y);
-
             ball.trail.push({x: ball.x, y: ball.y});
             
             let speed = Math.sqrt(ball.vx*ball.vx + ball.vy*ball.vy);
             if (speed > ball.baseSpeed && !ball.isStarting) {
-                const decay = 15 * dt; 
-                const newSpeed = Math.max(ball.baseSpeed, speed - decay);
-                const scale = newSpeed / speed;
-                ball.vx *= scale; ball.vy *= scale;
-                speed = newSpeed; 
+                const decay = 15 * dt, newSpeed = Math.max(ball.baseSpeed, speed - decay), scale = newSpeed / speed;
+                ball.vx *= scale; ball.vy *= scale; speed = newSpeed; 
             }
             if (speed > matchStats.maxSpeed) matchStats.maxSpeed = speed;
 
@@ -948,35 +1147,23 @@
                 if (pointScored) break;
 
                 if (ball.isStarting) {
-                    const currentSpeed = Math.sqrt(ball.vx*ball.vx + ball.vy*ball.vy);
-                    const newSpeed = currentSpeed + (600 * subDt); 
+                    const currentSpeed = Math.sqrt(ball.vx*ball.vx + ball.vy*ball.vy), newSpeed = currentSpeed + (600 * subDt); 
                     if (newSpeed >= ball.baseSpeed) {
-                        const scale = ball.baseSpeed / currentSpeed;
-                        ball.vx *= scale; ball.vy *= scale;
-                        ball.isStarting = false;
-                    } else {
-                        const scale = newSpeed / currentSpeed;
-                        ball.vx *= scale; ball.vy *= scale;
-                    }
+                        const scale = ball.baseSpeed / currentSpeed; ball.vx *= scale; ball.vy *= scale; ball.isStarting = false;
+                    } else { const scale = newSpeed / currentSpeed; ball.vx *= scale; ball.vy *= scale; }
                 }
 
-                ball.x += ball.vx * subDt;
-                ball.y += ball.vy * subDt;
+                ball.x += ball.vx * subDt; ball.y += ball.vy * subDt;
 
                 if (ball.y - ball.radius < 0) {
-                    ball.y = ball.radius; ball.vy *= -1;
-                    playSound('wall'); createParticles(ball.x, 0, '#ffffff', 5, 0);
+                    ball.y = ball.radius; ball.vy *= -1; playSound('wall'); createParticles(ball.x, 0, '#ffffff', 5, 0);
                 } else if (ball.y + ball.radius > canvas.height) {
-                    ball.y = canvas.height - ball.radius; ball.vy *= -1;
-                    playSound('wall'); createParticles(ball.x, canvas.height, '#ffffff', 5, 0);
+                    ball.y = canvas.height - ball.radius; ball.vy *= -1; playSound('wall'); createParticles(ball.x, canvas.height, '#ffffff', 5, 0);
                 }
 
                 for (let i = obstacles.length - 1; i >= 0; i--) {
                     let obs = obstacles[i];
-                    if (obs.vy) {
-                        obs.y += obs.vy * subDt;
-                        if (obs.y < obs.minY || obs.y + obs.h > obs.maxY) obs.vy *= -1;
-                    }
+                    if (obs.vy) { obs.y += obs.vy * subDt; if (obs.y < obs.minY || obs.y + obs.h > obs.maxY) obs.vy *= -1; }
 
                     let hit = false;
                     if (obs.type === 'circle') {
@@ -984,8 +1171,7 @@
                         if (dist < ball.radius + obs.r) {
                             hit = true; playSound('wall'); createParticles(ball.x, ball.y, obs.color, 20, 0); screenShake = 5; bgPulse = 0.1;
                             const nx = dx / dist, ny = dy / dist, dot = ball.vx * nx + ball.vy * ny;
-                            ball.vx = ball.vx - 2 * dot * nx; ball.vy = ball.vy - 2 * dot * ny;
-                            ball.x = obs.x + nx * (ball.radius + obs.r);
+                            ball.vx = ball.vx - 2 * dot * nx; ball.vy = ball.vy - 2 * dot * ny; ball.x = obs.x + nx * (ball.radius + obs.r);
                         }
                     } else {
                         const closestX = Math.max(obs.x, Math.min(ball.x, obs.x + (obs.w || 0))), closestY = Math.max(obs.y, Math.min(ball.y, obs.y + (obs.h || 0)));
@@ -1000,18 +1186,14 @@
 
                     if (hit) {
                         const hitSpeed = Math.sqrt(ball.vx*ball.vx + ball.vy*ball.vy);
-                        if (hitSpeed > 1000) { 
-                            obs.health -= 1;
-                            if (obs.health <= 0) { createDebris(obs); playSound('explosion'); screenShake = 15; obstacles.splice(i, 1); }
-                        }
+                        if (hitSpeed > 1000) { obs.health -= 1; if (obs.health <= 0) { createDebris(obs); playSound('explosion'); screenShake = 15; obstacles.splice(i, 1); } }
                     }
                 }
 
                 if (ball.x - ball.radius < player1.x + paddle.width && ball.x + ball.radius > player1.x && ball.y + ball.radius > player1.y && ball.y - ball.radius < player1.y + player1.height) {
                     ball.x = player1.x + paddle.width + ball.radius; ball.lastHitBy = 1; ball.color = player1.isOverdrive ? '#ffffff' : COLOR_BALL; ball.isStarting = false; 
                     
-                    rallyCount++;
-                    if(gameMode === 'COOP') coopRally.innerText = `${rallyCount} HITS`;
+                    rallyCount++; if(gameMode === 'COOP') coopRally.innerText = `${rallyCount} HITS`;
                     if (rallyCount > matchStats.maxRally) matchStats.maxRally = rallyCount;
                     
                     const hitPos = (ball.y - (player1.y + player1.height/2)) / (player1.height/2), angle = hitPos * (Math.PI / 4);
@@ -1019,7 +1201,6 @@
                     const newSpeed = currentSpeed * ball.speedMultiplier * overdriveBoost;
                     
                     ball.vx = Math.cos(angle) * newSpeed; ball.vy = Math.sin(angle) * newSpeed;
-                    
                     if (player1.isOverdrive) { playSound('powerup'); screenShake = 12; bgPulse = 0.3; createParticles(ball.x, ball.y, '#ffffff', 30, 1); matchStats.overdrivesUsed++; } 
                     else { playSound('hit'); screenShake = 4; bgPulse = 0.15; createParticles(ball.x, ball.y, player1.color, 15, 1); }
                 }
@@ -1027,8 +1208,7 @@
                 if (ball.x + ball.radius > player2.x && ball.x - ball.radius < player2.x + paddle.width && ball.y + ball.radius > player2.y && ball.y - ball.radius < player2.y + player2.height) {
                     ball.x = player2.x - ball.radius; ball.lastHitBy = 2; ball.color = player2.isOverdrive ? '#ffffff' : COLOR_BALL; ball.isStarting = false; 
 
-                    rallyCount++;
-                    if(gameMode === 'COOP') coopRally.innerText = `${rallyCount} HITS`;
+                    rallyCount++; if(gameMode === 'COOP') coopRally.innerText = `${rallyCount} HITS`;
                     if (rallyCount > matchStats.maxRally) matchStats.maxRally = rallyCount;
 
                     const hitPos = (ball.y - (player2.y + player2.height/2)) / (player2.height/2), angle = hitPos * (Math.PI / 4);
@@ -1036,7 +1216,6 @@
                     const newSpeed = currentSpeed * ball.speedMultiplier * overdriveBoost;
                     
                     ball.vx = -Math.cos(angle) * newSpeed; ball.vy = Math.sin(angle) * newSpeed;
-
                     if (player2.isOverdrive) { playSound('powerup'); screenShake = 12; bgPulse = 0.3; createParticles(ball.x, ball.y, '#ffffff', 30, -1); matchStats.overdrivesUsed++; } 
                     else { playSound('hit'); screenShake = 4; bgPulse = 0.15; createParticles(ball.x, ball.y, player2.color, 15, -1); }
                 }
@@ -1106,9 +1285,7 @@
                     p1Score = 0; p2Score = 0; score1El.innerText = p1Score; score2El.innerText = p2Score;
                     showUpgradeScreen(winnerNum === 1 ? 2 : 1); 
                 }
-            } else {
-                triggerGameOver(winnerNum);
-            }
+            } else { triggerGameOver(winnerNum); }
         }
 
         function generateAnalysisText() {
@@ -1134,37 +1311,76 @@
             document.getElementById('analysisText').innerText = generateAnalysisText();
         }
 
+        // Apply XP and Update Database stats
+        async function applyMatchExperience(isWin) {
+            if (!currentUser || currentUser.isAnonymous || !userData) return;
+            
+            let xpEarned = isWin ? 100 : 25;
+            if (gameMode === 'COOP') xpEarned = Math.floor(survivalTime * 2);
+
+            xpGainedText.innerText = `+${xpEarned} XP`;
+            xpGainedText.classList.remove('hidden');
+
+            const newXp = (userData.xp || 0) + xpEarned;
+            const newLevel = calculateLevel(newXp);
+            
+            // Update Stats payload
+            const newStats = {
+                totalMatches: (userData.stats?.totalMatches || 0) + 1,
+                totalWins: (userData.stats?.totalWins || 0) + (isWin ? 1 : 0),
+                coopBestTime: Math.max((userData.stats?.coopBestTime || 0), (gameMode === 'COOP' ? survivalTime : 0)),
+                maxRally: Math.max((userData.stats?.maxRally || 0), matchStats.maxRally)
+            };
+
+            try {
+                await updateDoc(doc(db, 'artifacts', appId, 'users', currentUser.uid, 'profile', 'data'), {
+                    xp: newXp,
+                    level: newLevel,
+                    stats: newStats
+                });
+            } catch (error) {
+                console.error("Failed to save progression:", error);
+            }
+        }
+
         function triggerGameOver(winnerNum) {
             gameState = 'GAMEOVER';
             winnerScreen.classList.remove('hidden');
             setTimeout(() => winnerScreen.classList.remove('opacity-0'), 50);
             
             scoreBoard.classList.add('opacity-0'); setIndicators.classList.add('opacity-0'); coopScoreDisplay.classList.add('opacity-0');
+            document.getElementById('userProfileBar').classList.remove('hidden');
             
             const winnerName = winnerNum === 1 ? p1Name : p2Name, loserName = winnerNum === 1 ? p2Name : p1Name;
             const scoreStr = gameMode === 'BEST_OF_3' ? `${p1Sets} - ${p2Sets} (Sets)` : `${p1Score} - ${p2Score}`;
 
             if (winnerNum === 1) {
                 winnerText.innerHTML = `${winnerName} WINS!`;
-                winnerText.className = "text-5xl md:text-7xl font-bold mb-6 tracking-widest text-center uppercase neon-text-pink text-pink-400 truncate w-full px-4";
+                winnerText.className = "text-5xl md:text-7xl font-bold mb-2 tracking-widest text-center uppercase neon-text-pink text-pink-400 truncate w-full px-4";
             } else {
                 winnerText.innerHTML = `${winnerName} WINS!`;
-                winnerText.className = "text-5xl md:text-7xl font-bold mb-6 tracking-widest text-center uppercase neon-text-cyan text-cyan-400 truncate w-full px-4";
+                winnerText.className = "text-5xl md:text-7xl font-bold mb-2 tracking-widest text-center uppercase neon-text-cyan text-cyan-400 truncate w-full px-4";
             }
 
             populateStatsUI();
             saveMatchRecord(winnerName, loserName, scoreStr);
+            
+            // Award XP to the active user (assuming P1 or just active session user won/lost)
+            const isWin = (currentUser && !currentUser.isAnonymous && p1Name.toUpperCase() === currentUser.displayName.split(' ')[0].toUpperCase() && winnerNum === 1);
+            applyMatchExperience(isWin);
         }
 
         function triggerGameOverCOOP() {
             playSound('wall'); screenShake = 20; bgPulse = 1.0; gameState = 'GAMEOVER';
             winnerScreen.classList.remove('hidden'); setTimeout(() => winnerScreen.classList.remove('opacity-0'), 50);
             scoreBoard.classList.add('opacity-0'); setIndicators.classList.add('opacity-0'); coopScoreDisplay.classList.add('opacity-0');
-            
+            document.getElementById('userProfileBar').classList.remove('hidden');
+
             winnerText.innerHTML = `GAME OVER`;
-            winnerText.className = "text-5xl md:text-7xl font-bold mb-6 tracking-widest text-center uppercase text-white";
+            winnerText.className = "text-5xl md:text-7xl font-bold mb-2 tracking-widest text-center uppercase text-white";
             populateStatsUI();
             saveMatchRecord("Co-op Team", "The Wall", `${survivalTime.toFixed(1)}s`);
+            applyMatchExperience(false); // Co-op xp uses survival time
         }
 
         function drawGlowRect(x, y, w, h, color) {
@@ -1278,6 +1494,7 @@
             p1Name = p1NameInput.value.trim() || "PLAYER 1"; p2Name = p2NameInput.value.trim() || "PLAYER 2";
             matchStats = { duration: 0, maxRally: 0, maxSpeed: 0, distance: 0, tokensGrabbed: 0, overdrivesUsed: 0, repulsesFired: 0 };
             gameMode = gameModeSelect.value; p1Sets = 0; p2Sets = 0; survivalTime = 0; rallyCount = 0; updateSetUI();
+            xpGainedText.classList.add('hidden');
 
             if (gameMode === 'COOP') {
                 scoreBoard.classList.add('hidden'); coopScoreDisplay.classList.remove('hidden'); coopScoreDisplay.classList.remove('opacity-0'); setIndicators.classList.add('hidden');
@@ -1295,6 +1512,8 @@
             player1.effectTimer = 0; player2.effectTimer = 0; player1.confusedTimer = 0; player2.confusedTimer = 0; player1.shields = 0; player2.shields = 0; player1.energy = 100; player2.energy = 100; player1.isOverdrive = false; player2.isOverdrive = false;
 
             startScreen.classList.add('opacity-0'); winnerScreen.classList.add('opacity-0'); upgradeScreen.classList.add('hidden'); pauseScreen.classList.add('hidden');
+            document.getElementById('userProfileBar').classList.add('hidden');
+            
             setTimeout(() => { startScreen.classList.add('hidden'); winnerScreen.classList.add('hidden'); }, 500);
             resize(); resetBall();
         }
