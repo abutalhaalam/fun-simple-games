@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fun Simple Games - Arcade Portal</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #00e5ff; /* Electric Cyber-Cyan */
+            --bg-dark: #0f0f11;
+            --panel-bg: #1a1a24;
+        }
+        
+        body {
+            background-color: var(--bg-dark);
+            color: #fff;
+            font-family: 'VT323', monospace;
+            background-image: 
+                linear-gradient(rgba(20, 20, 30, 0.8) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(20, 20, 30, 0.8) 1px, transparent 1px);
+            background-size: 20px 20px;
+        }
+
+        .font-arcade {
+            font-family: 'Press Start 2P', cursive;
+        }
+
+        /* 2000s style ticker */
+        .ticker-wrap {
+            width: 100%;
+            overflow: hidden;
+            background-color: var(--primary);
+            color: black;
+            box-shadow: 0 0 10px var(--primary);
+        }
+        .ticker {
+            display: inline-block;
+            white-space: nowrap;
+            padding-right: 100%;
+            box-sizing: content-box;
+            animation: ticker 20s linear infinite;
+        }
+        @keyframes ticker {
+            0% { transform: translate3d(0, 0, 0); }
+            100% { transform: translate3d(-100%, 0, 0); }
+        }
+
+        /* Classic Game Card Hover Effects */
+        .game-card {
+            transition: all 0.2s ease-in-out;
+            border: 2px solid #333;
+        }
+        .game-card:hover {
+            transform: scale(1.05) translateY(-5px);
+            border-color: var(--primary);
+            box-shadow: 0 0 15px rgba(0, 229, 255, 0.5);
+            z-index: 10;
+        }
+        
+        .game-thumb {
+            aspect-ratio: 4/3;
+            background-size: cover;
+            background-position: center;
+            position: relative;
+        }
+        
+        .play-overlay {
+            opacity: 0;
+            transition: opacity 0.2s;
+            background: rgba(0,0,0,0.7);
+        }
+        .game-card:hover .play-overlay {
+            opacity: 1;
+        }
+
+        /* Retro Button */
+        .btn-retro {
+            background: linear-gradient(to bottom, #00e5ff, #00b3cc);
+            border: 2px solid #fff;
+            border-radius: 4px;
+            text-transform: uppercase;
+            box-shadow: inset 0 2px 0 rgba(255,255,255,0.4), 0 4px 0 #006680, 0 5px 5px rgba(0,0,0,0.5);
+            transition: all 0.1s;
+        }
+        .btn-retro:active {
+            transform: translateY(4px);
+            box-shadow: inset 0 2px 0 rgba(255,255,255,0.4), 0 0 0 #006680;
+        }
+        
+        /* Category Tabs */
+        .tab-retro {
+            background: #222;
+            border-top: 3px solid #444;
+            border-left: 3px solid #444;
+            border-right: 3px solid #111;
+            border-bottom: 3px solid #111;
+        }
+        .tab-retro.active {
+            background: var(--primary);
+            color: black;
+            border-top: 3px solid #80f2ff;
+            border-left: 3px solid #80f2ff;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col">
+
+    <!-- Scrolling Ticker -->
+    <div class="ticker-wrap border-b-2 border-black font-bold text-xl py-1">
+        <div class="ticker font-arcade text-xs">
+            *** WELCOME TO FUN SIMPLE GAMES *** LATEST RELEASE: NEON PONG (MULTIPLAYER CLOUD SAVES ENABLED) *** MORE GAMES COMING SOON *** NO INSTALLS REQUIRED ***
+        </div>
+    </div>
+
+    <!-- Header / Navbar -->
+    <header class="bg-[#1a1a24] border-b-4 border-[#00e5ff] shadow-[0_5px_20px_rgba(0,229,255,0.2)]">
+        <div class="max-w-7xl mx-auto px-4 py-4 sm:px-6 lg:px-8 flex flex-col md:flex-row justify-between items-center gap-4">
+            <div class="flex items-center gap-4">
+                <div class="w-12 h-12 bg-[#00e5ff] rounded animate-pulse flex items-center justify-center border-2 border-white">
+                    <span class="text-black font-arcade text-2xl">FS</span>
+                </div>
+                <div>
+                    <h1 class="font-arcade text-xl md:text-2xl text-white tracking-widest" style="text-shadow: 2px 2px 0 #00e5ff;">FUN SIMPLE</h1>
+                    <h2 class="font-arcade text-sm text-gray-400">GAMES PORTAL</h2>
+                </div>
+            </div>
+            
+            <!-- Retro Search Bar -->
+            <div class="flex w-full md:w-auto">
+                <input type="text" placeholder="Search games..." class="bg-black border-2 border-[#555] text-white px-4 py-2 font-arcade text-xs outline-none focus:border-[#00e5ff] w-full md:w-64">
+                <button class="bg-[#00e5ff] text-black font-arcade text-xs px-4 py-2 border-2 border-[#00e5ff] hover:bg-white hover:border-white transition-colors">GO</button>
+            </div>
+            
+            <nav class="hidden md:flex gap-6 font-arcade text-xs">
+                <a href="#" class="text-[#00e5ff] hover:text-white transition-colors">HOME</a>
+                <a href="#" class="text-gray-400 hover:text-white transition-colors">NEW</a>
+                <a href="#" class="text-gray-400 hover:text-white transition-colors">TOP RATED</a>
+                <a href="#" class="text-gray-400 hover:text-white transition-colors">MY SAVES</a>
+            </nav>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="flex-grow max-w-7xl mx-auto px-4 py-8 sm:px-6 lg:px-8 w-full flex flex-col lg:flex-row gap-8">
+        
+        <!-- Sidebar (Ads / Categories) -->
+        <aside class="w-full lg:w-64 flex-shrink-0 flex flex-col gap-6">
+            <!-- Categories -->
+            <div class="bg-black border-2 border-[#333] p-1">
+                <h3 class="font-arcade text-xs text-white bg-[#333] p-2 mb-2 text-center">CATEGORIES</h3>
+                <ul class="flex flex-col gap-1 text-xl">
+                    <li><a href="#" class="block p-2 hover:bg-[#00e5ff] hover:text-black transition-colors">Action (1)</a></li>
+                    <li><a href="#" class="block p-2 hover:bg-[#00e5ff] hover:text-black transition-colors">Arcade (4)</a></li>
+                    <li><a href="#" class="block p-2 hover:bg-[#00e5ff] hover:text-black transition-colors">Puzzle (2)</a></li>
+                    <li><a href="#" class="block p-2 hover:bg-[#00e5ff] hover:text-black transition-colors">Multiplayer (1)</a></li>
+                </ul>
+            </div>
+            
+            <!-- Top Rated List -->
+            <div class="bg-black border-2 border-[#333] p-1">
+                <h3 class="font-arcade text-xs text-[#00e5ff] bg-[#222] p-2 mb-2 text-center border-b-2 border-[#00e5ff]">★ TOP RATED</h3>
+                <div class="flex flex-col gap-3 p-2">
+                    <a href="neon-pong.html" class="flex gap-3 items-center hover:bg-[#222] p-1 rounded transition-colors group">
+                        <div class="w-10 h-10 bg-gradient-to-br from-pink-500 to-cyan-500 border border-gray-600 group-hover:border-[#00e5ff]"></div>
+                        <div class="flex flex-col">
+                            <span class="text-white text-lg leading-none">Neon Pong</span>
+                            <span class="text-yellow-400 text-sm">★★★★★</span>
+                        </div>
+                    </a>
+                    <a href="#" class="flex gap-3 items-center hover:bg-[#222] p-1 rounded transition-colors group">
+                        <div class="w-10 h-10 bg-gradient-to-br from-green-600 to-green-900 border border-gray-600 group-hover:border-[#00e5ff]"></div>
+                        <div class="flex flex-col">
+                            <span class="text-white text-lg leading-none">Cyber Snake</span>
+                            <span class="text-yellow-400 text-sm">★★★★☆</span>
+                        </div>
+                    </a>
+                </div>
+            </div>
+
+            <!-- "Ad" space (adds to the 2000s feel) -->
+            <div class="h-64 bg-[#111] border border-[#333] flex items-center justify-center flex-col text-[#444] text-center p-4">
+                <span class="font-arcade text-xs mb-2">ADVERTISEMENT</span>
+                <p class="text-xl">Your Ad Here</p>
+                <p class="text-sm mt-2">Support indie devs!</p>
+            </div>
+        </aside>
+
+        <!-- Game Library Grid -->
+        <div class="flex-grow flex flex-col gap-6">
+            
+            <!-- Featured Game / Spotlight -->
+            <div class="bg-black border-2 border-[#00e5ff] relative overflow-hidden group shadow-[0_0_20px_rgba(0,229,255,0.1)]">
+                <div class="absolute top-0 right-0 bg-[#00e5ff] text-black font-arcade text-[10px] px-3 py-1 z-20">HOT!</div>
+                <div class="h-64 md:h-80 w-full relative">
+                    <!-- Placeholder visual for Neon Pong banner -->
+                    <div class="absolute inset-0 bg-gradient-to-r from-[#050505] via-[#1a001a] to-[#001a1a]"></div>
+                    <div class="absolute inset-0 opacity-30" style="background-image: repeating-linear-gradient(0deg, transparent, transparent 2px, #fff 2px, #fff 4px); background-size: 100% 4px;"></div>
+                    
+                    <div class="absolute inset-0 flex flex-col justify-center items-start p-8 md:p-12 z-10 bg-gradient-to-r from-black via-black/70 to-transparent">
+                        <h2 class="font-arcade text-3xl md:text-5xl text-white mb-2" style="text-shadow: 0 0 10px #ff00ff, 0 0 20px #00ffff;">NEON PONG</h2>
+                        <p class="text-xl text-gray-300 max-w-md mb-6 font-sans">The ultimate synthwave ping-pong experience. Features roguelike upgrades, global cloud leaderboards, and a co-op survival mode!</p>
+                        
+                        <a href="neon-pong.html" class="btn-retro font-arcade text-sm px-6 py-3 text-white inline-flex items-center gap-2">
+                            <span>▶ PLAY NOW</span>
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Library Tabs -->
+            <div class="flex border-b-2 border-[#00e5ff] font-arcade text-xs mt-4">
+                <button class="tab-retro active px-4 py-2">ALL GAMES</button>
+                <button class="tab-retro text-gray-400 hover:text-white px-4 py-2">MULTIPLAYER</button>
+                <button class="tab-retro text-gray-400 hover:text-white px-4 py-2">SINGLEPLAYER</button>
+            </div>
+
+            <!-- Grid -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4 pb-12">
+                
+                <!-- Game 1: Neon Pong -->
+                <a href="neon-pong.html" class="game-card bg-black flex flex-col relative">
+                    <div class="absolute top-2 left-2 bg-[#00e5ff] text-black font-arcade text-[8px] px-2 py-1 z-20">UPDATED</div>
+                    <div class="game-thumb bg-gradient-to-br from-[#110022] to-[#002222] flex items-center justify-center border-b-2 border-[#333]">
+                        <span class="font-arcade text-2xl" style="text-shadow: 0 0 5px #ff00ff, 0 0 10px #00ffff;">PONG</span>
+                        <div class="absolute inset-0 play-overlay flex items-center justify-center">
+                            <div class="w-12 h-12 bg-[#00e5ff] rounded-full flex items-center justify-center text-black pl-1">▶</div>
+                        </div>
+                    </div>
+                    <div class="p-3 flex flex-col flex-grow justify-between">
+                        <div>
+                            <h3 class="font-arcade text-xs text-white mb-1 truncate">Neon Pong</h3>
+                            <p class="text-gray-400 text-sm leading-tight line-clamp-2">Competitive retro action with powerups.</p>
+                        </div>
+                        <div class="flex justify-between items-center mt-3">
+                            <span class="text-yellow-400 text-xs">★★★★★</span>
+                            <span class="text-[#888] text-xs">98%</span>
+                        </div>
+                    </div>
+                </a>
+
+                <!-- Game 2: Placeholder -->
+                <a href="#" class="game-card bg-black flex flex-col">
+                    <div class="game-thumb bg-gradient-to-br from-green-900 to-black flex items-center justify-center border-b-2 border-[#333]">
+                        <span class="font-arcade text-green-500 text-5xl">🐍</span>
+                        <div class="absolute inset-0 play-overlay flex items-center justify-center">
+                            <div class="w-12 h-12 bg-[#00e5ff] rounded-full flex items-center justify-center text-black pl-1">▶</div>
+                        </div>
+                    </div>
+                    <div class="p-3 flex flex-col flex-grow justify-between">
+                        <div>
+                            <h3 class="font-arcade text-xs text-white mb-1 truncate">Cyber Snake</h3>
+                            <p class="text-gray-400 text-sm leading-tight line-clamp-2">Classic snake with a modern twist.</p>
+                        </div>
+                        <div class="flex justify-between items-center mt-3">
+                            <span class="text-yellow-400 text-xs">★★★★☆</span>
+                            <span class="text-[#888] text-xs">Coming Soon</span>
+                        </div>
+                    </div>
+                </a>
+
+                <!-- Game 3: Placeholder -->
+                <a href="#" class="game-card bg-black flex flex-col">
+                    <div class="game-thumb bg-gradient-to-br from-purple-900 to-blue-900 flex items-center justify-center border-b-2 border-[#333]">
+                        <span class="font-arcade text-blue-300 text-5xl">⬛</span>
+                        <div class="absolute inset-0 play-overlay flex items-center justify-center">
+                            <div class="w-12 h-12 bg-[#00e5ff] rounded-full flex items-center justify-center text-black pl-1">▶</div>
+                        </div>
+                    </div>
+                    <div class="p-3 flex flex-col flex-grow justify-between">
+                        <div>
+                            <h3 class="font-arcade text-xs text-white mb-1 truncate">Block Drop</h3>
+                            <p class="text-gray-400 text-sm leading-tight line-clamp-2">Match the falling blocks before they stack up.</p>
+                        </div>
+                        <div class="flex justify-between items-center mt-3">
+                            <span class="text-yellow-400 text-xs">★★★☆☆</span>
+                            <span class="text-[#888] text-xs">Coming Soon</span>
+                        </div>
+                    </div>
+                </a>
+
+                <!-- Game 4: Placeholder -->
+                <a href="#" class="game-card bg-black flex flex-col">
+                    <div class="game-thumb bg-gradient-to-br from-red-900 to-orange-900 flex items-center justify-center border-b-2 border-[#333]">
+                        <span class="font-arcade text-orange-400 text-5xl">🚀</span>
+                        <div class="absolute inset-0 play-overlay flex items-center justify-center">
+                            <div class="w-12 h-12 bg-[#00e5ff] rounded-full flex items-center justify-center text-black pl-1">▶</div>
+                        </div>
+                    </div>
+                    <div class="p-3 flex flex-col flex-grow justify-between">
+                        <div>
+                            <h3 class="font-arcade text-xs text-white mb-1 truncate">Space Defend</h3>
+                            <p class="text-gray-400 text-sm leading-tight line-clamp-2">Protect your base from falling asteroids.</p>
+                        </div>
+                        <div class="flex justify-between items-center mt-3">
+                            <span class="text-gray-500 text-xs">UNRATED</span>
+                            <span class="text-[#888] text-xs">In Dev</span>
+                        </div>
+                    </div>
+                </a>
+
+                <!-- Game 5: Placeholder -->
+                <a href="#" class="game-card bg-black flex flex-col opacity-60">
+                    <div class="game-thumb bg-[#111] flex items-center justify-center border-b-2 border-[#333]">
+                        <span class="font-arcade text-[#444] text-xl">???</span>
+                    </div>
+                    <div class="p-3 flex flex-col flex-grow justify-between">
+                        <div>
+                            <h3 class="font-arcade text-xs text-gray-500 mb-1 truncate">Mystery Project</h3>
+                            <p class="text-gray-600 text-sm leading-tight line-clamp-2">Currently under construction.</p>
+                        </div>
+                    </div>
+                </a>
+
+                <!-- Game 6: Placeholder -->
+                <a href="#" class="game-card bg-black flex flex-col opacity-60">
+                    <div class="game-thumb bg-[#111] flex items-center justify-center border-b-2 border-[#333]">
+                        <span class="font-arcade text-[#444] text-xl">???</span>
+                    </div>
+                    <div class="p-3 flex flex-col flex-grow justify-between">
+                        <div>
+                            <h3 class="font-arcade text-xs text-gray-500 mb-1 truncate">Mystery Project</h3>
+                            <p class="text-gray-600 text-sm leading-tight line-clamp-2">Currently under construction.</p>
+                        </div>
+                    </div>
+                </a>
+
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-black border-t-2 border-[#333] mt-auto">
+        <div class="max-w-7xl mx-auto px-4 py-8 flex flex-col md:flex-row justify-between items-center gap-4 text-[#777] font-arcade text-[10px] leading-relaxed text-center md:text-left">
+            <div>
+                <p>&copy; 2024 FUN SIMPLE GAMES. ALL RIGHTS RESERVED.</p>
+                <p class="mt-2">A nostalgic library of web games. No plugins required.</p>
+            </div>
+            <div class="flex gap-4">
+                <a href="#" class="hover:text-[#00e5ff] transition-colors">SUBMIT A GAME</a>
+                <a href="#" class="hover:text-[#00e5ff] transition-colors">TERMS OF USE</a>
+                <a href="#" class="hover:text-[#00e5ff] transition-colors">PRIVACY POLICY</a>
+            </div>
+        </div>
+    </footer>
+
+</body>
+</html>
