@@ -105,7 +105,91 @@
         }
     </style>
 </head>
-<body class="min-h-screen flex flex-col">
+<body class="min-h-screen flex flex-col relative">
+
+    <!-- TOP PROFILE WIDGET (Persistent Arcade Auth) -->
+    <div id="userProfileBar" class="absolute top-12 right-4 flex items-center gap-4 z-50 pointer-events-auto transition-opacity duration-300">
+        <div id="guestState" class="flex gap-2">
+            <button id="googleLoginBtn" class="bg-black border-2 border-[#00e5ff] text-[#00e5ff] font-arcade text-[10px] pl-2 pr-4 py-2 hover:bg-[#00e5ff] hover:text-black hover:shadow-[0_0_20px_rgba(0,229,255,0.6)] shadow-[0_0_10px_rgba(0,229,255,0.2)] transition-all flex items-center gap-3 cursor-pointer group rounded-sm">
+                <div class="bg-white p-1 rounded-sm flex items-center justify-center">
+                    <svg class="w-3.5 h-3.5" viewBox="0 0 24 24">
+                        <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                        <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                        <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+                        <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+                    </svg>
+                </div>
+                <span>SIGN IN</span>
+            </button>
+        </div>
+        <!-- Notice we added onclick="openProfile()" here, and removed the tiny logout button! -->
+        <div id="loggedInState" onclick="openProfile()" class="hidden flex items-center gap-3 bg-black/90 border-2 border-[#00e5ff] p-2 px-3 shadow-[0_0_15px_rgba(0,229,255,0.2)] transition-all cursor-pointer hover:bg-gray-800 hover:scale-105">
+            <img id="userAvatar" src="https://via.placeholder.com/40" class="w-8 h-8 border border-[#00e5ff] object-cover">
+            <div class="flex flex-col min-w-[100px]">
+                <span id="userNameDisplay" class="text-white font-arcade text-[10px] uppercase truncate max-w-[120px]">PLAYER</span>
+                <div class="flex items-center gap-2 mt-1">
+                    <span id="userLevelDisplay" class="text-[#00e5ff] font-arcade text-[8px] tracking-widest">LVL 1</span>
+                    <div class="flex-grow h-1.5 bg-gray-700 overflow-hidden">
+                        <div id="userXpBar" class="h-full bg-[#00e5ff] transition-all duration-500" style="width: 0%"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- PLAYER DOSSIER (Profile Overlay) -->
+    <div id="profileScreen" class="fixed inset-0 bg-black/95 z-[100] hidden flex-col items-center justify-center py-12 overflow-y-auto">
+        <h2 class="font-arcade text-3xl md:text-5xl text-[#00e5ff] mb-8 uppercase text-center" style="text-shadow: 0 0 15px rgba(0,229,255,0.5);">PLAYER DOSSIER</h2>
+        
+        <div class="w-11/12 max-w-4xl grid grid-cols-1 md:grid-cols-2 gap-8">
+            <!-- Left Panel: Identity & XP -->
+            <div class="bg-[#1a1a24] border-2 border-[#00e5ff] p-6 shadow-[0_0_20px_rgba(0,229,255,0.2)] flex flex-col">
+                <div class="flex items-center gap-6 mb-6">
+                    <img id="profileAvatar" src="" class="w-24 h-24 border-2 border-[#00e5ff] object-cover">
+                    <div class="flex flex-col">
+                        <h3 id="profileName" class="font-arcade text-xl text-white mb-2 uppercase truncate max-w-[200px]">PLAYER</h3>
+                        <p id="profileLevel" class="font-arcade text-sm text-[#00e5ff] mb-2">LVL 1</p>
+                        <p id="profileXpText" class="font-arcade text-[10px] text-gray-400">0 TOTAL XP</p>
+                    </div>
+                </div>
+                
+                <div class="w-full h-3 bg-gray-800 border border-gray-600 mb-6">
+                    <div id="profileXpBar" class="h-full bg-[#00e5ff] transition-all duration-500" style="width: 0%"></div>
+                </div>
+                
+                <button id="logoutBtn" class="mt-auto font-arcade text-xs px-4 py-3 w-full bg-red-600 text-white border-2 border-white hover:bg-red-500 cursor-pointer transition-all active:translate-y-1 shadow-[inset_0_2px_0_rgba(255,255,255,0.4),_0_4px_0_#900,_0_5px_5px_rgba(0,0,0,0.5)] active:shadow-[inset_0_2px_0_rgba(255,255,255,0.4),_0_0_0_#900]">
+                    DISCONNECT
+                </button>
+            </div>
+
+            <!-- Right Panel: Global Stats -->
+            <div class="bg-[#1a1a24] border-2 border-gray-600 p-6 flex flex-col">
+                <h3 class="font-arcade text-sm md:text-lg text-yellow-400 mb-6 border-b border-gray-600 pb-2">NEON PONG CAREER</h3>
+                <div class="grid grid-cols-2 gap-4 flex-grow">
+                    <div class="bg-black border border-gray-700 p-4 flex flex-col justify-center">
+                        <p class="font-arcade text-[8px] md:text-[10px] text-gray-500 mb-2">MATCHES</p>
+                        <p id="statMatches" class="font-arcade text-2xl text-white">0</p>
+                    </div>
+                    <div class="bg-black border border-gray-700 p-4 flex flex-col justify-center">
+                        <p class="font-arcade text-[8px] md:text-[10px] text-gray-500 mb-2">WINS</p>
+                        <p id="statWins" class="font-arcade text-2xl text-green-400">0</p>
+                    </div>
+                    <div class="bg-black border border-gray-700 p-4 flex flex-col justify-center">
+                        <p class="font-arcade text-[8px] md:text-[10px] text-gray-500 mb-2">MAX RALLY</p>
+                        <p id="statRally" class="font-arcade text-2xl text-[#00e5ff]">0</p>
+                    </div>
+                    <div class="bg-black border border-gray-700 p-4 flex flex-col justify-center">
+                        <p class="font-arcade text-[8px] md:text-[10px] text-gray-500 mb-2">CO-OP BEST</p>
+                        <p id="statCoop" class="font-arcade text-2xl text-pink-400">0.0s</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <button onclick="closeProfile()" class="mt-12 font-arcade text-sm text-gray-500 hover:text-white transition-colors cursor-pointer border-b border-transparent hover:border-white pb-1">
+            [ CLOSE DOSSIER ]
+        </button>
+    </div>
 
     <!-- Scrolling Ticker -->
     <div class="ticker-wrap border-b-2 border-black font-bold text-xl py-1">
@@ -345,5 +429,102 @@
         </div>
     </footer>
 
+    <!-- Arcade Auth Sync Logic -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut, setPersistence, browserLocalPersistence } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Must match Neon Pong's exact config to share sessions
+        const firebaseConfig = {
+            apiKey: "AIzaSyDyYNPRUBoSwCjWR2IQWVQGbVaT0FHjWuE",
+            authDomain: "smol-games-69.firebaseapp.com",
+            projectId: "smol-games-69",
+            storageBucket: "smol-games-69.firebasestorage.app",
+            messagingSenderId: "1031854129604",
+            appId: "1:1031854129604:web:a10eadca41f19516cbe491",
+            measurementId: "G-YJKSE32X55"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        
+        // Ensure browser remembers this session across all arcade pages
+        setPersistence(auth, browserLocalPersistence).catch(console.error);
+        
+        const db = getFirestore(app);
+        const googleProvider = new GoogleAuthProvider();
+        const globalAppId = 'neon-pong'; 
+        let userUnsubscribe = null;
+
+        // Global Modal Functions
+        window.openProfile = () => document.getElementById('profileScreen').classList.remove('hidden');
+        window.closeProfile = () => document.getElementById('profileScreen').classList.add('hidden');
+
+        // UI Elements
+        const guestState = document.getElementById('guestState');
+        const loggedInState = document.getElementById('loggedInState');
+        const googleLoginBtn = document.getElementById('googleLoginBtn');
+        const logoutBtn = document.getElementById('logoutBtn');
+
+        googleLoginBtn.addEventListener('click', async () => {
+            try { await signInWithPopup(auth, googleProvider); } 
+            catch (error) { console.error("Login failed:", error); }
+        });
+
+        logoutBtn.addEventListener('click', async () => {
+            await signOut(auth);
+            signInAnonymously(auth);
+            window.closeProfile(); // Close the dossier on logout
+        });
+
+        const calculateXpPercentage = (xp) => (xp % 1000) / 10;
+
+        onAuthStateChanged(auth, (user) => {
+            if (userUnsubscribe) userUnsubscribe();
+
+            if (user && !user.isAnonymous) {
+                guestState.classList.add('hidden');
+                loggedInState.classList.remove('hidden');
+                
+                // Fallback UI before DB loads
+                document.getElementById('userAvatar').src = user.photoURL || 'https://via.placeholder.com/40';
+                document.getElementById('userNameDisplay').innerText = user.displayName || 'Player';
+
+                // Sync with global player profile using exact same path as Neon Pong
+                const userRef = doc(db, 'artifacts', globalAppId, 'users', user.uid, 'profile', 'data');
+                userUnsubscribe = onSnapshot(userRef, (docSnap) => {
+                    if (docSnap.exists()) {
+                        const data = docSnap.data();
+                        
+                        // Populate Top Navbar Widget
+                        document.getElementById('userAvatar').src = data.photoURL || 'https://via.placeholder.com/40';
+                        document.getElementById('userNameDisplay').innerText = data.displayName || 'Player';
+                        document.getElementById('userLevelDisplay').innerText = `LVL ${data.level || 1}`;
+                        document.getElementById('userXpBar').style.width = `${calculateXpPercentage(data.xp || 0)}%`;
+
+                        // Populate Full Profile Dossier Modal
+                        document.getElementById('profileAvatar').src = data.photoURL || 'https://via.placeholder.com/100';
+                        document.getElementById('profileName').innerText = data.displayName || 'PLAYER';
+                        document.getElementById('profileLevel').innerText = `LVL ${data.level || 1}`;
+                        document.getElementById('profileXpText').innerText = `${data.xp || 0} TOTAL XP`;
+                        document.getElementById('profileXpBar').style.width = `${calculateXpPercentage(data.xp || 0)}%`;
+                        
+                        // Populate Game Stats
+                        if(data.stats) {
+                            document.getElementById('statMatches').innerText = data.stats.totalMatches || 0;
+                            document.getElementById('statWins').innerText = data.stats.totalWins || 0;
+                            document.getElementById('statRally').innerText = data.stats.maxRally || 0;
+                            document.getElementById('statCoop').innerText = (data.stats.coopBestTime || 0) + 's';
+                        }
+                    }
+                });
+            } else {
+                guestState.classList.remove('hidden');
+                loggedInState.classList.add('hidden');
+                if (!user) signInAnonymously(auth);
+            }
+        });
+    </script>
 </body>
 </html>
