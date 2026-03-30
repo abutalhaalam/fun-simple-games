@@ -1,0 +1,1171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Neon Snake: Singularity</title>
+    <style>
+        :root {
+            --ui-color: #0ff;
+            --p1-color: #0ff;
+            --p2-color: #f0f;
+            --danger: #ff3333;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
+        body {
+            background-color: #020204;
+            color: #fff;
+            font-family: 'Courier New', Courier, monospace;
+            overflow: hidden;
+            touch-action: none;
+        }
+        canvas { display: block; width: 100vw; height: 100vh; }
+        
+        .hidden { display: none !important; }
+
+        /* UI Layers */
+        #ui-layer {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none; display: flex; flex-direction: column;
+            justify-content: space-between; padding: 20px; z-index: 5;
+            transition: opacity 0.5s ease;
+        }
+        #ui-layer.hidden {
+            display: flex !important;
+            opacity: 0 !important;
+            visibility: hidden !important;
+        }
+
+        .hud-top {
+            display: flex; justify-content: space-between; font-size: 1.5rem;
+            text-shadow: 0 0 10px var(--ui-color); font-weight: bold;
+        }
+        .hud-center {
+            text-align: center; font-size: 2rem; color: #fff;
+            text-shadow: 0 0 15px #fff; margin-top: 10px;
+        }
+
+        /* Menus */
+        .menu-screen {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(2, 2, 5, 0.85); backdrop-filter: blur(10px);
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            z-index: 10; pointer-events: auto;
+            opacity: 1; transform: scale(1);
+            transition: opacity 0.5s cubic-bezier(0.4, 0, 0.2, 1), transform 0.5s cubic-bezier(0.4, 0, 0.2, 1), visibility 0.5s;
+            visibility: visible;
+        }
+        .menu-screen.hidden {
+            display: flex !important;
+            opacity: 0 !important; transform: scale(1.05) !important;
+            pointer-events: none !important; visibility: hidden !important;
+        }
+        
+        h1 {
+            font-size: 4rem; margin-bottom: 10px; text-transform: uppercase;
+            letter-spacing: 5px; text-shadow: 0 0 15px var(--ui-color), 0 0 30px var(--ui-color);
+            text-align: center;
+        }
+        h2 { font-size: 2rem; margin-bottom: 20px; color: var(--ui-color); }
+        p { font-size: 1.2rem; margin-bottom: 30px; color: #aaa; text-align: center; white-space: pre-wrap; }
+
+        .btn-group {
+            display: flex; gap: 20px; flex-wrap: wrap; justify-content: center;
+            margin-top: 20px; max-width: 800px;
+        }
+
+        button {
+            background: rgba(0,0,0,0.5); color: var(--ui-color); border: 2px solid var(--ui-color);
+            padding: 15px 40px; font-size: 1.2rem; font-family: inherit; cursor: pointer;
+            text-transform: uppercase; font-weight: bold; border-radius: 4px;
+            box-shadow: 0 0 15px rgba(0, 255, 255, 0.1) inset; transition: all 0.2s;
+        }
+        button:hover {
+            background: var(--ui-color); color: #000; transform: translateY(-2px);
+            box-shadow: 0 0 25px var(--ui-color) inset, 0 0 25px var(--ui-color);
+        }
+
+        /* Forms & Inputs */
+        .form-group { display: flex; flex-direction: column; gap: 10px; align-items: center; margin-bottom: 20px; }
+        .form-group label { color: var(--ui-color); font-size: 1rem; text-transform: uppercase; letter-spacing: 2px; }
+        input[type="text"], select {
+            background: rgba(0,0,0,0.8); color: var(--ui-color); border: 2px solid var(--ui-color);
+            padding: 15px; font-size: 1.5rem; font-family: inherit; text-align: center; outline: none;
+            width: 100%; max-width: 350px; border-radius: 4px; transition: box-shadow 0.3s;
+        }
+        select { font-size: 1.2rem; cursor: pointer; }
+        input[type="text"]:focus, select:focus { box-shadow: 0 0 20px var(--ui-color); }
+
+        /* Draft Cards */
+        .draft-container { display: flex; gap: 20px; justify-content: center; flex-wrap: wrap; margin-top: 20px; }
+        .draft-card {
+            background: rgba(0,0,0,0.7); border: 2px solid var(--ui-color); padding: 20px; border-radius: 8px;
+            width: 250px; cursor: pointer; transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); text-align: center;
+        }
+        .draft-card:hover { transform: translateY(-15px) scale(1.05); background: rgba(0,255,255,0.1); box-shadow: 0 10px 30px rgba(0,255,255,0.4); }
+        .draft-card h3 { color: #fff; margin-bottom: 10px; font-size: 1.5rem; }
+        .draft-card p { font-size: 1rem; color: #ccc; margin-bottom: 0; }
+
+        /* Leaderboard */
+        .leaderboard-container {
+            width: 90%; max-width: 600px; max-height: 40vh; overflow-y: auto; margin-bottom: 20px;
+            border: 1px solid var(--ui-color); background: rgba(0,0,0,0.5); border-radius: 8px;
+        }
+        table { width: 100%; border-collapse: collapse; color: #fff; }
+        th, td { border-bottom: 1px solid rgba(0, 255, 255, 0.3); padding: 15px; text-align: center; }
+        th { background: rgba(0, 255, 255, 0.15); color: var(--ui-color); position: sticky; top: 0; }
+
+        #controls-hint { text-align: center; color: rgba(255,255,255,0.5); font-size: 0.9rem; margin-top: 40px; line-height: 1.5; }
+        .p1-text { color: var(--p1-color); }
+        .p2-text { color: var(--p2-color); }
+    </style>
+</head>
+<body>
+
+    <canvas id="gameCanvas"></canvas>
+
+    <div id="ui-layer" class="hidden">
+        <div class="hud-top">
+            <div id="hud-left">SCORE: 0</div>
+            <div id="hud-right">SINGULARITY: STABLE</div>
+        </div>
+        <div id="hud-center" class="hud-center"></div>
+    </div>
+
+    <!-- Main Menu -->
+    <div id="main-menu" class="menu-screen">
+        <h1>NEON SNAKE</h1>
+        <p>Survive the Event Horizon.</p>
+        <div class="btn-group">
+            <button onclick="navToSetup('SINGLE')">Single Player</button>
+            <button onclick="navToSetup('COOP')">Co-Op</button>
+            <button onclick="navToSetup('VS')">Versus</button>
+            <button onclick="showLeaderboard()">Leaderboard</button>
+        </div>
+        <div id="controls-hint">
+            <strong>Controls:</strong><br>
+            Single: WASD or Arrows (Mobile: Swipe)<br>
+            Multiplayer: P1 WASD | P2 Arrows (Mobile: Swipe Left/Right Half)
+        </div>
+    </div>
+
+    <!-- Setup Menu -->
+    <div id="setup-menu" class="menu-screen hidden">
+        <h1>MATCH SETUP</h1>
+        <div class="form-group" id="p1-setup">
+            <label>Player 1</label>
+            <input type="text" id="p1Name" placeholder="PLAYER 1 NAME" maxlength="8" value="P1" />
+        </div>
+        <div class="form-group hidden" id="p2-setup">
+            <label>Player 2</label>
+            <input type="text" id="p2Name" placeholder="PLAYER 2 NAME" maxlength="8" value="P2" />
+        </div>
+        <div class="form-group hidden" id="map-setup">
+            <label>Arena Size</label>
+            <select id="mapSelect">
+                <option value="150">Void (Massive)</option>
+                <option value="100" selected>Standard (Large)</option>
+                <option value="60">Arena (Small)</option>
+            </select>
+        </div>
+        <div class="form-group hidden" id="vs-setup">
+            <label>Wins Needed</label>
+            <select id="winsSelect">
+                <option value="1">Sudden Death (1 Win)</option>
+                <option value="3" selected>Best of 5 (3 Wins)</option>
+                <option value="5">Best of 9 (5 Wins)</option>
+                <option value="10">Endurance (10 Wins)</option>
+            </select>
+        </div>
+        <div class="btn-group">
+            <button onclick="initGame()">INITIALIZE</button>
+            <button onclick="showMainMenu()">BACK</button>
+        </div>
+    </div>
+
+    <!-- Draft Menu -->
+    <div id="draft-menu" class="menu-screen hidden">
+        <h1 id="draft-title" style="font-size: 3rem;">SYSTEM UPGRADE</h1>
+        <p id="draft-sub">Select a modification for the next cycle.</p>
+        <div class="draft-container" id="draft-options">
+            <!-- Populated via JS -->
+        </div>
+    </div>
+
+    <!-- Game Over Menu -->
+    <div id="game-over-menu" class="menu-screen hidden">
+        <h1 id="go-title">SYSTEM FAILURE</h1>
+        <p id="go-sub">Reason</p>
+        
+        <div id="name-entry-group">
+            <button onclick="saveScore()">SAVE RECORD TO LEADERBOARD</button>
+        </div>
+        
+        <div class="btn-group" style="margin-top: 30px;">
+            <button id="rematch-btn" onclick="initGame()" class="hidden">REMATCH</button>
+            <button onclick="showMainMenu()">MAIN MENU</button>
+        </div>
+    </div>
+
+    <!-- Leaderboard Menu -->
+    <div id="leaderboard-menu" class="menu-screen hidden">
+        <h1>LEADERBOARD</h1>
+        <div class="leaderboard-container">
+            <table id="lb-table">
+                <tr><th>NAME</th><th>SCORE</th><th>MODE</th></tr>
+            </table>
+        </div>
+        <div class="btn-group">
+            <button onclick="showMainMenu()">BACK</button>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        // --- GAME STATE ---
+        let width, height;
+        let gameState = 'MENU'; 
+        let gameMode = 'SINGLE'; 
+        let lastTime = 0;
+        let screenShake = 0;
+        
+        // Match Variables
+        let p1Name = "P1", p2Name = "P2";
+        let score = 0;
+        let p1Wins = 0, p2Wins = 0;
+        let winsNeeded = 3;
+        
+        // Mods & Draft Pool
+        let p1Mods = { speed: 0, shield: 0, compact: 0, phase: 0, repulse: 0, sabotage: 0, magnet: 0, reverse: 0, parasite: 0, diet: 0, wealth: 0, stun: 0 };
+        let p2Mods = { speed: 0, shield: 0, compact: 0, phase: 0, repulse: 0, sabotage: 0, magnet: 0, reverse: 0, parasite: 0, diet: 0, wealth: 0, stun: 0 };
+        let draftingPlayer = 1; 
+
+        const MOD_POOL = [
+            { id: 'speed', title: 'OVERCLOCK', desc: 'Permanent speed increase.' },
+            { id: 'shield', title: 'DEFLECTOR', desc: 'Survive one fatal impact.' },
+            { id: 'compact', title: 'COMPRESSION', desc: 'Tail grows 50% slower.' },
+            { id: 'phase', title: 'PHASE SHIFT', desc: 'Safely pass through your own tail.' },
+            { id: 'repulse', title: 'REPULSOR', desc: 'Bounce off map edges safely.' },
+            { id: 'sabotage', title: 'SABOTAGE', desc: 'Reduce enemy base speed.' },
+            { id: 'magnet', title: 'TRACTOR BEAM', desc: 'Pull nearby fragments to you.' },
+            { id: 'reverse', title: 'QUICK INVERT', desc: 'Press reverse to 180-turn.' },
+            { id: 'parasite', title: 'VIRUS', desc: 'Enemy tail grows 2x faster.' },
+            { id: 'diet', title: 'TRIM CODE', desc: 'Start cycle at minimum length.' },
+            { id: 'wealth', title: 'DATA HEIST', desc: 'Instantly gain 1000 Score.' },
+            { id: 'stun', title: 'STASIS FIELD', desc: 'Enemy stunned for 2s at start.' }
+        ];
+
+        // World / Map System
+        const sectorSize = 150; 
+        const snakeWidth = 24;  
+        let mapCols = 100, mapRows = 100;
+        let mapWidth = 0, mapHeight = 0;
+        
+        // Camera System
+        let camX = 0, camY = 0;
+        let camScale = 1;
+
+        // Visual Palettes
+        const palettes = [
+            { grid: '#0ff', bg: '#020205' },
+            { grid: '#f0f', bg: '#050205' },
+            { grid: '#0f0', bg: '#020502' },
+            { grid: '#ff5500', bg: '#050200' }
+        ];
+        let currentPalette = 0;
+
+        // Entities
+        let players = [];
+        let fragments = [];
+        let powerups = [];
+        let particles = [];
+        let effects = []; // Stores popups and rings
+        let globalTime = 0;
+        let leaderboard = [];
+
+        // Single Player Singularity
+        let singularity = {
+            active: false, x: 0, y: 0, radius: 0,
+            maxRadius: sectorSize * 6, growthRate: 0.08
+        };
+
+        // --- MATH HELPERS ---
+        function distToSegment(p, v, w) {
+            let l2 = (v.x - w.x)**2 + (v.y - w.y)**2;
+            if (l2 === 0) return Math.hypot(p.x - v.x, p.y - v.y);
+            let t = ((p.x - v.x) * (w.x - v.x) + (p.y - v.y) * (w.y - v.y)) / l2;
+            t = Math.max(0, Math.min(1, t));
+            let projX = v.x + t * (w.x - v.x);
+            let projY = v.y + t * (w.y - v.y);
+            return Math.hypot(p.x - projX, p.y - projY);
+        }
+
+        // --- EFFECT CLASSES ---
+        class Particle {
+            constructor(x, y, vx, vy, color, life, glow = true) {
+                this.x = x; this.y = y; this.vx = vx; this.vy = vy;
+                this.color = color; this.life = life; this.maxLife = life;
+                this.size = Math.random() * 3 + 1;
+                this.glow = glow;
+            }
+            update() {
+                this.x += this.vx; this.y += this.vy;
+                this.vx *= 0.96; this.vy *= 0.96;
+                this.life--;
+            }
+            draw(ctx) {
+                let alpha = Math.max(0, this.life / this.maxLife);
+                ctx.globalAlpha = alpha;
+                ctx.fillStyle = this.color;
+                if(this.glow) { ctx.shadowBlur = 10; ctx.shadowColor = this.color; }
+                ctx.beginPath(); ctx.arc(this.x, this.y, this.size, 0, Math.PI*2); ctx.fill();
+                ctx.shadowBlur = 0; ctx.globalAlpha = 1.0;
+            }
+        }
+
+        class FloatingText {
+            constructor(x, y, text, color, fontSize = 20, life = 60, dy = -1) {
+                this.x = x; this.y = y; this.text = text;
+                this.color = color; this.life = life; this.maxLife = life;
+                this.dy = dy; this.fontSize = fontSize;
+            }
+            update() { this.y += this.dy; this.life--; }
+            draw(ctx) {
+                ctx.globalAlpha = Math.max(0, this.life / this.maxLife);
+                ctx.fillStyle = this.color;
+                ctx.font = `bold ${this.fontSize}px Courier New`;
+                ctx.textAlign = "center";
+                ctx.shadowBlur = 10; ctx.shadowColor = this.color;
+                ctx.fillText(this.text, this.x, this.y);
+                ctx.shadowBlur = 0; ctx.globalAlpha = 1.0;
+            }
+        }
+
+        class RingEffect {
+            constructor(x, y, color, speed = 3, life = 20) {
+                this.x = x; this.y = y; this.color = color;
+                this.radius = 5; this.life = life; this.maxLife = life;
+                this.speed = speed;
+            }
+            update() { this.radius += this.speed; this.life--; }
+            draw(ctx) {
+                ctx.globalAlpha = Math.max(0, this.life / this.maxLife);
+                ctx.strokeStyle = this.color; ctx.lineWidth = 4;
+                ctx.shadowBlur = 15; ctx.shadowColor = this.color;
+                ctx.beginPath(); ctx.arc(this.x, this.y, this.radius, 0, Math.PI*2); ctx.stroke();
+                ctx.shadowBlur = 0; ctx.globalAlpha = 1.0;
+            }
+        }
+
+        // --- RESIZE ---
+        function resize() {
+            width = canvas.width = window.innerWidth;
+            height = canvas.height = window.innerHeight;
+        }
+
+        // --- NAVIGATION & MENUS ---
+        function hideAllMenus() {
+            document.querySelectorAll('.menu-screen').forEach(m => m.classList.add('hidden'));
+        }
+
+        function showMainMenu() {
+            gameState = 'MENU';
+            hideAllMenus();
+            document.getElementById('main-menu').classList.remove('hidden');
+            document.getElementById('ui-layer').classList.add('hidden');
+            p1Wins = 0; p2Wins = 0;
+            p1Mods = { speed: 0, shield: 0, compact: 0, phase: 0, repulse: 0, sabotage: 0, magnet: 0, reverse: 0, parasite: 0, diet: 0, wealth: 0, stun: 0 };
+            p2Mods = { speed: 0, shield: 0, compact: 0, phase: 0, repulse: 0, sabotage: 0, magnet: 0, reverse: 0, parasite: 0, diet: 0, wealth: 0, stun: 0 };
+        }
+
+        function navToSetup(mode) {
+            gameMode = mode;
+            hideAllMenus();
+            document.getElementById('setup-menu').classList.remove('hidden');
+            
+            const p2Group = document.getElementById('p2-setup');
+            const mapGroup = document.getElementById('map-setup');
+            const vsGroup = document.getElementById('vs-setup');
+
+            if (mode === 'SINGLE') {
+                p2Group.classList.add('hidden');
+                mapGroup.classList.add('hidden');
+                vsGroup.classList.add('hidden');
+                document.getElementById('mapSelect').value = "150"; 
+            } else if (mode === 'COOP') {
+                p2Group.classList.remove('hidden');
+                mapGroup.classList.add('hidden'); 
+                document.getElementById('mapSelect').value = "150";
+                vsGroup.classList.add('hidden');
+            } else if (mode === 'VS') {
+                p2Group.classList.remove('hidden');
+                mapGroup.classList.remove('hidden');
+                vsGroup.classList.remove('hidden');
+            }
+        }
+
+        function showLeaderboard() {
+            gameState = 'LEADERBOARD';
+            hideAllMenus();
+            document.getElementById('leaderboard-menu').classList.remove('hidden');
+            renderLeaderboard();
+        }
+
+        // --- GAME INITIALIZATION ---
+        function initGame() {
+            gameState = 'PLAYING';
+            hideAllMenus();
+            document.getElementById('ui-layer').classList.remove('hidden');
+            document.getElementById('rematch-btn').classList.add('hidden');
+
+            p1Name = document.getElementById('p1Name').value.trim() || "P1";
+            p2Name = document.getElementById('p2Name').value.trim() || "P2";
+            winsNeeded = parseInt(document.getElementById('winsSelect').value);
+            
+            mapCols = parseInt(document.getElementById('mapSelect').value);
+            mapRows = mapCols;
+            mapWidth = mapCols * (sectorSize/3); 
+            mapHeight = mapRows * (sectorSize/3);
+
+            if (p1Wins === 0 && p2Wins === 0) score = 0;
+            
+            fragments = []; powerups = []; particles = []; players = []; effects = [];
+            
+            let p1Controls = { up: ['w','W'], down: ['s','S'], left: ['a','A'], right: ['d','D'] };
+            let p2Controls = { up: ['ArrowUp'], down: ['ArrowDown'], left: ['ArrowLeft'], right: ['ArrowRight'] };
+            
+            let startP1 = {x: mapWidth * 0.3, y: mapHeight / 2};
+            let startP2 = {x: mapWidth * 0.7, y: mapHeight / 2};
+
+            if (gameMode === 'SINGLE') {
+                let singleControls = {
+                    up: [...p1Controls.up, ...p2Controls.up], down: [...p1Controls.down, ...p2Controls.down],
+                    left: [...p1Controls.left, ...p2Controls.left], right: [...p1Controls.right, ...p2Controls.right]
+                };
+                players.push(createSnake(1, startP1.x, startP1.y, 'var(--p1-color)', singleControls, p1Mods, p2Mods));
+                initSingularity();
+                for(let i=0; i<150; i++) spawnFragment();
+            } else if (gameMode === 'COOP') {
+                players.push(createSnake(1, startP1.x, startP1.y, 'var(--p1-color)', p1Controls, p1Mods, p2Mods));
+                players.push(createSnake(2, startP2.x, startP2.y, 'var(--p2-color)', p2Controls, p2Mods, p1Mods));
+                players[1].currentDir = {x: -1, y: 0};
+                players[1].path[1] = {x: startP2.x + 100, y: startP2.y};
+                initSingularity();
+                for(let i=0; i<200; i++) spawnFragment();
+            } else {
+                singularity.active = false;
+                players.push(createSnake(1, startP1.x, startP1.y, 'var(--p1-color)', p1Controls, p1Mods, p2Mods));
+                players.push(createSnake(2, startP2.x, startP2.y, 'var(--p2-color)', p2Controls, p2Mods, p1Mods));
+                players[1].currentDir = {x: -1, y: 0};
+                players[1].path[1] = {x: startP2.x + 100, y: startP2.y};
+                for(let i=0; i<100; i++) spawnFragment();
+            }
+
+            camScale = 1;
+            updateUIColors();
+            updateHUD();
+            lastTime = performance.now();
+        }
+
+        function initSingularity() {
+            singularity.active = true;
+            singularity.x = mapWidth / 2;
+            singularity.y = mapHeight / 2;
+            singularity.radius = sectorSize;
+        }
+
+        function createSnake(id, startX, startY, color, controls, myMods, enemyMods) {
+            let baseSpeed = 4.5 + (myMods.speed * 0.8) - (enemyMods.sabotage * 0.5);
+            if(baseSpeed < 2) baseSpeed = 2; // min speed
+
+            return {
+                id: id,
+                path: [ { x: startX, y: startY }, { x: startX - 100, y: startY } ],
+                targetLength: myMods.diet > 0 ? 50 : 200,
+                speed: baseSpeed,
+                currentDir: { x: 1, y: 0 },
+                inputQueue: [],
+                color: color,
+                alive: true,
+                controls: controls,
+                deathReason: "",
+                shield: myMods.shield > 0,
+                compactMod: myMods.compact > 0,
+                phaseMod: myMods.phase > 0,
+                repulseMod: myMods.repulse > 0,
+                magnetMod: myMods.magnet > 0,
+                reverseMod: myMods.reverse > 0,
+                parasiteMod: enemyMods.parasite > 0,
+                stunTimer: enemyMods.stun > 0 ? 120 : 0, // 2 Seconds
+                modsRef: myMods
+            };
+        }
+
+        // --- GAME LOGIC ---
+
+        function spawnFragment() {
+            let margin = 50;
+            let col = (gameMode === 'SINGLE') 
+                ? (Math.random() > 0.8 ? '#fff' : 'var(--p1-color)')
+                : (Math.random() > 0.5 ? 'var(--p1-color)' : 'var(--p2-color)');
+
+            fragments.push({
+                x: margin + Math.random() * (mapWidth - margin*2),
+                y: margin + Math.random() * (mapHeight - margin*2),
+                color: col
+            });
+        }
+
+        function spawnPowerup() {
+            let types = [
+                { type: 'CACHE', color: '#0f0', desc: 'DATA CACHE!' },
+                { type: 'SHIELD', color: '#00f', desc: 'DEFLECTOR ACTIVE!' },
+            ];
+            if(singularity.active) types.push({ type: 'BOMB', color: '#ff0', desc: 'STABILIZER DEPLOYED!' });
+            
+            let p = types[Math.floor(Math.random() * types.length)];
+            powerups.push({
+                x: 100 + Math.random() * (mapWidth - 200),
+                y: 100 + Math.random() * (mapHeight - 200),
+                type: p.type, color: p.color, desc: p.desc, life: 1000 
+            });
+        }
+
+        function spawnExplosion(x, y, color, count, sizeMulti=1) {
+            for (let i = 0; i < count; i++) {
+                let angle = Math.random() * Math.PI * 2;
+                let speed = Math.random() * 8 + 2;
+                let p = new Particle(x, y, Math.cos(angle) * speed, Math.sin(angle) * speed, color, Math.random() * 40 + 20);
+                p.size *= sizeMulti;
+                particles.push(p);
+            }
+        }
+
+        function updateCamera() {
+            if (gameMode === 'SINGLE' && players[0].alive) {
+                let targetX = players[0].path[0].x - width / 2;
+                let targetY = players[0].path[0].y - height / 2;
+                camX += (targetX - camX) * 0.1;
+                camY += (targetY - camY) * 0.1;
+                camScale = 1;
+            } else if (players.length > 1) {
+                let minX = mapWidth, maxX = 0, minY = mapHeight, maxY = 0;
+                let aliveCount = 0;
+                players.forEach(p => {
+                    if (p.alive) {
+                        minX = Math.min(minX, p.path[0].x); maxX = Math.max(maxX, p.path[0].x);
+                        minY = Math.min(minY, p.path[0].y); maxY = Math.max(maxY, p.path[0].y);
+                        aliveCount++;
+                    }
+                });
+
+                if (aliveCount > 0) {
+                    let padding = 400;
+                    let viewW = (maxX - minX) + padding * 2;
+                    let viewH = (maxY - minY) + padding * 2;
+                    let targetScale = Math.min(1, Math.min(width / viewW, height / viewH));
+                    targetScale = Math.max(0.25, targetScale);
+                    
+                    camScale += (targetScale - camScale) * 0.05;
+                    let targetCamX = ((minX + maxX) / 2) - (width / 2) / camScale;
+                    let targetCamY = ((minY + maxY) / 2) - (height / 2) / camScale;
+                    
+                    camX += (targetCamX - camX) * 0.1;
+                    camY += (targetCamY - camY) * 0.1;
+                }
+            }
+        }
+
+        function updateSnakes(dtRatio) {
+            players.forEach(p => {
+                if (!p.alive) return;
+                
+                // Stun effect
+                if (p.stunTimer > 0) {
+                    p.stunTimer -= dtRatio;
+                    if(Math.random() < 0.2) {
+                        effects.push(new RingEffect(p.path[0].x, p.path[0].y, '#0ff', 2, 10));
+                    }
+                    return; // Skip moving and input for stunned player
+                }
+
+                // Steering
+                if (p.inputQueue.length > 0) {
+                    let nextDir = p.inputQueue.shift();
+                    p.currentDir = nextDir;
+                    p.path.unshift({ x: p.path[0].x, y: p.path[0].y });
+                }
+
+                p.path[0].x += p.currentDir.x * p.speed * dtRatio;
+                p.path[0].y += p.currentDir.y * p.speed * dtRatio;
+
+                // Tail resolution
+                let currentLen = 0;
+                for (let i = 0; i < p.path.length - 1; i++) {
+                    let dx = p.path[i].x - p.path[i+1].x;
+                    let dy = p.path[i].y - p.path[i+1].y;
+                    let dist = Math.hypot(dx, dy);
+                    if (currentLen + dist >= p.targetLength) {
+                        let remain = p.targetLength - currentLen;
+                        p.path[i+1].x = p.path[i].x - (dx / dist) * remain;
+                        p.path[i+1].y = p.path[i].y - (dy / dist) * remain;
+                        p.path.length = i + 2;
+                        break;
+                    }
+                    currentLen += dist;
+                }
+
+                // Tractor Beam Modifier
+                if (p.magnetMod) {
+                    fragments.forEach(f => {
+                        let dx = p.path[0].x - f.x;
+                        let dy = p.path[0].y - f.y;
+                        let dist = Math.hypot(dx, dy);
+                        if (dist > 0 && dist < 200) {
+                            f.x += (dx / dist) * 10 * dtRatio;
+                            f.y += (dy / dist) * 10 * dtRatio;
+                        }
+                    });
+                }
+            });
+
+            // Collisions
+            players.forEach(p => {
+                if (!p.alive) return;
+                let head = p.path[0];
+                let radius = snakeWidth * 0.5;
+
+                // Map Boundaries
+                if (head.x < 0 || head.x > mapWidth || head.y < 0 || head.y > mapHeight) {
+                    if (p.repulseMod) {
+                        if(head.x < 0) { head.x = 0; p.currentDir = {x: 1, y: 0}; }
+                        else if(head.x > mapWidth) { head.x = mapWidth; p.currentDir = {x: -1, y: 0}; }
+                        if(head.y < 0) { head.y = 0; p.currentDir = {x: 0, y: 1}; }
+                        else if(head.y > mapHeight) { head.y = mapHeight; p.currentDir = {x: 0, y: -1}; }
+                        p.path.unshift({ x: head.x, y: head.y }); 
+                        p.inputQueue = [];
+                        spawnExplosion(head.x, head.y, p.color, 15);
+                    } else {
+                        handlePlayerDamage(p, "IMPACTED PERIMETER BOUNDARY"); return;
+                    }
+                }
+
+                // Singularity
+                if (singularity.active) {
+                    if (Math.hypot(head.x - singularity.x, head.y - singularity.y) < singularity.radius) {
+                        handlePlayerDamage(p, "CONSUMED BY SINGULARITY"); return;
+                    }
+                }
+
+                // Player vs Player/Self Collision
+                players.forEach(other => {
+                    if (!other.alive) return;
+                    if (other === p && p.phaseMod) return; 
+                    
+                    let accLen = 0;
+                    for (let i = 0; i < other.path.length - 1; i++) {
+                        let p1 = other.path[i]; let p2 = other.path[i+1];
+                        let segLen = Math.hypot(p1.x - p2.x, p1.y - p2.y);
+                        
+                        if (other === p && accLen < snakeWidth * 2) { accLen += segLen; continue; }
+                        
+                        if (distToSegment(head, p1, p2) < radius * 1.5) { 
+                            handlePlayerDamage(p, (other === p) ? "CRITICAL SYSTEM OVERLAP" : "FATAL COLLISION WITH RIVAL");
+                            return;
+                        }
+                        accLen += segLen;
+                    }
+                });
+
+                // Pickups
+                for (let i = fragments.length - 1; i >= 0; i--) {
+                    let f = fragments[i];
+                    if (Math.hypot(head.x - f.x, head.y - f.y) < radius + 15) {
+                        fragments.splice(i, 1);
+                        score += 10;
+                        
+                        // Modifier adjustments for fragment pickup
+                        let growth = p.compactMod ? 5 : (p.parasiteMod ? 30 : 15);
+                        p.targetLength += growth;
+                        
+                        effects.push(new RingEffect(f.x, f.y, f.color, 4, 15));
+                        effects.push(new FloatingText(f.x, f.y, "+10", f.color, 12, 30, -1));
+                        spawnFragment(); 
+                    }
+                }
+
+                for (let i = powerups.length - 1; i >= 0; i--) {
+                    let pu = powerups[i];
+                    if (Math.hypot(head.x - pu.x, head.y - pu.y) < radius + 25) {
+                        applyPowerup(p, pu);
+                        powerups.splice(i, 1);
+                    }
+                }
+            });
+        }
+
+        function applyPowerup(player, pu) {
+            spawnExplosion(pu.x, pu.y, pu.color, 30);
+            effects.push(new RingEffect(pu.x, pu.y, pu.color, 6, 30));
+            effects.push(new FloatingText(pu.x, pu.y - 20, pu.desc, pu.color, 24, 70, -1.5));
+
+            if (pu.type === 'CACHE') {
+                score += 500;
+                player.targetLength += player.compactMod ? 100 : 250;
+            } else if (pu.type === 'SHIELD') {
+                if (!player.shield) { player.shield = true; player.modsRef.shield++; }
+            } else if (pu.type === 'BOMB') {
+                if (singularity.active) {
+                    singularity.radius = Math.max(sectorSize, singularity.radius - sectorSize*2);
+                    spawnExplosion(singularity.x, singularity.y, '#ff0', 50, 2);
+                    screenShake = 15;
+                    score += 1000;
+                }
+            }
+            updateHUD();
+        }
+
+        function handlePlayerDamage(player, reason) {
+            if (player.shield) {
+                player.shield = false;
+                player.modsRef.shield = Math.max(0, player.modsRef.shield - 1);
+                spawnExplosion(player.path[0].x, player.path[0].y, '#00f', 50);
+                effects.push(new FloatingText(player.path[0].x, player.path[0].y, "DEFLECTED!", "#00f", 20, 60, -2));
+                
+                player.currentDir.x *= -1;
+                player.currentDir.y *= -1;
+                player.path.unshift({x: player.path[0].x, y: player.path[0].y});
+                player.inputQueue = [];
+                return true;
+            } else {
+                killPlayer(player, reason);
+                return false;
+            }
+        }
+
+        function killPlayer(player, reason) {
+            player.alive = false;
+            spawnExplosion(player.path[0].x, player.path[0].y, player.color, 150, 2);
+            player.deathReason = reason;
+            screenShake = 20;
+            checkGameEnd();
+        }
+
+        function updateWorld(dtRatio) {
+            if (singularity.active) {
+                singularity.radius += singularity.growthRate * dtRatio;
+                if (singularity.radius > singularity.maxRadius) {
+                    players.forEach(p => { if (p.alive) killPlayer(p, "SINGULARITY REACHED CRITICAL MASS"); });
+                }
+            }
+
+            if (Math.random() < 0.002 * dtRatio && powerups.length < 3) spawnPowerup();
+
+            if (gameMode === 'COOP' && players[0].alive && players[1].alive && singularity.active) {
+                let p1 = players[0].path[0]; let p2 = players[1].path[0];
+                let dist = Math.hypot(p1.x - p2.x, p1.y - p2.y);
+                if (dist < sectorSize * 4) {
+                    let dToSing = distToSegment(singularity, p1, p2);
+                    if (dToSing < singularity.radius) {
+                        singularity.radius -= 0.8 * dtRatio;
+                        score += Math.floor(5 * dtRatio);
+                        if(Math.random()<0.1) spawnExplosion(singularity.x, singularity.y, '#fff', 2, 0.5);
+                        updateHUD();
+                    }
+                }
+            }
+        }
+
+        function checkGameEnd() {
+            if (gameState !== 'PLAYING') return;
+
+            if (gameMode === 'SINGLE') {
+                if (!players[0].alive) handleGameOver(players[0].deathReason);
+            } else if (gameMode === 'COOP') {
+                if (!players[0].alive || !players[1].alive) {
+                    let reason = players[0].alive ? players[1].deathReason : players[0].deathReason;
+                    handleGameOver("CO-OP LINK SEVERED: " + reason);
+                }
+            } else if (gameMode === 'VS') {
+                if (!players[0].alive && !players[1].alive) {
+                    handleRoundEnd("MUTUAL DESTRUCTION", 0);
+                } else if (!players[0].alive) {
+                    p2Wins++;
+                    handleRoundEnd(`${p2Name} WINS THE ROUND`, 2);
+                } else if (!players[1].alive) {
+                    p1Wins++;
+                    handleRoundEnd(`${p1Name} WINS THE ROUND`, 1);
+                }
+            }
+        }
+
+        function handleRoundEnd(msg, winnerId) {
+            gameState = 'GAMEOVER'; 
+            
+            if (p1Wins >= winsNeeded) {
+                handleGameOver(`${p1Name} WINS THE MATCH!`);
+            } else if (p2Wins >= winsNeeded) {
+                handleGameOver(`${p2Name} WINS THE MATCH!`);
+            } else {
+                setTimeout(() => {
+                    draftingPlayer = winnerId === 1 ? 2 : 1; 
+                    if (winnerId === 0) draftingPlayer = Math.random() > 0.5 ? 1 : 2; 
+
+                    gameState = 'DRAFT';
+                    let dName = draftingPlayer === 1 ? p1Name : p2Name;
+                    let dColor = draftingPlayer === 1 ? 'var(--p1-color)' : 'var(--p2-color)';
+                    
+                    document.getElementById('draft-title').innerText = `${dName}: CHOOSE UPGRADE`;
+                    document.getElementById('draft-title').style.color = dColor;
+                    
+                    let draftContainer = document.getElementById('draft-options');
+                    draftContainer.innerHTML = '';
+                    
+                    let shuffled = [...MOD_POOL].sort(() => 0.5 - Math.random());
+                    let choices = shuffled.slice(0, 3);
+                    
+                    choices.forEach(mod => {
+                        let card = document.createElement('div');
+                        card.className = 'draft-card';
+                        card.onclick = () => selectMod(mod.id);
+                        card.innerHTML = `<h3>${mod.title}</h3><p>${mod.desc}</p>`;
+                        draftContainer.appendChild(card);
+                    });
+
+                    hideAllMenus();
+                    document.getElementById('draft-menu').classList.remove('hidden');
+                    document.getElementById('ui-layer').classList.add('hidden');
+                }, 1500);
+            }
+            updateHUD();
+        }
+
+        function selectMod(modId) {
+            let targetMods = draftingPlayer === 1 ? p1Mods : p2Mods;
+            targetMods[modId]++;
+            
+            // Apply immediate modifiers
+            if (modId === 'wealth') score += 1000;
+            
+            initGame(); 
+        }
+
+        function handleGameOver(reason) {
+            gameState = 'GAMEOVER';
+            document.getElementById('go-title').innerText = "MATCH CONCLUDED";
+            let subText = `${reason}\n\n`;
+            if (gameMode === 'VS') {
+                subText += `FINAL SCORE: ${p1Name} [${p1Wins}] - [${p2Wins}] ${p2Name}`;
+                document.getElementById('name-entry-group').classList.add('hidden');
+                document.getElementById('rematch-btn').classList.remove('hidden');
+            } else {
+                subText += `FINAL SCORE: ${score}`;
+                document.getElementById('name-entry-group').classList.remove('hidden');
+            }
+            document.getElementById('go-sub').innerText = subText;
+            
+            setTimeout(() => {
+                hideAllMenus();
+                document.getElementById('game-over-menu').classList.remove('hidden');
+                document.getElementById('ui-layer').classList.add('hidden');
+            }, 1000);
+        }
+
+        // --- UI & DRAWING ---
+
+        function updateHUD() {
+            if (gameMode === 'VS') {
+                document.getElementById('hud-left').innerHTML = `<span class="p1-text">${p1Name}: ${p1Wins}</span>`;
+                document.getElementById('hud-right').innerHTML = `<span class="p2-text">${p2Name}: ${p2Wins}</span>`;
+            } else {
+                document.getElementById('hud-left').innerText = `SCORE: ${score}`;
+                if (singularity.active) {
+                    let massPct = Math.floor((singularity.radius / singularity.maxRadius) * 100);
+                    let color = massPct > 80 ? '#f33' : '#fff';
+                    document.getElementById('hud-right').innerHTML = `<span style="color:${color}">MASS: ${massPct}%</span>`;
+                } else {
+                    document.getElementById('hud-right').innerText = "";
+                }
+            }
+        }
+
+        function updateUIColors() {
+            document.documentElement.style.setProperty('--ui-color', palettes[currentPalette].grid);
+        }
+
+        function drawBackgroundGrid(ctx, startX, startY, endX, endY) {
+            ctx.strokeStyle = palettes[currentPalette].grid;
+            ctx.lineWidth = 2;
+            ctx.globalAlpha = 0.05;
+            ctx.beginPath();
+            
+            let firstCol = Math.floor(startX / sectorSize);
+            let lastCol = Math.ceil(endX / sectorSize);
+            for (let i = firstCol; i <= lastCol; i++) {
+                ctx.moveTo(i * sectorSize, Math.max(0, startY));
+                ctx.lineTo(i * sectorSize, Math.min(mapHeight, endY));
+            }
+            
+            let firstRow = Math.floor(startY / sectorSize);
+            let lastRow = Math.ceil(endY / sectorSize);
+            for (let i = firstRow; i <= lastRow; i++) {
+                ctx.moveTo(Math.max(0, startX), i * sectorSize);
+                ctx.lineTo(Math.min(mapWidth, endX), i * sectorSize);
+            }
+            ctx.stroke();
+            ctx.globalAlpha = 1.0;
+
+            ctx.strokeStyle = 'rgba(255, 50, 50, 0.4)';
+            ctx.lineWidth = 10;
+            ctx.strokeRect(0, 0, mapWidth, mapHeight);
+            
+            ctx.strokeStyle = 'rgba(255, 50, 50, 0.1)';
+            ctx.lineWidth = 40;
+            ctx.strokeRect(20, 20, mapWidth-40, mapHeight-40);
+        }
+
+        function drawMinimap(ctx) {
+            let mmSize = 180;
+            let pad = 20;
+            let mmX = width - mmSize - pad;
+            let mmY = height - mmSize - pad;
+            let scale = mmSize / Math.max(mapWidth, mapHeight);
+
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+            ctx.strokeStyle = palettes[currentPalette].grid;
+            ctx.lineWidth = 2;
+            ctx.fillRect(mmX, mmY, mapWidth * scale, mapHeight * scale);
+            ctx.strokeRect(mmX, mmY, mapWidth * scale, mapHeight * scale);
+
+            if (singularity.active) {
+                ctx.beginPath();
+                ctx.arc(mmX + singularity.x * scale, mmY + singularity.y * scale, singularity.radius * scale, 0, Math.PI*2);
+                ctx.fillStyle = 'rgba(255, 0, 255, 0.8)'; ctx.fill();
+            }
+
+            powerups.forEach(pu => {
+                ctx.fillStyle = pu.color;
+                ctx.fillRect(mmX + pu.x * scale - 2, mmY + pu.y * scale - 2, 4, 4);
+            });
+
+            players.forEach(p => {
+                if(!p.alive) return;
+                ctx.fillStyle = p.color;
+                ctx.beginPath();
+                ctx.arc(mmX + p.path[0].x * scale, mmY + p.path[0].y * scale, 4, 0, Math.PI*2);
+                ctx.fill();
+            });
+        }
+
+        function loop(timestamp) {
+            requestAnimationFrame(loop);
+            let deltaTime = timestamp - lastTime;
+            lastTime = timestamp;
+            globalTime += deltaTime;
+
+            if (gameState === 'PLAYING') {
+                let dtRatio = Math.min(deltaTime / 16.666, 3);
+                updateSnakes(dtRatio);
+                updateWorld(dtRatio);
+                updateCamera();
+            }
+
+            ctx.fillStyle = palettes[currentPalette].bg; 
+            ctx.fillRect(0, 0, width, height);
+
+            ctx.save();
+            if (screenShake > 0) {
+                ctx.translate((Math.random() - 0.5) * screenShake, (Math.random() - 0.5) * screenShake);
+                screenShake *= 0.9;
+                if (screenShake < 0.5) screenShake = 0;
+            }
+
+            ctx.translate(width/2, height/2);
+            ctx.scale(camScale, camScale);
+            ctx.translate(-width/2 - camX, -height/2 - camY);
+
+            let viewLeft = camX - width/camScale; let viewRight = camX + width/camScale * 2;
+            let viewTop = camY - height/camScale; let viewBottom = camY + height/camScale * 2;
+
+            drawBackgroundGrid(ctx, viewLeft, viewTop, viewRight, viewBottom);
+
+            if (gameState === 'PLAYING' || gameState === 'GAMEOVER') {
+                
+                if (singularity.active) {
+                    ctx.beginPath();
+                    ctx.arc(singularity.x, singularity.y, singularity.radius * 1.5, 0, Math.PI * 2);
+                    let grad = ctx.createRadialGradient(singularity.x, singularity.y, singularity.radius, singularity.x, singularity.y, singularity.radius * 1.5);
+                    grad.addColorStop(0, 'rgba(150, 0, 255, 0.5)');
+                    grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+                    ctx.fillStyle = grad; ctx.fill();
+
+                    ctx.beginPath();
+                    ctx.arc(singularity.x, singularity.y, singularity.radius, 0, Math.PI * 2);
+                    ctx.fillStyle = '#000'; ctx.shadowBlur = 40; ctx.shadowColor = '#f0f'; ctx.fill();
+                    ctx.shadowBlur = 0;
+                }
+
+                fragments.forEach(f => {
+                    ctx.fillStyle = f.color;
+                    ctx.globalAlpha = 0.6 + Math.sin(globalTime*0.01 + f.x)*0.4;
+                    ctx.fillRect(f.x-4, f.y-4, 8, 8);
+                });
+                ctx.globalAlpha = 1.0;
+
+                powerups.forEach(pu => {
+                    ctx.beginPath();
+                    ctx.arc(pu.x, pu.y, 15 + Math.sin(globalTime*0.01)*5, 0, Math.PI*2);
+                    ctx.fillStyle = pu.color; ctx.shadowBlur = 20; ctx.shadowColor = pu.color;
+                    ctx.fill(); ctx.shadowBlur = 0;
+                    ctx.fillStyle = '#fff'; ctx.font = "bold 12px Courier"; ctx.textAlign = "center";
+                    ctx.fillText(pu.type[0], pu.x, pu.y + 4);
+                });
+
+                if (gameMode === 'COOP' && players[0].alive && players[1].alive) {
+                    let p1 = players[0].path[0]; let p2 = players[1].path[0];
+                    if (Math.hypot(p1.x - p2.x, p1.y - p2.y) < sectorSize * 4) {
+                        ctx.beginPath(); ctx.moveTo(p1.x, p1.y); ctx.lineTo(p2.x, p2.y);
+                        ctx.strokeStyle = '#fff'; ctx.lineWidth = 4;
+                        ctx.shadowBlur = 15; ctx.shadowColor = '#0ff'; ctx.stroke(); ctx.shadowBlur = 0;
+                    }
+                }
+
+                players.forEach(p => {
+                    if (p.path.length > 1) {
+                        
+                        // 1. Draw base glowing outline
+                        ctx.beginPath();
+                        ctx.moveTo(p.path[0].x, p.path[0].y);
+                        for(let i=1; i<p.path.length; i++) ctx.lineTo(p.path[i].x, p.path[i].y);
+                        
+                        ctx.strokeStyle = p.alive ? p.color : '#333';
+                        ctx.lineWidth = snakeWidth;
+                        ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+                        
+                        if (p.alive && p.shield) {
+                            ctx.shadowBlur = 20; ctx.shadowColor = '#00f';
+                        } else {
+                            ctx.shadowBlur = p.alive && !p.phaseMod ? 15 : 0; 
+                            ctx.shadowColor = p.color;
+                        }
+                        
+                        if (p.phaseMod) { ctx.globalAlpha = 0.7; ctx.setLineDash([10, 10]); }
+                        ctx.stroke(); 
+                        
+                        // 2. Draw solid inner white core to make snake entirely opaque and physical
+                        ctx.strokeStyle = p.alive ? '#fff' : '#666';
+                        ctx.lineWidth = snakeWidth * 0.4;
+                        ctx.shadowBlur = 0;
+                        if (p.phaseMod) { ctx.globalAlpha = 0.9; }
+                        ctx.stroke();
+
+                        ctx.globalAlpha = 1.0; ctx.setLineDash([]);
+
+                        // Head
+                        if (p.alive) {
+                            ctx.beginPath(); ctx.arc(p.path[0].x, p.path[0].y, snakeWidth * 0.4, 0, Math.PI * 2);
+                            ctx.fillStyle = '#fff'; ctx.fill();
+                        }
+                    }
+                });
+            }
+
+            // Effects (Popups & Rings)
+            for (let i = effects.length - 1; i >= 0; i--) {
+                let e = effects[i];
+                e.update(); e.draw(ctx);
+                if (e.life <= 0) effects.splice(i, 1);
+            }
+
+            // Particles
+            for (let i = particles.length - 1; i >= 0; i--) {
+                let p = particles[i];
+                p.update(); p.draw(ctx);
+                if (p.life <= 0) particles.splice(i, 1);
+            }
+
+            ctx.restore();
+
+            if (gameState === 'PLAYING') {
+                drawMinimap(ctx);
+            }
+        }
+
+        // --- LEADERBOARD & DATA ---
+        function saveScore() {
+            let n = gameMode === 'SINGLE' ? p1Name : `${p1Name} & ${p2Name}`;
+            leaderboard.push({ name: n, score: score, mode: gameMode });
+            leaderboard.sort((a,b) => b.score - a.score);
+            showLeaderboard();
+        }
+
+        function renderLeaderboard() {
+            let table = document.getElementById('lb-table');
+            table.innerHTML = '<tr><th>NAME</th><th>SCORE</th><th>MODE</th></tr>';
+            leaderboard.forEach(entry => {
+                let tr = document.createElement('tr');
+                tr.innerHTML = `<td>${entry.name}</td><td>${entry.score}</td><td>${entry.mode}</td>`;
+                table.appendChild(tr);
+            });
+        }
+
+        // --- INPUT CONTROLS ---
+        function handleInputDirection(player, newDir) {
+            if (!player.alive || player.stunTimer > 0) return;
+            
+            let lastDir = player.inputQueue.length > 0 ? player.inputQueue[player.inputQueue.length - 1] : player.currentDir;
+            
+            // Allow Quick Invert if drafted
+            if (newDir.x === -lastDir.x && newDir.y === -lastDir.y) {
+                if (player.reverseMod) {
+                    player.path.reverse();
+                    player.currentDir = newDir;
+                    player.inputQueue = [];
+                    spawnExplosion(player.path[0].x, player.path[0].y, '#fff', 10);
+                }
+            } else if (newDir.x !== lastDir.x && newDir.y !== lastDir.y) {
+                player.inputQueue.push(newDir);
+            }
+        }
+
+        window.addEventListener('keydown', (e) => {
+            if (gameState !== 'PLAYING') return;
+            players.forEach(p => {
+                let newDir = null;
+                if (p.controls.up.includes(e.key)) newDir = { x: 0, y: -1 };
+                if (p.controls.down.includes(e.key)) newDir = { x: 0, y: 1 };
+                if (p.controls.left.includes(e.key)) newDir = { x: -1, y: 0 };
+                if (p.controls.right.includes(e.key)) newDir = { x: 1, y: 0 };
+                
+                if (newDir) handleInputDirection(p, newDir);
+            });
+        });
+
+        let touchStartX = 0, touchStartY = 0;
+        window.addEventListener('touchstart', (e) => {
+            touchStartX = e.touches[0].clientX; touchStartY = e.touches[0].clientY;
+        }, {passive: false});
+        window.addEventListener('touchmove', (e) => { e.preventDefault(); }, {passive: false});
+        window.addEventListener('touchend', (e) => {
+            if (gameState !== 'PLAYING') return;
+            let dx = e.changedTouches[0].clientX - touchStartX;
+            let dy = e.changedTouches[0].clientY - touchStartY;
+            let newDir = null;
+            if (Math.abs(dx) > 30 || Math.abs(dy) > 30) {
+                if (Math.abs(dx) > Math.abs(dy)) newDir = dx > 0 ? { x: 1, y: 0 } : { x: -1, y: 0 };
+                else newDir = dy > 0 ? { x: 0, y: 1 } : { x: 0, y: -1 };
+            }
+            if (newDir) {
+                let targetPlayer = players[0];
+                if (players.length > 1 && touchStartX > width / 2) targetPlayer = players[1];
+                if (targetPlayer) handleInputDirection(targetPlayer, newDir);
+            }
+        });
+
+        window.addEventListener('resize', resize);
+        resize(); requestAnimationFrame(loop);
+    </script>
+</body>
+</html>
