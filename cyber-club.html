@@ -18,8 +18,10 @@
         .animate-pulse-glow { animation: pulse-glow 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
         @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
         .animate-float { animation: float 3s ease-in-out infinite; }
+        @keyframes drop-in { 0% { transform: scale(1.5) translateY(-20px); opacity: 0; filter: brightness(2); } 100% { transform: scale(1) translateY(0); opacity: 1; filter: brightness(1); } }
+        .animate-drop-in { animation: drop-in 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
         
-        /* Grid Layouts for Phase 4 */
+        /* Grid Layouts */
         .room-divider { border-top: 4px dashed rgba(236, 72, 153, 0.3); margin-top: 8px; padding-top: 8px; position: relative; }
         .room-divider::before { content: attr(data-room); position: absolute; top: -12px; left: 16px; background: #0a0a16; padding: 0 8px; font-size: 10px; color: #f472b6; font-weight: 900; letter-spacing: 0.2em; text-transform: uppercase; border: 1px solid rgba(236, 72, 153, 0.3); border-radius: 4px; }
     </style>
@@ -28,18 +30,103 @@
     <div id="app" class="flex-1 flex flex-col"></div>
 
     <script>
-        // --- MATH & UTILS ---
-        const hashSeed = (value) => {
-            let h = 2166136261;
-            for (let i = 0; i < value.length; i += 1) {
-                h ^= value.charCodeAt(i);
-                h = Math.imul(h, 16777619);
+        // --- AUDIO ENGINE (Procedural Synth) ---
+        const sfx = {
+            ctx: null,
+            init: function() {
+                if (!this.ctx) this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+                if (this.ctx.state === 'suspended') this.ctx.resume();
+            },
+            play: function(type) {
+                try {
+                    this.init();
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    const now = this.ctx.currentTime;
+
+                    if (type === 'coin') {
+                        osc.type = 'sine';
+                        osc.frequency.setValueAtTime(800, now);
+                        osc.frequency.exponentialRampToValueAtTime(1200, now + 0.1);
+                        gain.gain.setValueAtTime(0.3, now);
+                        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
+                        osc.start(now); osc.stop(now + 0.1);
+                    } else if (type === 'place') {
+                        osc.type = 'square';
+                        osc.frequency.setValueAtTime(150, now);
+                        osc.frequency.exponentialRampToValueAtTime(40, now + 0.1);
+                        gain.gain.setValueAtTime(0.2, now);
+                        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
+                        osc.start(now); osc.stop(now + 0.1);
+                    } else if (type === 'error') {
+                        osc.type = 'sawtooth';
+                        osc.frequency.setValueAtTime(150, now);
+                        osc.frequency.linearRampToValueAtTime(100, now + 0.3);
+                        gain.gain.setValueAtTime(0.4, now);
+                        gain.gain.linearRampToValueAtTime(0.01, now + 0.3);
+                        osc.start(now); osc.stop(now + 0.3);
+                    } else if (type === 'boom') {
+                        osc.type = 'sawtooth';
+                        osc.frequency.setValueAtTime(100, now);
+                        osc.frequency.exponentialRampToValueAtTime(10, now + 0.4);
+                        gain.gain.setValueAtTime(0.5, now);
+                        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.4);
+                        osc.start(now); osc.stop(now + 0.4);
+                    } else if (type === 'win') {
+                        osc.type = 'square';
+                        osc.frequency.setValueAtTime(400, now);
+                        osc.frequency.setValueAtTime(600, now + 0.1);
+                        osc.frequency.setValueAtTime(800, now + 0.2);
+                        gain.gain.setValueAtTime(0.3, now);
+                        gain.gain.linearRampToValueAtTime(0.01, now + 0.4);
+                        osc.start(now); osc.stop(now + 0.4);
+                    }
+                } catch(e) {} // Fail silently if audio blocked
             }
-            return h >>> 0;
         };
+
+        // --- PARTICLE ENGINE ---
+        const spawnParticles = (e, colorCode = '#ef4444') => {
+            const rect = e.target.getBoundingClientRect();
+            const x = rect.left + rect.width / 2;
+            const y = rect.top + rect.height / 2;
+            
+            for(let i=0; i<15; i++) {
+                const p = document.createElement('div');
+                p.style.position = 'fixed';
+                p.style.left = x + 'px';
+                p.style.top = y + 'px';
+                p.style.width = (Math.random() * 6 + 4) + 'px';
+                p.style.height = p.style.width;
+                p.style.backgroundColor = colorCode;
+                p.style.pointerEvents = 'none';
+                p.style.zIndex = '9999';
+                p.style.borderRadius = Math.random() > 0.5 ? '50%' : '0';
+                
+                const angle = Math.random() * Math.PI * 2;
+                const velocity = Math.random() * 80 + 30;
+                const tx = Math.cos(angle) * velocity;
+                const ty = Math.sin(angle) * velocity + 50; // gravity bias
+                
+                p.animate([
+                    { transform: 'translate(-50%, -50%) scale(1) rotate(0deg)', opacity: 1 },
+                    { transform: `translate(calc(-50% + ${tx}px), calc(-50% + ${ty}px)) scale(0) rotate(${Math.random()*360}deg)`, opacity: 0 }
+                ], { duration: 600 + Math.random()*400, easing: 'cubic-bezier(0.25, 1, 0.5, 1)' });
+                
+                document.body.appendChild(p);
+                setTimeout(() => p.remove(), 1000);
+            }
+        };
+
+        // --- MATH & UTILS ---
+        const hashSeed = (value) => { let h = 2166136261; for (let i = 0; i < value.length; i += 1) { h ^= value.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; };
         const pick = (seed, items, offset = 0) => items[(hashSeed(`${seed}-${offset}`) + offset) % items.length];
         const shuffle = (array) => [...array].sort(() => Math.random() - 0.5);
         const createUid = () => `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+        const saveScore = (night) => { const best = localStorage.getItem('cyberClubBest') || 0; if (night > best) localStorage.setItem('cyberClubBest', night); };
+        const getBestScore = () => localStorage.getItem('cyberClubBest') || 1;
 
         // --- GRID MATH ---
         const GRID_W = 5;
@@ -57,25 +144,25 @@
 
         // --- DATABASE ---
         const ROLE_STYLE = {
-            slacker: { primary: '#64748b', secondary: '#94a3b8', accent: '#cbd5e1', vibe: 'CHILL' },
-            student: { primary: '#3b82f6', secondary: '#93c5fd', accent: '#bfdbfe', vibe: 'STUD' },
-            worker: { primary: '#eab308', secondary: '#fde047', accent: '#fef08a', vibe: 'WORK' },
-            partygoer: { primary: '#ec4899', secondary: '#f9a8d4', accent: '#fbcfe8', vibe: 'PARTY' },
-            punk: { primary: '#ef4444', secondary: '#fca5a5', accent: '#fecaca', vibe: 'PUNK' },
-            dealer: { primary: '#f97316', secondary: '#fdba74', accent: '#fed7aa', vibe: 'SHADY' },
-            promoter: { primary: '#d946ef', secondary: '#f0abfc', accent: '#fdf4ff', vibe: 'HYPE' },
-            bouncer: { primary: '#10b981', secondary: '#6ee7b7', accent: '#a7f3d0', vibe: 'SEC' },
-            hacker: { primary: '#06b6d4', secondary: '#67e8f9', accent: '#cffafe', vibe: 'NET' },
-            dj: { primary: '#8b5cf6', secondary: '#c4b5fd', accent: '#ede9fe', vibe: 'DJ' },
-            manager: { primary: '#ca8a04', secondary: '#fef08a', accent: '#fef9c3', vibe: 'BOSS' },
-            cop: { primary: '#2563eb', secondary: '#60a5fa', accent: '#dbeafe', vibe: 'LAW' },
-            vip: { primary: '#fbbf24', secondary: '#fef3c7', accent: '#fffbeb', vibe: 'VIP' },
-            fixer: { primary: '#059669', secondary: '#34d399', accent: '#d1fae5', vibe: 'FIX' },
-            kingpin: { primary: '#dc2626', secondary: '#f87171', accent: '#fee2e2', vibe: 'DON' },
-            mayor: { primary: '#4f46e5', secondary: '#a5b4fc', accent: '#e0e7ff', vibe: 'GOV' },
-            celebrity: { primary: '#db2777', secondary: '#f472b6', accent: '#fce7f3', vibe: 'STAR' },
-            mastermind: { primary: '#0f766e', secondary: '#34d399', accent: '#ecfdf5', vibe: 'MIND' },
-            anomaly: { primary: '#ffffff', secondary: '#cbd5e1', accent: '#67e8f9', vibe: '???' },
+            slacker: { primary: '#64748b', secondary: '#94a3b8', accent: '#cbd5e1', vibe: 'CHILL', hex: '#64748b' },
+            student: { primary: '#3b82f6', secondary: '#93c5fd', accent: '#bfdbfe', vibe: 'STUD', hex: '#3b82f6' },
+            worker: { primary: '#eab308', secondary: '#fde047', accent: '#fef08a', vibe: 'WORK', hex: '#eab308' },
+            partygoer: { primary: '#ec4899', secondary: '#f9a8d4', accent: '#fbcfe8', vibe: 'PARTY', hex: '#ec4899' },
+            punk: { primary: '#ef4444', secondary: '#fca5a5', accent: '#fecaca', vibe: 'PUNK', hex: '#ef4444' },
+            dealer: { primary: '#f97316', secondary: '#fdba74', accent: '#fed7aa', vibe: 'SHADY', hex: '#f97316' },
+            promoter: { primary: '#d946ef', secondary: '#f0abfc', accent: '#fdf4ff', vibe: 'HYPE', hex: '#d946ef' },
+            bouncer: { primary: '#10b981', secondary: '#6ee7b7', accent: '#a7f3d0', vibe: 'SEC', hex: '#10b981' },
+            hacker: { primary: '#06b6d4', secondary: '#67e8f9', accent: '#cffafe', vibe: 'NET', hex: '#06b6d4' },
+            dj: { primary: '#8b5cf6', secondary: '#c4b5fd', accent: '#ede9fe', vibe: 'DJ', hex: '#8b5cf6' },
+            manager: { primary: '#ca8a04', secondary: '#fef08a', accent: '#fef9c3', vibe: 'BOSS', hex: '#ca8a04' },
+            cop: { primary: '#2563eb', secondary: '#60a5fa', accent: '#dbeafe', vibe: 'LAW', hex: '#2563eb' },
+            vip: { primary: '#fbbf24', secondary: '#fef3c7', accent: '#fffbeb', vibe: 'VIP', hex: '#fbbf24' },
+            fixer: { primary: '#059669', secondary: '#34d399', accent: '#d1fae5', vibe: 'FIX', hex: '#059669' },
+            kingpin: { primary: '#dc2626', secondary: '#f87171', accent: '#fee2e2', vibe: 'DON', hex: '#dc2626' },
+            mayor: { primary: '#4f46e5', secondary: '#a5b4fc', accent: '#e0e7ff', vibe: 'GOV', hex: '#4f46e5' },
+            celebrity: { primary: '#db2777', secondary: '#f472b6', accent: '#fce7f3', vibe: 'STAR', hex: '#db2777' },
+            mastermind: { primary: '#0f766e', secondary: '#34d399', accent: '#ecfdf5', vibe: 'MIND', hex: '#0f766e' },
+            anomaly: { primary: '#ffffff', secondary: '#cbd5e1', accent: '#67e8f9', vibe: '???', hex: '#ffffff' },
         };
 
         const CARD_DB = {
@@ -123,7 +210,8 @@
             activeIdx: 0,
             day: 1,
             viewingDeck: false,
-            targeting: null
+            targeting: null,
+            lastPlacedIdx: -1
         };
 
         const generateCard = (id) => ({ uid: createUid(), id, type: 'guest', abilityUsed: 0, ...CARD_DB[id] });
@@ -207,7 +295,8 @@
         window.initGame = (mode) => {
             const nextPlayers = [createPlayerState('Player 1')];
             if (mode === 2) nextPlayers.push(createPlayerState('Player 2'));
-            state = { ...state, gameMode: mode, players: nextPlayers, activeIdx: 0, day: 1, viewingDeck: false, targeting: null, phase: 'PARTY' };
+            state = { ...state, gameMode: mode, players: nextPlayers, activeIdx: 0, day: 1, viewingDeck: false, targeting: null, phase: 'PARTY', lastPlacedIdx: -1 };
+            sfx.play('coin');
             renderApp();
         };
 
@@ -237,11 +326,16 @@
 
             updateP({ grid: newGrid, deck: currentDeck, discard: currentDiscard });
             state.targeting = null;
+            state.lastPlacedIdx = placementIndex;
+
+            sfx.play('place');
 
             if (nextStats.anomalies >= 4) {
                 state.phase = 'VICTORY';
+                sfx.play('win');
             } else if (nextStats.heat >= expansion.maxHeat) {
                 state.phase = 'BUSTED';
+                sfx.play('error');
             }
             renderApp();
         };
@@ -251,6 +345,7 @@
             const source = p.grid[gridIndex];
             if (!source || source.abilityUsed >= (source.id === 'mastermind' ? 2 : 1) || source.type === 'furniture') return;
             
+            sfx.play('coin');
             if (state.targeting?.sourceIdx === gridIndex) {
                 state.targeting = null;
             } else {
@@ -259,7 +354,7 @@
             renderApp();
         };
 
-        window.handleTileClick = (targetIndex) => {
+        window.handleTileClick = (e, targetIndex) => {
             if (!state.targeting) return;
             let p = state.players[state.activeIdx];
             const expansion = EXPANSIONS[p.expansionLevel];
@@ -275,6 +370,9 @@
             const newGrid = [...p.grid];
             newGrid[state.targeting.sourceIdx] = { ...source, abilityUsed: source.abilityUsed + 1 };
             newGrid[targetIndex] = null;
+
+            sfx.play('boom');
+            spawnParticles(e, ROLE_STYLE[target.role]?.hex || '#fff');
 
             if (state.targeting.type === 'BOUNCE') {
                 updateP(prev => ({ grid: newGrid, discard: [...prev.discard, resetCard(target)] }));
@@ -293,10 +391,11 @@
                 const nextStats = computeGridStats(newGrid);
                 updateP({ grid: newGrid, deck: curDeck, discard: curDiscard });
 
-                if (nextStats.anomalies >= 4) state.phase = 'VICTORY';
-                else if (nextStats.heat >= expansion.maxHeat) state.phase = 'BUSTED';
+                if (nextStats.anomalies >= 4) { state.phase = 'VICTORY'; sfx.play('win'); }
+                else if (nextStats.heat >= expansion.maxHeat) { state.phase = 'BUSTED'; sfx.play('error'); }
                 
                 state.targeting = null;
+                state.lastPlacedIdx = targetIndex;
                 renderApp();
                 return;
             }
@@ -318,12 +417,16 @@
             }));
             state.viewingDeck = false;
             state.targeting = null;
+            state.lastPlacedIdx = -1;
             state.phase = 'SHOP';
+            saveScore(state.day);
+            sfx.play('coin');
             renderApp();
         };
 
         window.buyItem = (id, itemType) => {
             let p = state.players[state.activeIdx];
+            sfx.play('coin');
             if (itemType === 'furniture') {
                 const itemInfo = FURNITURE_DB[id];
                 if (!itemInfo || p.credits < itemInfo.cost) return;
@@ -348,6 +451,7 @@
             let p = state.players[state.activeIdx];
             const nextExp = EXPANSIONS[p.expansionLevel + 1];
             if (!nextExp || p.credits < nextExp.cost) return;
+            sfx.play('win');
             updateP(prev => {
                 const newGrid = [...prev.grid];
                 while(newGrid.length < nextExp.capacity) newGrid.push(null);
@@ -359,10 +463,14 @@
             });
         };
 
-        window.bounceDeckCard = (uid) => {
+        window.bounceDeckCard = (e, uid, roleId) => {
             let p = state.players[state.activeIdx];
             const allCards = [...p.deck, ...p.discard, ...p.grid.filter(i => i && i.type === 'guest')];
             if (p.credits < p.bounceCost || allCards.length <= 4) return;
+            
+            sfx.play('boom');
+            spawnParticles(e, ROLE_STYLE[roleId]?.hex || '#ef4444');
+
             updateP(prev => ({
                 credits: prev.credits - prev.bounceCost,
                 bounceCost: prev.bounceCost + 5,
@@ -392,6 +500,7 @@
                 if (state.activeIdx !== 0) state.day++;
                 state.phase = 'PARTY';
             }
+            sfx.play('place');
             renderApp();
         };
 
@@ -402,12 +511,14 @@
                  return { grid: furnitures, discard: [...prev.discard, ...guests.map(resetCard)] };
             });
             state.targeting = null;
+            state.lastPlacedIdx = -1;
             state.phase = 'SHOP';
             renderApp();
         };
 
         window.toggleViewingDeck = () => {
             state.viewingDeck = !state.viewingDeck;
+            sfx.play('coin');
             renderApp();
         };
 
@@ -443,10 +554,6 @@
         `;
 
         const renderGrid = (p) => {
-            const expansion = EXPANSIONS[p.expansionLevel] || EXPANSIONS[0];
-            
-            // Phase 4: Organize grid into physical rooms by slicing the array
-            // Basement: 10 tiles. Warehouse: +5. Nightclub: +5. Mansion: +10.
             const rooms = [
                 { name: 'Dancefloor', tiles: p.grid.slice(0, 10) },
                 ...(p.grid.length >= 15 ? [{ name: 'Back Bar', tiles: p.grid.slice(10, 15) }] : []),
@@ -462,15 +569,17 @@
                 
                 room.tiles.forEach((item) => {
                     const idx = globalTileIdx++;
+                    const isNew = idx === state.lastPlacedIdx;
+                    const animClass = isNew ? 'animate-drop-in' : '';
                     
                     if (!item) {
-                        html += `<div onclick="handleTileClick(${idx})" class="aspect-[3/4] w-full rounded border-2 transition-all border-slate-800 border-dashed bg-slate-900/50 backdrop-blur-sm cursor-pointer hover:border-cyan-500"></div>`;
+                        html += `<div onclick="handleTileClick(event, ${idx})" class="aspect-[3/4] w-full rounded border-2 transition-all border-slate-800 border-dashed bg-slate-900/50 backdrop-blur-sm cursor-pointer hover:border-cyan-500"></div>`;
                         return;
                     }
 
                     if (item.type === 'furniture') {
                         html += `
-                            <div class="group relative z-10 flex h-full w-full flex-col items-center justify-center rounded border-2 bg-slate-900 shadow-md ${item.color}">
+                            <div class="group relative z-10 flex h-full w-full flex-col items-center justify-center rounded border-2 bg-slate-900 shadow-md ${item.color} ${animClass}">
                                 <div class="absolute inset-x-0 bottom-0 h-6 bg-gradient-to-t from-black/60 to-transparent rounded-b"></div>
                                 <i data-lucide="${item.icon}" class="w-8 h-8 z-10 drop-shadow-[0_0_10px_currentColor] opacity-80"></i>
                                 <div class="z-10 mt-2 w-full px-1 text-center text-[9px] font-black uppercase leading-tight tracking-tight text-white truncate">${item.name}</div>
@@ -485,7 +594,7 @@
                     const isHacker = item.role === 'hacker';
 
                     html += `
-                        <div onclick="event.stopPropagation(); if(${isTargetingMode}) handleTileClick(${idx});" class="group relative z-10 flex h-full w-full flex-col items-center justify-start rounded border-b-4 border-l border-r border-t bg-slate-900 pt-1 shadow-md transition-all duration-200 ${item.color || 'border-slate-800'} ${isTargetingMode ? 'cursor-pointer hover:scale-105 hover:shadow-[0_0_15px_rgba(239,68,68,0.5)] hover:border-red-500' : ''}">
+                        <div onclick="event.stopPropagation(); if(${isTargetingMode}) window.handleTileClick(event, ${idx});" class="group relative z-10 flex h-full w-full flex-col items-center justify-start rounded border-b-4 border-l border-r border-t bg-slate-900 pt-1 shadow-md transition-all duration-200 ${item.color || 'border-slate-800'} ${animClass} ${isTargetingMode ? 'cursor-pointer hover:scale-105 hover:shadow-[0_0_15px_rgba(239,68,68,0.5)] hover:border-red-500' : ''}">
                             <div class="absolute inset-x-0 bottom-0 h-6 bg-gradient-to-t from-black/60 to-transparent rounded-b"></div>
                             
                             ${(!isTargetingMode && canUseAbility && (isBouncer || isHacker)) ? `
@@ -495,7 +604,7 @@
                             ` : ''}
 
                             ${(state.targeting && state.targeting.sourceIdx === idx) ? `
-                                <div class="absolute -top-5 z-30 whitespace-nowrap rounded border border-yellow-500 bg-black/90 px-1 py-0.5 text-[8px] font-bold text-yellow-300">Targeting...</div>
+                                <div class="absolute -top-5 z-30 whitespace-nowrap rounded border border-yellow-500 bg-black/90 px-1 py-0.5 text-[8px] font-bold text-yellow-300 animate-pulse">Targeting...</div>
                             ` : ''}
 
                             <img src="${getAvatar(item.seed, item.role)}" class="z-10 h-10 w-10 drop-shadow-md rounded bg-slate-800 pixelated" />
@@ -517,6 +626,7 @@
             let runStats = computeGridStats(p.grid || []);
             let allCards = [...(p.deck||[]), ...(p.discard||[]), ...(p.grid||[]).filter(i => i && i.type === 'guest')];
             let capacityUsed = (p.grid||[]).filter(Boolean).length;
+            const bestScore = getBestScore();
 
             let html = '';
 
@@ -529,6 +639,10 @@
                             <img src="${getAvatar('Void', 'anomaly')}" class="mb-6 h-20 w-20 animate-pulse rounded border-2 border-white bg-slate-800 shadow-[0_0_20px_#fff] pixelated" />
                             <h1 class="mb-2 bg-gradient-to-r from-cyan-400 to-pink-500 bg-clip-text text-center text-5xl font-black tracking-tighter text-transparent drop-shadow-lg md:text-7xl">CYBER CLUB</h1>
                             <h2 class="mb-12 text-center text-xl font-bold uppercase tracking-[0.5em] text-white md:text-2xl">Syndicate Expansion</h2>
+                            <div class="mb-8 flex flex-col items-center border border-slate-700 bg-slate-900/80 px-6 py-2 rounded-full">
+                                <span class="text-[10px] text-slate-400 uppercase font-bold tracking-widest">Personal Best</span>
+                                <span class="text-lg text-yellow-400 font-black">NIGHT ${bestScore}</span>
+                            </div>
                             <div class="flex flex-col gap-4">
                                 <button onclick="initGame(1)" class="rounded-xl bg-cyan-600 px-12 py-4 font-black tracking-widest text-white shadow-[0_0_30px_rgba(8,145,178,0.3)] transition-all hover:-translate-y-1 hover:bg-cyan-500">1 PLAYER SIMULATION</button>
                                 <button onclick="initGame(2)" class="rounded-xl bg-purple-600 px-12 py-4 font-black tracking-widest text-white shadow-[0_0_30px_rgba(147,51,234,0.3)] transition-all hover:-translate-y-1 hover:bg-purple-500">2 PLAYER (HOTSEAT)</button>
@@ -667,7 +781,7 @@
                                 </div>
                                 <div class="flex flex-wrap justify-center gap-4 pb-8 md:justify-start">
                                     ${allCards.map((card) => `
-                                        <div onclick="bounceDeckCard('${card.uid}')" class="relative flex h-36 w-28 cursor-pointer flex-col items-center rounded-xl border-2 border-slate-700 bg-slate-900 p-2 transition-all hover:border-red-500 hover:bg-red-950/20 group">
+                                        <div onclick="window.bounceDeckCard(event, '${card.uid}', '${card.role}')" class="relative flex h-36 w-28 cursor-pointer flex-col items-center rounded-xl border-2 border-slate-700 bg-slate-900 p-2 transition-all hover:border-red-500 hover:bg-red-950/20 group">
                                             <img src="${getAvatar(card.seed, card.role)}" class="mb-2 h-10 w-10 rounded bg-slate-800 pixelated" />
                                             <div class="mb-auto text-center text-[10px] font-bold uppercase leading-tight text-slate-200">${card.name}</div>
                                             <div class="absolute inset-0 flex flex-col items-center justify-center rounded-lg bg-red-950/80 font-bold text-white opacity-0 transition-opacity group-hover:opacity-100 backdrop-blur-sm">
@@ -754,7 +868,7 @@
             }
 
             app.innerHTML = html;
-            lucide.createIcons(); // Parse icons every render
+            lucide.createIcons();
         };
 
         // --- INIT ---
