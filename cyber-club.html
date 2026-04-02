@@ -7,7 +7,12 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <style>
-        body { background-color: #0f172a; color: #f8fafc; font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
+        body { 
+            background-color: #0f172a; 
+            color: #f8fafc; 
+            font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; 
+            user-select: none;
+        }
         .pixelated { image-rendering: pixelated; }
         ::-webkit-scrollbar { width: 8px; }
         ::-webkit-scrollbar-track { background: #0f172a; }
@@ -83,11 +88,11 @@
                         gain.gain.linearRampToValueAtTime(0.01, now + 0.4);
                         osc.start(now); osc.stop(now + 0.4);
                     }
-                } catch(e) {} // Fail silently if audio blocked
+                } catch(e) {}
             }
         };
 
-        // --- PARTICLE ENGINE ---
+        // --- PARTICLE & VFX ENGINE ---
         const spawnParticles = (e, colorCode = '#ef4444') => {
             const rect = e.target.getBoundingClientRect();
             const x = rect.left + rect.width / 2;
@@ -108,7 +113,7 @@
                 const angle = Math.random() * Math.PI * 2;
                 const velocity = Math.random() * 80 + 30;
                 const tx = Math.cos(angle) * velocity;
-                const ty = Math.sin(angle) * velocity + 50; // gravity bias
+                const ty = Math.sin(angle) * velocity + 50; 
                 
                 p.animate([
                     { transform: 'translate(-50%, -50%) scale(1) rotate(0deg)', opacity: 1 },
@@ -118,6 +123,36 @@
                 document.body.appendChild(p);
                 setTimeout(() => p.remove(), 1000);
             }
+        };
+
+        const spawnFloatingText = (element, text, colorCode = '#ffffff') => {
+            if (!element) return;
+            const rect = element.getBoundingClientRect();
+            const x = rect.left + rect.width / 2;
+            const y = rect.top + rect.height / 2;
+            
+            const p = document.createElement('div');
+            p.innerText = text;
+            p.style.position = 'fixed';
+            p.style.left = x + 'px';
+            p.style.top = y + 'px';
+            p.style.color = colorCode;
+            p.style.fontWeight = '900';
+            p.style.fontSize = '14px';
+            p.style.textShadow = '0 2px 4px rgba(0,0,0,0.8)';
+            p.style.pointerEvents = 'none';
+            p.style.zIndex = '9999';
+            p.style.transform = 'translate(-50%, -50%)';
+            p.style.textTransform = 'uppercase';
+            p.style.letterSpacing = '0.1em';
+            
+            p.animate([
+                { transform: 'translate(-50%, -50%) scale(1)', opacity: 1 },
+                { transform: 'translate(-50%, -100px) scale(1.5)', opacity: 0 }
+            ], { duration: 1200, easing: 'ease-out' });
+            
+            document.body.appendChild(p);
+            setTimeout(() => p.remove(), 1200);
         };
 
         // --- MATH & UTILS ---
@@ -144,55 +179,55 @@
 
         // --- DATABASE ---
         const ROLE_STYLE = {
-            slacker: { primary: '#64748b', secondary: '#94a3b8', accent: '#cbd5e1', vibe: 'CHILL', hex: '#64748b' },
-            student: { primary: '#3b82f6', secondary: '#93c5fd', accent: '#bfdbfe', vibe: 'STUD', hex: '#3b82f6' },
-            worker: { primary: '#eab308', secondary: '#fde047', accent: '#fef08a', vibe: 'WORK', hex: '#eab308' },
-            partygoer: { primary: '#ec4899', secondary: '#f9a8d4', accent: '#fbcfe8', vibe: 'PARTY', hex: '#ec4899' },
-            punk: { primary: '#ef4444', secondary: '#fca5a5', accent: '#fecaca', vibe: 'PUNK', hex: '#ef4444' },
-            dealer: { primary: '#f97316', secondary: '#fdba74', accent: '#fed7aa', vibe: 'SHADY', hex: '#f97316' },
-            promoter: { primary: '#d946ef', secondary: '#f0abfc', accent: '#fdf4ff', vibe: 'HYPE', hex: '#d946ef' },
-            bouncer: { primary: '#10b981', secondary: '#6ee7b7', accent: '#a7f3d0', vibe: 'SEC', hex: '#10b981' },
-            hacker: { primary: '#06b6d4', secondary: '#67e8f9', accent: '#cffafe', vibe: 'NET', hex: '#06b6d4' },
-            dj: { primary: '#8b5cf6', secondary: '#c4b5fd', accent: '#ede9fe', vibe: 'DJ', hex: '#8b5cf6' },
-            manager: { primary: '#ca8a04', secondary: '#fef08a', accent: '#fef9c3', vibe: 'BOSS', hex: '#ca8a04' },
-            cop: { primary: '#2563eb', secondary: '#60a5fa', accent: '#dbeafe', vibe: 'LAW', hex: '#2563eb' },
-            vip: { primary: '#fbbf24', secondary: '#fef3c7', accent: '#fffbeb', vibe: 'VIP', hex: '#fbbf24' },
-            fixer: { primary: '#059669', secondary: '#34d399', accent: '#d1fae5', vibe: 'FIX', hex: '#059669' },
-            kingpin: { primary: '#dc2626', secondary: '#f87171', accent: '#fee2e2', vibe: 'DON', hex: '#dc2626' },
-            mayor: { primary: '#4f46e5', secondary: '#a5b4fc', accent: '#e0e7ff', vibe: 'GOV', hex: '#4f46e5' },
-            celebrity: { primary: '#db2777', secondary: '#f472b6', accent: '#fce7f3', vibe: 'STAR', hex: '#db2777' },
-            mastermind: { primary: '#0f766e', secondary: '#34d399', accent: '#ecfdf5', vibe: 'MIND', hex: '#0f766e' },
-            anomaly: { primary: '#ffffff', secondary: '#cbd5e1', accent: '#67e8f9', vibe: '???', hex: '#ffffff' },
+            slacker: { primary: '#64748b', secondary: '#94a3b8', accent: '#cbd5e1', hex: '#64748b' },
+            student: { primary: '#3b82f6', secondary: '#93c5fd', accent: '#bfdbfe', hex: '#3b82f6' },
+            worker: { primary: '#eab308', secondary: '#fde047', accent: '#fef08a', hex: '#eab308' },
+            partygoer: { primary: '#ec4899', secondary: '#f9a8d4', accent: '#fbcfe8', hex: '#ec4899' },
+            punk: { primary: '#ef4444', secondary: '#fca5a5', accent: '#fecaca', hex: '#ef4444' },
+            dealer: { primary: '#f97316', secondary: '#fdba74', accent: '#fed7aa', hex: '#f97316' },
+            promoter: { primary: '#d946ef', secondary: '#f0abfc', accent: '#fdf4ff', hex: '#d946ef' },
+            bouncer: { primary: '#10b981', secondary: '#6ee7b7', accent: '#a7f3d0', hex: '#10b981' },
+            hacker: { primary: '#06b6d4', secondary: '#67e8f9', accent: '#cffafe', hex: '#06b6d4' },
+            dj: { primary: '#8b5cf6', secondary: '#c4b5fd', accent: '#ede9fe', hex: '#8b5cf6' },
+            manager: { primary: '#ca8a04', secondary: '#fef08a', accent: '#fef9c3', hex: '#ca8a04' },
+            cop: { primary: '#2563eb', secondary: '#60a5fa', accent: '#dbeafe', hex: '#2563eb' },
+            vip: { primary: '#fbbf24', secondary: '#fef3c7', accent: '#fffbeb', hex: '#fbbf24' },
+            fixer: { primary: '#059669', secondary: '#34d399', accent: '#d1fae5', hex: '#059669' },
+            kingpin: { primary: '#dc2626', secondary: '#f87171', accent: '#fee2e2', hex: '#dc2626' },
+            mayor: { primary: '#4f46e5', secondary: '#a5b4fc', accent: '#e0e7ff', hex: '#4f46e5' },
+            celebrity: { primary: '#db2777', secondary: '#f472b6', accent: '#fce7f3', hex: '#db2777' },
+            mastermind: { primary: '#0f766e', secondary: '#34d399', accent: '#ecfdf5', hex: '#0f766e' },
+            anomaly: { primary: '#ffffff', secondary: '#cbd5e1', accent: '#67e8f9', hex: '#ffffff' },
         };
 
         const CARD_DB = {
             slacker: { name: 'Slacker', role: 'slacker', seed: 'S1', cost: 1, credits: 1, hype: 0, heat: 0, reqHype: 0, text: 'Base: +$1' },
-            student: { name: 'Student', role: 'student', seed: 'S2', cost: 3, credits: 1, hype: 1, heat: 1, reqHype: 0, text: 'Base: +$1, +1 Hype, +1 Heat' },
+            student: { name: 'Student', role: 'student', seed: 'S2', cost: 3, credits: 1, hype: 1, heat: 1, reqHype: 0, text: 'Base: +$1, +1 Pop, +1 Heat' },
             worker: { name: 'Worker', role: 'worker', seed: 'W1', cost: 4, credits: 2, hype: 0, heat: 0, reqHype: 0, text: 'Base: +$2' },
-            partygoer: { name: 'Partygoer', role: 'partygoer', seed: 'P1', cost: 5, credits: 0, hype: 2, heat: 0, reqHype: 0, text: 'Base: +2 Hype' },
+            partygoer: { name: 'Partygoer', role: 'partygoer', seed: 'P1', cost: 5, credits: 0, hype: 2, heat: 0, reqHype: 0, text: 'Base: +2 Pop' },
             punk: { name: 'Punk', role: 'punk', seed: 'P2', cost: 5, credits: 3, hype: 0, heat: 1, reqHype: 0, text: 'Base: +$3, +1 Heat' },
             dealer: { name: 'Dealer', role: 'dealer', seed: 'D1', cost: 10, credits: 4, hype: 0, heat: 2, reqHype: 5, text: 'Base: +$4, +2 Heat' },
-            promoter: { name: 'Promoter', role: 'promoter', seed: 'P3', cost: 12, credits: 0, hype: 1, heat: 0, reqHype: 5, text: 'Adjacent: +1 Hype per Slacker' },
+            promoter: { name: 'Promoter', role: 'promoter', seed: 'P3', cost: 12, credits: 0, hype: 1, heat: 0, reqHype: 5, text: 'Adjacent: +1 Pop per Slacker' },
             bouncer: { name: 'Bouncer', role: 'bouncer', seed: 'B1', cost: 15, credits: 0, hype: 0, heat: -1, reqHype: 10, text: 'Base: -1 Heat. ACTIVE: Kick guest' },
             hacker: { name: 'Netrunner', role: 'hacker', seed: 'H1', cost: 18, credits: 1, hype: 0, heat: 0, reqHype: 15, text: 'ACTIVE: Reroll any guest' },
-            dj: { name: 'Star DJ', role: 'dj', seed: 'D2', cost: 22, credits: 1, hype: 2, heat: 0, reqHype: 15, text: 'Global: +1 Hype per 3 total guests' },
+            dj: { name: 'Star DJ', role: 'dj', seed: 'D2', cost: 22, credits: 1, hype: 2, heat: 0, reqHype: 15, text: 'Global: +1 Pop per 3 total guests' },
             manager: { name: 'Manager', role: 'manager', seed: 'M1', cost: 25, credits: 1, hype: 0, heat: 0, reqHype: 25, text: 'Adjacent: +$2 per Worker' },
             cop: { name: 'Cop', role: 'cop', seed: 'C1', cost: 28, credits: 0, hype: 0, heat: -2, reqHype: 30, text: 'Base: -2 Heat. Adjacent: +1 Heat per Punk' },
-            influencer: { name: 'Influencer', role: 'partygoer', seed: 'I1', cost: 30, credits: 0, hype: 3, heat: 1, reqHype: 30, text: 'Adjacent: +1 Hype per Partygoer' },
-            vip: { name: 'VIP', role: 'vip', seed: 'V1', cost: 35, credits: 6, hype: 2, heat: 1, reqHype: 40, text: 'Base: +$6, +2 Hype, +1 Heat' },
+            influencer: { name: 'Influencer', role: 'partygoer', seed: 'I1', cost: 30, credits: 0, hype: 3, heat: 1, reqHype: 30, text: 'Adjacent: +1 Pop per Partygoer' },
+            vip: { name: 'VIP', role: 'vip', seed: 'V1', cost: 35, credits: 6, hype: 2, heat: 1, reqHype: 40, text: 'Base: +$6, +2 Pop, +1 Heat' },
             fixer: { name: 'Fixer', role: 'fixer', seed: 'F1', cost: 40, credits: 2, hype: 0, heat: -1, reqHype: 45, text: 'Adjacent: Negates all Heat from Dealers' },
             kingpin: { name: 'Kingpin', role: 'kingpin', seed: 'K1', cost: 50, credits: 5, hype: 0, heat: 2, reqHype: 60, text: 'Adjacent: +$3 per Punk or Dealer' },
-            mayor: { name: 'Mayor', role: 'mayor', seed: 'M2', cost: 60, credits: 4, hype: 4, heat: -1, reqHype: 75, text: 'Base: +$4, +4 Hype, -1 Heat' },
-            celebrity: { name: 'Mega Star', role: 'celebrity', seed: 'C2', cost: 65, credits: 0, hype: 8, heat: 1, reqHype: 80, text: 'Base: +8 Hype, +1 Heat' },
+            mayor: { name: 'Mayor', role: 'mayor', seed: 'M2', cost: 60, credits: 4, hype: 4, heat: -1, reqHype: 75, text: 'Base: +$4, +4 Pop, -1 Heat' },
+            celebrity: { name: 'Mega Star', role: 'celebrity', seed: 'C2', cost: 65, credits: 0, hype: 8, heat: 1, reqHype: 80, text: 'Base: +8 Pop, +1 Heat' },
             mastermind: { name: 'Mastermind', role: 'mastermind', seed: 'M3', cost: 75, credits: 0, hype: 0, heat: -3, reqHype: 90, text: 'Base: -3 Heat. ACTIVE: Kick 2 guests' },
             anomaly: { name: 'Anomaly', role: 'anomaly', seed: 'Void', cost: 100, credits: 0, hype: 0, heat: 0, reqHype: 120, text: 'Gather 4 on the board to Transcend' },
         };
 
         const FURNITURE_DB = {
             plant: { name: 'Potted Plant', icon: 'leaf', cost: 10, credits: 0, hype: 0, heat: -1, color: 'text-emerald-400 border-emerald-500', text: 'Permanent: -1 Heat globally' },
-            keg: { name: 'Keg', icon: 'beer', cost: 20, credits: 0, hype: 2, heat: 0, color: 'text-amber-500 border-amber-500', text: 'Permanent: +2 Hype globally' },
+            keg: { name: 'Keg', icon: 'beer', cost: 20, credits: 0, hype: 2, heat: 0, color: 'text-amber-500 border-amber-500', text: 'Permanent: +2 Pop globally' },
             arcade: { name: 'Arcade Cab', icon: 'gamepad-2', cost: 35, credits: 2, hype: 0, heat: 0, color: 'text-fuchsia-400 border-fuchsia-500', text: 'Permanent: +$2 globally' },
-            statue: { name: 'Gold Statue', icon: 'trophy', cost: 60, credits: 0, hype: 5, heat: 0, color: 'text-yellow-400 border-yellow-400', text: 'Permanent: +5 Hype globally' },
+            statue: { name: 'Gold Statue', icon: 'trophy', cost: 60, credits: 0, hype: 5, heat: 0, color: 'text-yellow-400 border-yellow-400', text: 'Permanent: +5 Pop globally' },
         };
 
         const EXPANSIONS = [
@@ -244,14 +279,14 @@
             const outfitType = hashSeed(`${seed}-${roleId}-outfit`) % 3;
 
             let hairBlocks = `<rect x="9" y="7" width="14" height="4" fill="${hair}"/><rect x="8" y="9" width="2" height="5" fill="${hair}"/><rect x="22" y="9" width="2" height="5" fill="${hair}"/>`;
-            if (style.vibe === 'PUNK' || style.vibe === 'SHADY') hairBlocks = `<rect x="14" y="2" width="4" height="10" fill="${hair}"/><rect x="12" y="5" width="2" height="6" fill="${hair}"/><rect x="18" y="5" width="2" height="6" fill="${hair}"/>`;
-            else if (style.vibe === 'SEC' || style.vibe === 'LAW') hairBlocks = `<rect x="8" y="7" width="16" height="3" fill="#1e293b"/>`;
-            else if (style.vibe === '???') hairBlocks = '<rect x="9" y="6" width="14" height="16" rx="4" fill="#e2e8f0" opacity="0.6"/><rect x="12" y="10" width="8" height="2" fill="#ffffff"/><rect x="11" y="18" width="10" height="2" fill="#67e8f9"/>';
+            if (roleId === 'punk' || roleId === 'dealer') hairBlocks = `<rect x="14" y="2" width="4" height="10" fill="${hair}"/><rect x="12" y="5" width="2" height="6" fill="${hair}"/><rect x="18" y="5" width="2" height="6" fill="${hair}"/>`;
+            else if (roleId === 'cop' || roleId === 'bouncer') hairBlocks = `<rect x="8" y="7" width="16" height="3" fill="#1e3a8a"/>`;
+            else if (roleId === 'anomaly') hairBlocks = '<rect x="9" y="6" width="14" height="16" rx="4" fill="#e2e8f0" opacity="0.6"/><rect x="12" y="10" width="8" height="2" fill="#ffffff"/><rect x="11" y="18" width="10" height="2" fill="#67e8f9"/>';
 
             const face = faceType === 0 ? '<rect x="12" y="15" width="2" height="2" fill="#0f172a"/><rect x="18" y="15" width="2" height="2" fill="#0f172a"/><rect x="14" y="19" width="4" height="1" fill="#7c2d12"/>' : faceType === 1 ? '<rect x="12" y="15" width="2" height="2" fill="#0f172a"/><rect x="18" y="15" width="2" height="2" fill="#0f172a"/><rect x="13" y="19" width="6" height="2" fill="#0f172a"/>' : '<rect x="12" y="16" width="2" height="1" fill="#0f172a"/><rect x="18" y="16" width="2" height="1" fill="#0f172a"/><rect x="14" y="19" width="4" height="2" fill="#7c2d12"/>';
             const torso = outfitType === 0 ? `<rect x="10" y="21" width="12" height="8" fill="${style.primary}"/><rect x="13" y="22" width="6" height="7" fill="${style.secondary}"/>` : `<rect x="10" y="21" width="12" height="8" fill="${style.secondary}"/><rect x="14" y="21" width="4" height="8" fill="${style.primary}"/>`;
 
-            const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" shape-rendering="crispEdges"><rect width="32" height="32" fill="transparent"/>${style.vibe === '???' ? '<rect x="4" y="4" width="24" height="24" rx="4" fill="#67e8f9" opacity="0.15"/>' : ''}<rect x="11" y="10" width="10" height="11" rx="1" fill="${skin}"/>${hairBlocks}${style.vibe !== '???' ? face : ''}${torso}<rect x="9" y="22" width="2" height="4" fill="${skin}"/><rect x="21" y="22" width="2" height="4" fill="${skin}"/></svg>`;
+            const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" shape-rendering="crispEdges"><rect width="32" height="32" fill="transparent"/>${roleId === 'anomaly' ? '<rect x="4" y="4" width="24" height="24" rx="4" fill="#67e8f9" opacity="0.15"/>' : ''}<rect x="11" y="10" width="10" height="11" rx="1" fill="${skin}"/>${hairBlocks}${roleId !== 'anomaly' ? face : ''}${torso}<rect x="9" y="22" width="2" height="4" fill="${skin}"/><rect x="21" y="22" width="2" height="4" fill="${skin}"/></svg>`;
             return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
         };
 
@@ -330,6 +365,11 @@
 
             sfx.play('place');
 
+            setTimeout(() => {
+                const el = document.getElementById(`tile-${placementIndex}`);
+                if (el) spawnFloatingText(el, 'ARRIVED', ROLE_STYLE[drawnCard.role]?.hex || '#fff');
+            }, 50);
+
             if (nextStats.anomalies >= 4) {
                 state.phase = 'VICTORY';
                 sfx.play('win');
@@ -373,6 +413,9 @@
 
             sfx.play('boom');
             spawnParticles(e, ROLE_STYLE[target.role]?.hex || '#fff');
+            
+            const el = document.getElementById(`tile-${targetIndex}`);
+            if (el) spawnFloatingText(el, state.targeting.type === 'BOUNCE' ? 'KICKED' : 'HACKED', '#ef4444');
 
             if (state.targeting.type === 'BOUNCE') {
                 updateP(prev => ({ grid: newGrid, discard: [...prev.discard, resetCard(target)] }));
@@ -401,7 +444,7 @@
             }
 
             if (source.id === 'mastermind' && source.abilityUsed < 1) {
-                // Keep targeting
+                // Keep targeting active for second bounce
             } else {
                 state.targeting = null;
             }
@@ -497,7 +540,9 @@
                 state.phase = 'PARTY';
             } else {
                 state.activeIdx = state.activeIdx === 0 ? 1 : 0;
-                if (state.activeIdx !== 0) state.day++;
+                if (state.activeIdx !== 0) {
+                    state.day++;
+                }
                 state.phase = 'PARTY';
             }
             sfx.play('place');
@@ -573,13 +618,13 @@
                     const animClass = isNew ? 'animate-drop-in' : '';
                     
                     if (!item) {
-                        html += `<div onclick="handleTileClick(event, ${idx})" class="aspect-[3/4] w-full rounded border-2 transition-all border-slate-800 border-dashed bg-slate-900/50 backdrop-blur-sm cursor-pointer hover:border-cyan-500"></div>`;
+                        html += `<div id="tile-${idx}" onclick="handleTileClick(event, ${idx})" class="aspect-[3/4] w-full rounded border-2 transition-all border-slate-800 border-dashed bg-slate-900/50 backdrop-blur-sm cursor-pointer hover:border-cyan-500"></div>`;
                         return;
                     }
 
                     if (item.type === 'furniture') {
                         html += `
-                            <div class="group relative z-10 flex h-full w-full flex-col items-center justify-center rounded border-2 bg-slate-900 shadow-md ${item.color} ${animClass}">
+                            <div id="tile-${idx}" class="group relative z-10 flex h-full w-full flex-col items-center justify-center rounded border-2 bg-slate-900 shadow-md ${item.color} ${animClass}">
                                 <div class="absolute inset-x-0 bottom-0 h-6 bg-gradient-to-t from-black/60 to-transparent rounded-b"></div>
                                 <i data-lucide="${item.icon}" class="w-8 h-8 z-10 drop-shadow-[0_0_10px_currentColor] opacity-80"></i>
                                 <div class="z-10 mt-2 w-full px-1 text-center text-[9px] font-black uppercase leading-tight tracking-tight text-white truncate">${item.name}</div>
@@ -594,7 +639,7 @@
                     const isHacker = item.role === 'hacker';
 
                     html += `
-                        <div onclick="event.stopPropagation(); if(${isTargetingMode}) window.handleTileClick(event, ${idx});" class="group relative z-10 flex h-full w-full flex-col items-center justify-start rounded border-b-4 border-l border-r border-t bg-slate-900 pt-1 shadow-md transition-all duration-200 ${item.color || 'border-slate-800'} ${animClass} ${isTargetingMode ? 'cursor-pointer hover:scale-105 hover:shadow-[0_0_15px_rgba(239,68,68,0.5)] hover:border-red-500' : ''}">
+                        <div id="tile-${idx}" onclick="event.stopPropagation(); if(${isTargetingMode}) window.handleTileClick(event, ${idx});" class="group relative z-10 flex h-full w-full flex-col items-center justify-start rounded border-b-4 border-l border-r border-t bg-slate-900 pt-1 shadow-md transition-all duration-200 ${item.color || 'border-slate-800'} ${animClass} ${isTargetingMode ? 'cursor-pointer hover:scale-105 hover:shadow-[0_0_15px_rgba(239,68,68,0.5)] hover:border-red-500' : ''}">
                             <div class="absolute inset-x-0 bottom-0 h-6 bg-gradient-to-t from-black/60 to-transparent rounded-b"></div>
                             
                             ${(!isTargetingMode && canUseAbility && (isBouncer || isHacker)) ? `
@@ -678,6 +723,7 @@
                 html = `
                     ${renderTopBar(p)}
                     <div class="relative mx-auto flex min-h-0 w-full max-w-4xl flex-1 flex-col p-4 md:p-6">
+                        
                         <div class="relative z-20 mb-4 flex w-full flex-col gap-4 md:flex-row">
                             <div class="flex flex-1 items-center justify-between rounded-xl border border-slate-700 bg-slate-800 p-4 shadow-lg">
                                 <div>
@@ -710,8 +756,8 @@
 
                         <!-- DANCEFLOOR VISUALS OVERHAUL with Phase 4 Room Layouts -->
                         <div class="w-full relative bg-[#0a0a16] rounded-2xl border-4 border-slate-900 shadow-2xl p-4 md:p-8 flex flex-col overflow-hidden">
-                            <div class="relative z-20 w-full mb-6 border-b-4 border-cyan-500/40 bg-slate-900 rounded shadow-xl py-3 px-6 flex justify-center items-center">
-                                <h2 class="text-cyan-400 font-black tracking-[0.4em] uppercase text-xl drop-shadow-[0_0_10px_rgba(34,211,238,0.8)]">${expansion.name}</h2>
+                            <div class="relative z-20 w-full mb-6 border-b-4 border-cyan-500/40 bg-slate-900 rounded shadow-xl py-3 px-6 flex justify-center items-center w-[max-content] mx-auto min-w-[200px]">
+                                <h2 class="text-cyan-400 font-black tracking-[0.2em] uppercase text-sm drop-shadow-[0_0_10px_rgba(34,211,238,0.8)]">${expansion.name}</h2>
                             </div>
 
                             <div class="absolute inset-0 top-20 pointer-events-none overflow-hidden origin-bottom z-0" style="transform: perspective(1000px) rotateX(60deg) scale(2.2); background-image: linear-gradient(rgba(236,72,153,0.3) 2px, transparent 2px), linear-gradient(90deg, rgba(236,72,153,0.3) 2px, transparent 2px); background-size: 60px 60px; background-position: center bottom;"></div>
