@@ -1,0 +1,643 @@
+import React, { useState, useMemo } from 'react';
+import { Coins, Star, Flame, SkipForward, DoorOpen, Users, AlertTriangle, XCircle, ChevronRight, Home } from 'lucide-react';
+
+const getAvatar = (seed) => `https://api.dicebear.com/7.x/pixel-art/svg?seed=${seed}&backgroundColor=transparent`;
+
+const CARD_DB = {
+  local: { name: 'Local', seed: 'Felix', cost: 2, credits: 1, hype: 0, heat: 0, reqHype: 0, color: 'border-slate-500', text: 'Just looking for a good time.' },
+  punk: { name: 'Street Punk', seed: 'Zoe', cost: 3, credits: 2, hype: 0, heat: 1, reqHype: 0, color: 'border-orange-500', text: 'Brings cash, but starts fights.' },
+  influencer: { name: 'Influencer', seed: 'Jude', cost: 6, credits: 0, hype: 1, heat: 0, reqHype: 0, color: 'border-pink-500', text: '+1 Hype for each Local in the club.' },
+  hacker: { name: 'Netrunner', seed: 'Nova', cost: 12, credits: 2, hype: 0, heat: 1, reqHype: 5, color: 'border-cyan-500', text: 'ACTIVE: Reroll any guest in the club.' },
+  promoter: { name: 'Promoter', seed: 'King', cost: 15, credits: 1, hype: 3, heat: 0, reqHype: 15, color: 'border-pink-400', text: 'Draws massive baseline hype.' },
+  bouncer: { name: 'Bouncer', seed: 'Bruiser', cost: 20, credits: 0, hype: 0, heat: 0, reqHype: 20, color: 'border-emerald-500', text: 'ACTIVE: Kick any guest out of the club.' },
+  dj: { name: 'Star DJ', seed: 'Echo', cost: 28, credits: 2, hype: 2, heat: 0, reqHype: 35, color: 'border-purple-500', text: '+1 Hype per 3 guests in the club.' },
+  fixer: { name: 'The Fixer', seed: 'Silas', cost: 35, credits: 2, hype: 0, heat: -2, reqHype: 50, color: 'border-emerald-400', text: 'Passive: Reduces active Heat by 2.' },
+  vip: { name: 'Corpo VIP', seed: 'Aura', cost: 45, credits: 8, hype: 3, heat: 2, reqHype: 60, color: 'border-yellow-500', text: 'Huge spender, but attracts massive heat.' },
+  anomaly: { name: 'Anomaly', seed: 'Void', cost: 60, credits: 0, hype: 0, heat: 0, reqHype: 80, color: 'border-white', text: 'Gather 4 simultaneously to Transcend and win.' },
+};
+
+const EXPANSIONS = [
+  { level: 1, cost: 0, maxHeat: 4, capacity: 10, name: 'Back Alley Basement' },
+  { level: 2, cost: 25, maxHeat: 5, capacity: 14, name: 'Neon Lounge' },
+  { level: 3, cost: 60, maxHeat: 7, capacity: 20, name: 'Mega-Club Penthouse' },
+  { level: 4, cost: 120, maxHeat: 10, capacity: 30, name: 'Orbital Station' },
+];
+
+const generateCard = (id) => ({ uid: Math.random().toString(36).substr(2, 9), id, abilityUsed: false, ...CARD_DB[id] });
+const shuffle = (array) => [...array].sort(() => Math.random() - 0.5);
+
+const createPlayerState = (name) => ({
+  name,
+  deck: shuffle([...Array(5).fill('local'), ...Array(3).fill('punk')].map(generateCard)),
+  discard: [],
+  club: [],
+  credits: 0,
+  hype: 0,
+  expansionLevel: 0,
+  bounceCost: 5,
+});
+
+export default function App() {
+  const [phase, setPhase] = useState('MENU');
+  const [gameMode, setGameMode] = useState(1);
+  const [players, setPlayers] = useState([]);
+  const [activeIdx, setActiveIdx] = useState(0);
+  const [day, setDay] = useState(1);
+  const [viewingDeck, setViewingDeck] = useState(false);
+  const [targeting, setTargeting] = useState(null);
+
+  const p = players[activeIdx] || {};
+  const expansion = EXPANSIONS[p.expansionLevel] || EXPANSIONS[0];
+
+  const updateP = (updater) => {
+    setPlayers((prev) =>
+      prev.map((pl, i) => {
+        if (i !== activeIdx) return pl;
+        const updates = typeof updater === 'function' ? updater(pl) : updater;
+        return { ...pl, ...updates };
+      })
+    );
+  };
+
+  const initGame = (mode) => {
+    setGameMode(mode);
+    const newPlayers = [createPlayerState('Player 1')];
+    if (mode === 2) newPlayers.push(createPlayerState('Player 2'));
+
+    setPlayers(newPlayers);
+    setActiveIdx(0);
+    setDay(1);
+    setTargeting(null);
+    setViewingDeck(false);
+    setPhase('PARTY');
+  };
+
+  const runStats = useMemo(() => {
+    if (!p.club) return { credits: 0, hype: 0, heat: 0, anomalies: 0 };
+    const base = { credits: 0, hype: 0, heat: 0, anomalies: 0 };
+
+    p.club.forEach((card) => {
+      base.credits += card.credits;
+      base.hype += card.hype;
+      base.heat += card.heat;
+      if (card.id === 'anomaly') base.anomalies += 1;
+    });
+
+    p.club.forEach((card) => {
+      if (card.id === 'influencer') base.hype += p.club.filter((c) => c.id === 'local').length;
+      if (card.id === 'dj') base.hype += Math.floor(p.club.length / 3);
+    });
+
+    return base;
+  }, [p.club]);
+
+  const allCards = useMemo(() => [...(p.deck || []), ...(p.discard || []), ...(p.club || [])], [p.deck, p.discard, p.club]);
+
+  const admitGuest = () => {
+    let currentDeck = [...p.deck];
+    let currentDiscard = [...p.discard];
+
+    if (currentDeck.length === 0) {
+      if (currentDiscard.length === 0) return;
+      currentDeck = shuffle(currentDiscard);
+      currentDiscard = [];
+    }
+
+    const card = currentDeck.shift();
+    const newClub = [...p.club, card];
+
+    let tempHeat = 0;
+    let tempAnomalies = 0;
+    newClub.forEach((c) => {
+      tempHeat += c.heat;
+      if (c.id === 'anomaly') tempAnomalies += 1;
+    });
+
+    updateP({ club: newClub, deck: currentDeck, discard: currentDiscard });
+    setTargeting(null);
+
+    if (tempAnomalies >= 4) {
+      setPhase('VICTORY');
+    } else if (tempHeat >= expansion.maxHeat) {
+      setPhase('BUSTED');
+    }
+  };
+
+  const useAbility = (cardUid, type) => {
+    if (targeting && targeting.sourceUid === cardUid) {
+      setTargeting(null);
+    } else {
+      setTargeting({ sourceUid: cardUid, type });
+    }
+  };
+
+  const handleGuestClick = (targetUid) => {
+    if (!targeting) return;
+
+    const newClub = [...p.club];
+    const targetIdx = newClub.findIndex((c) => c.uid === targetUid);
+    const sourceIdx = newClub.findIndex((c) => c.uid === targeting.sourceUid);
+
+    if (targetIdx === -1 || sourceIdx === -1 || targetUid === targeting.sourceUid) {
+      setTargeting(null);
+      return;
+    }
+
+    const targetCard = newClub[targetIdx];
+    newClub[sourceIdx] = { ...newClub[sourceIdx], abilityUsed: true };
+    newClub.splice(targetIdx, 1);
+
+    if (targeting.type === 'BOUNCE') {
+      updateP((prev) => ({ club: newClub, discard: [...prev.discard, targetCard] }));
+    } else if (targeting.type === 'HACK') {
+      let curDeck = [...p.deck];
+      let curDisc = [...p.discard, targetCard];
+      if (curDeck.length === 0 && curDisc.length > 0) {
+        curDeck = shuffle(curDisc);
+        curDisc = [];
+      }
+      if (curDeck.length > 0) {
+        const newCard = curDeck.shift();
+        newClub.push(newCard);
+      }
+      updateP({ club: newClub, deck: curDeck, discard: curDisc });
+    }
+
+    setTargeting(null);
+  };
+
+  const endParty = () => {
+    updateP((prev) => ({ credits: prev.credits + runStats.credits, hype: prev.hype + runStats.hype }));
+    setPhase('SHOP');
+    setViewingDeck(false);
+  };
+
+  const buyCard = (id) => {
+    const cardInfo = CARD_DB[id];
+    if (p.credits >= cardInfo.cost && p.hype >= cardInfo.reqHype) {
+      updateP((prev) => ({ credits: prev.credits - cardInfo.cost, discard: [...prev.discard, generateCard(id)] }));
+    }
+  };
+
+  const buyExpansion = () => {
+    const nextLvl = EXPANSIONS[p.expansionLevel + 1];
+    if (nextLvl && p.credits >= nextLvl.cost) {
+      updateP((prev) => ({ credits: prev.credits - nextLvl.cost, expansionLevel: prev.expansionLevel + 1 }));
+    }
+  };
+
+  const bounceDeckCard = (uid) => {
+    if (p.credits >= p.bounceCost && allCards.length > 4) {
+      updateP((prev) => ({
+        credits: prev.credits - prev.bounceCost,
+        bounceCost: prev.bounceCost + 5,
+        deck: prev.deck.filter((c) => c.uid !== uid),
+        discard: prev.discard.filter((c) => c.uid !== uid),
+      }));
+    }
+  };
+
+  const nextPlayerOrDay = () => {
+    updateP((prev) => ({ deck: shuffle([...prev.deck, ...prev.discard, ...prev.club]), discard: [], club: [] }));
+
+    if (gameMode === 1) {
+      setDay((d) => d + 1);
+      setPhase('PARTY');
+    } else {
+      if (activeIdx === 0) {
+        setActiveIdx(1);
+        setPhase('PARTY');
+      } else {
+        setActiveIdx(0);
+        setDay((d) => d + 1);
+        setPhase('PARTY');
+      }
+    }
+  };
+
+  const renderTopBar = () => (
+    <div className="w-full flex justify-between items-center bg-slate-950/90 backdrop-blur-md border-b border-slate-800 p-4 sticky top-0 z-50 shadow-lg">
+      <div className="flex items-center gap-6">
+        <div className="flex items-center gap-2 text-cyan-400 font-black text-xl bg-cyan-950/30 px-3 py-1 rounded-lg border border-cyan-900/50">
+          <Coins size={20} /> {p.credits}
+        </div>
+        <div className="flex items-center gap-2 text-pink-400 font-black text-xl bg-pink-950/30 px-3 py-1 rounded-lg border border-pink-900/50">
+          <Star size={20} /> {p.hype}
+        </div>
+      </div>
+      <div className="text-slate-400 font-bold tracking-widest uppercase flex items-center gap-4">
+        {gameMode === 2 && <span className={activeIdx === 0 ? 'text-cyan-400' : 'text-purple-400'}>{p.name} | </span>}
+        {phase === 'SHOP' ? (
+          <>
+            <Home size={18} /> SAFEHOUSE
+          </>
+        ) : (
+          `NIGHT ${day}`
+        )}
+      </div>
+    </div>
+  );
+
+  const renderGuestAvatar = (card) => {
+    const isTargetingMode = targeting && targeting.sourceUid !== card.uid;
+    const canUseAbility = !card.abilityUsed && phase === 'PARTY';
+    const isBouncer = card.id === 'bouncer';
+    const isHacker = card.id === 'hacker';
+
+    return (
+      <div
+        key={card.uid}
+        onClick={() => isTargetingMode && handleGuestClick(card.uid)}
+        className={`relative w-24 h-32 rounded-xl bg-slate-900 border-b-4 border-t border-l border-r ${card.color} flex flex-col items-center justify-start pt-2 shadow-[0_10px_20px_rgba(0,0,0,0.6)] transform transition-all ${
+          isTargetingMode ? 'cursor-pointer hover:scale-110 hover:shadow-red-500/50' : 'hover:-translate-y-2 hover:scale-105 hover:z-20'
+        } z-10`}
+      >
+        {!isTargetingMode && canUseAbility && (isBouncer || isHacker) && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              useAbility(card.uid, isBouncer ? 'BOUNCE' : 'HACK');
+            }}
+            className={`absolute -top-3 -right-3 z-20 text-[10px] font-black px-2 py-1 rounded-full shadow-lg ${
+              isBouncer ? 'bg-red-500 text-white hover:bg-red-400' : 'bg-cyan-500 text-slate-900 hover:bg-cyan-400'
+            } animate-pulse`}
+          >
+            {isBouncer ? 'KICK' : 'HACK'}
+          </button>
+        )}
+
+        {targeting && targeting.sourceUid === card.uid && (
+          <div className="absolute -top-6 text-xs font-bold text-yellow-400 bg-black/80 px-2 py-1 rounded border border-yellow-500 whitespace-nowrap z-30">
+            Select Target...
+          </div>
+        )}
+
+        <img src={getAvatar(card.seed)} alt={card.name} className="w-14 h-14 bg-slate-800 rounded-full border border-slate-700 shadow-inner" />
+
+        <div className="text-[10px] font-bold text-slate-200 text-center uppercase tracking-tighter truncate w-full px-1 mt-2">{card.name}</div>
+
+        <div className="flex gap-1 mt-1">
+          {card.credits > 0 && <div className="w-2 h-2 rounded-full bg-cyan-400 shadow-[0_0_5px_#22d3ee]" />}
+          {card.hype > 0 && <div className="w-2 h-2 rounded-full bg-pink-400 shadow-[0_0_5px_#f472b6]" />}
+          {card.heat > 0 && <div className="w-2 h-2 rounded-full bg-orange-500 shadow-[0_0_5px_#f97316]" />}
+        </div>
+
+        {isTargetingMode && <div className="absolute inset-0 bg-red-500/20 rounded-xl animate-pulse pointer-events-none border-2 border-red-500/50" />}
+      </div>
+    );
+  };
+
+  if (phase === 'MENU') {
+    return (
+      <div className="min-h-screen bg-[#050510] text-white flex flex-col items-center justify-center p-6 relative overflow-hidden">
+        <div
+          className="absolute inset-0 pointer-events-none"
+          style={{
+            backgroundImage:
+              'linear-gradient(rgba(0,255,255,0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(0,255,255,0.05) 1px, transparent 1px)',
+            backgroundSize: '40px 40px',
+            transform: 'perspective(1000px) rotateX(60deg) scale(2.5) translateY(-20%)',
+            transformOrigin: 'top',
+          }}
+        />
+        <div className="absolute inset-0 bg-gradient-to-t from-[#050510] via-transparent to-[#050510]" />
+
+        <div className="relative z-10 flex flex-col items-center">
+          <div className="flex gap-4 mb-6">
+            <img src={getAvatar('Void')} alt="Void avatar" className="w-20 h-20 bg-slate-800 rounded-full border-2 border-white shadow-[0_0_20px_#fff] animate-pulse" />
+          </div>
+          <h1 className="text-5xl md:text-7xl font-black text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-pink-500 mb-2 text-center tracking-tighter drop-shadow-lg">
+            CYBER CLUB
+          </h1>
+          <h2 className="text-2xl md:text-3xl font-bold text-white mb-12 tracking-[0.5em] uppercase text-center">Anomaly</h2>
+
+          <div className="flex flex-col gap-4">
+            <button
+              onClick={() => initGame(1)}
+              className="px-12 py-4 bg-cyan-600 hover:bg-cyan-500 text-white rounded-xl font-black tracking-widest transition-all shadow-[0_0_30px_rgba(8,145,178,0.3)] hover:-translate-y-1"
+            >
+              1 PLAYER SIMULATION
+            </button>
+            <button
+              onClick={() => initGame(2)}
+              className="px-12 py-4 bg-purple-600 hover:bg-purple-500 text-white rounded-xl font-black tracking-widest transition-all shadow-[0_0_30px_rgba(147,51,234,0.3)] hover:-translate-y-1"
+            >
+              2 PLAYER (HOTSEAT)
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (phase === 'VICTORY') {
+    return (
+      <div className="min-h-screen bg-slate-950 text-white flex flex-col items-center justify-center p-6">
+        <img src={getAvatar('Void')} alt="Void avatar" className="w-32 h-32 bg-slate-800 rounded-full border-4 border-white mb-8 animate-pulse shadow-[0_0_50px_#fff]" />
+        <h1 className="text-4xl md:text-6xl font-black text-transparent bg-clip-text bg-gradient-to-r from-white to-cyan-400 mb-4 text-center">
+          TRANSCENDENCE ACHIEVED
+        </h1>
+        <p className="text-xl text-slate-400 mb-8 text-center max-w-lg">{p.name} successfully gathered 4 Anomalies in the club on Night {day}!</p>
+        <button onClick={() => setPhase('MENU')} className="px-8 py-4 bg-cyan-600 hover:bg-cyan-500 rounded-lg font-bold tracking-widest transition-all">
+          RETURN TO MENU
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-slate-950 text-slate-200 font-sans flex flex-col">
+      {renderTopBar()}
+
+      {phase === 'PARTY' && (
+        <div className="max-w-6xl mx-auto w-full p-4 md:p-6 flex flex-col flex-1 relative min-h-0">
+          <div className="w-full flex flex-col md:flex-row gap-4 mb-4 relative z-20">
+            <div className="flex-1 bg-slate-900 border border-slate-800 rounded-xl p-4 shadow-lg flex items-center justify-between">
+              <div>
+                <h2 className="text-slate-500 font-bold tracking-widest mb-1 text-xs uppercase">Pending Payout</h2>
+                <div className="flex gap-6">
+                  <span className="text-cyan-400 font-black text-2xl flex items-center gap-1 drop-shadow-[0_0_10px_rgba(34,211,238,0.2)]">
+                    <Coins size={20} /> +{runStats.credits}
+                  </span>
+                  <span className="text-pink-400 font-black text-2xl flex items-center gap-1 drop-shadow-[0_0_10px_rgba(244,114,182,0.2)]">
+                    <Star size={20} /> +{runStats.hype}
+                  </span>
+                </div>
+              </div>
+              <button
+                onClick={endParty}
+                className="px-4 py-3 bg-emerald-950/50 text-emerald-400 border border-emerald-800 hover:bg-emerald-600 hover:text-white rounded-lg font-bold tracking-widest transition-all flex flex-col items-center gap-1"
+              >
+                <SkipForward size={20} /> <span className="text-[10px] uppercase">End Party</span>
+              </button>
+            </div>
+
+            <div className="flex-1 bg-slate-900 border border-slate-800 rounded-xl p-4 shadow-lg relative overflow-hidden flex flex-col justify-center">
+              <h2 className="text-slate-500 font-bold tracking-widest mb-2 text-xs uppercase flex justify-between items-center">
+                <span>Current Heat</span>
+                <span className="text-orange-500 bg-orange-950/50 px-2 py-0.5 rounded">
+                  {Math.max(0, runStats.heat)} / {expansion.maxHeat}
+                </span>
+              </h2>
+              <div className="w-full h-4 bg-slate-950 rounded overflow-hidden flex gap-0.5">
+                {[...Array(expansion.maxHeat)].map((_, i) => (
+                  <div
+                    key={i}
+                    className={`flex-1 rounded-sm transition-all duration-300 ${i < runStats.heat ? 'bg-gradient-to-t from-orange-600 to-red-500' : 'bg-slate-800'}`}
+                  />
+                ))}
+              </div>
+              {runStats.heat >= expansion.maxHeat - 1 && (
+                <div className="absolute top-2 right-2 text-red-500 animate-bounce">
+                  <AlertTriangle size={20} />
+                </div>
+              )}
+            </div>
+
+            <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 shadow-lg flex flex-col items-center justify-center min-w-[120px]">
+              <h2 className="text-slate-500 font-bold tracking-widest mb-1 text-[10px] uppercase">Capacity</h2>
+              <div className="text-2xl font-black text-slate-300">
+                {p.club.length} / {expansion.capacity}
+              </div>
+            </div>
+          </div>
+
+          <div className="w-full flex-1 relative bg-slate-950 rounded-2xl border-4 border-slate-900 overflow-hidden shadow-2xl min-h-[420px] flex flex-col min-h-0">
+            <div className="flex-[1] min-h-[120px] w-full bg-slate-900 border-b-2 border-cyan-900/50 relative overflow-hidden flex items-end justify-center pb-4">
+              <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-cyan-500 via-pink-500 to-cyan-500 opacity-50" />
+              <div className="absolute top-4 left-10 w-20 h-2 bg-cyan-500/20 rounded-full blur-[2px]" />
+              <div className="absolute top-8 right-10 w-32 h-2 bg-pink-500/20 rounded-full blur-[2px]" />
+
+              <div className="min-w-[16rem] px-4 h-16 bg-slate-950 border-t-2 border-l-2 border-r-2 border-slate-700 rounded-t-xl flex items-center justify-center relative shadow-[0_-10px_30px_rgba(34,211,238,0.25)]">
+                <div className="text-cyan-500 font-black tracking-[0.2em] opacity-80 text-sm whitespace-nowrap">{expansion.name}</div>
+              </div>
+            </div>
+
+            <div className="flex-[2] min-h-[260px] w-full relative bg-slate-950 overflow-hidden">
+              <div
+                className="absolute inset-0 origin-top pointer-events-none"
+                style={{
+                  transform: 'perspective(800px) rotateX(60deg) scaleY(2)',
+                  backgroundImage:
+                    'linear-gradient(rgba(236,72,153,0.3) 2px, transparent 2px), linear-gradient(90deg, rgba(236,72,153,0.3) 2px, transparent 2px)',
+                  backgroundSize: '40px 40px',
+                }}
+              />
+
+              <div className="absolute inset-x-0 top-0 h-16 bg-gradient-to-b from-slate-950 to-transparent pointer-events-none z-0" />
+
+              <div className="absolute inset-0 flex flex-wrap gap-4 p-6 justify-center content-start overflow-y-auto z-10">
+                {p.club.length === 0 ? (
+                  <div className="w-full flex flex-col items-center justify-center mt-10 text-slate-400 font-black text-xl tracking-widest uppercase animate-pulse">
+                    <p>The dancefloor is empty.</p>
+                    <p className="mt-2 text-cyan-400">Click &quot;ADMIT&quot; below to let guests in!</p>
+                  </div>
+                ) : (
+                  p.club.map((card) => renderGuestAvatar(card))
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div className="w-full mt-4 flex justify-between items-center px-4 relative z-20">
+            <div className="text-slate-500 font-bold flex flex-col items-center text-xs uppercase tracking-widest">
+              <div className="w-12 h-16 border border-slate-700 rounded flex items-center justify-center bg-slate-900/80 mb-2 text-lg shadow-inner">{p.discard.length}</div>
+              Discard
+            </div>
+
+            {targeting ? (
+              <button onClick={() => setTargeting(null)} className="px-10 py-5 bg-red-600 hover:bg-red-500 text-white rounded-2xl font-black text-xl tracking-widest shadow-[0_0_20px_rgba(220,38,38,0.4)] animate-pulse">
+                CANCEL ABILITY
+              </button>
+            ) : (
+              <button
+                onClick={admitGuest}
+                disabled={(p.deck.length === 0 && p.discard.length === 0) || p.club.length >= expansion.capacity}
+                className="px-10 py-5 bg-cyan-600 hover:bg-cyan-500 disabled:bg-slate-800 disabled:text-slate-600 text-white rounded-2xl font-black text-2xl tracking-widest transition-all shadow-[0_0_20px_rgba(8,145,178,0.4)] hover:scale-105"
+              >
+                <DoorOpen size={28} className="inline mr-2 -mt-1" /> ADMIT
+              </button>
+            )}
+
+            <div className="text-cyan-500 font-bold flex flex-col items-center text-xs uppercase tracking-widest">
+              <div className="w-12 h-16 border border-cyan-800 rounded flex items-center justify-center bg-cyan-950 mb-2 text-white text-lg shadow-[0_0_10px_rgba(34,211,238,0.2)]">{p.deck.length}</div>
+              Deck
+            </div>
+          </div>
+        </div>
+      )}
+
+      {phase === 'BUSTED' && (
+        <div className="fixed inset-0 bg-slate-950/95 backdrop-blur-lg z-50 flex flex-col items-center justify-center p-6">
+          <Flame size={100} className="text-orange-500 animate-bounce mb-6 drop-shadow-[0_0_40px_rgba(249,115,22,1)]" />
+          <h1 className="text-5xl md:text-7xl font-black text-red-500 mb-2 tracking-[0.2em] text-center">RAIDED!</h1>
+          <div className="bg-red-950/30 border border-red-900/50 rounded-xl p-4 mb-8 max-w-lg text-center">
+            <p className="text-lg text-red-200">The authorities shut down the party.</p>
+            <p className="text-sm text-red-400 mt-2 font-bold">You lose all pending Credits and Hype for tonight.</p>
+          </div>
+
+          <button
+            onClick={() => {
+              updateP({ club: [], discard: [...p.discard, ...p.club] });
+              setPhase('SHOP');
+            }}
+            className="px-10 py-5 bg-slate-800 hover:bg-slate-700 text-white rounded-xl font-bold tracking-widest transition-all shadow-2xl"
+          >
+            FLEE TO SAFEHOUSE
+          </button>
+        </div>
+      )}
+
+      {phase === 'SHOP' && (
+        <div className="max-w-6xl mx-auto w-full p-4 md:p-6 flex-1 flex flex-col">
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6 border-b border-slate-800 pb-4">
+            <div>
+              <h1 className="text-3xl font-black tracking-widest text-white">THE SYNDICATE</h1>
+              <p className="text-slate-500 text-sm">Buy cards or expand the club.</p>
+            </div>
+            <div className="flex gap-3">
+              <button onClick={() => setViewingDeck(!viewingDeck)} className="px-4 py-2 bg-slate-900 hover:bg-slate-800 rounded-lg font-bold text-slate-300 flex items-center gap-2 border border-slate-700 text-sm">
+                <Users size={16} /> {viewingDeck ? 'SHOP' : `DECK (${allCards.length})`}
+              </button>
+              <button onClick={nextPlayerOrDay} className="px-6 py-2 bg-cyan-600 hover:bg-cyan-500 text-white rounded-lg font-bold tracking-widest transition-all shadow-[0_0_15px_rgba(8,145,178,0.4)] text-sm flex items-center gap-2">
+                {gameMode === 2 && activeIdx === 0 ? 'END TURN' : 'START NIGHT'} <ChevronRight size={18} />
+              </button>
+            </div>
+          </div>
+
+          {viewingDeck ? (
+            <div className="flex-1">
+              <div className="flex justify-between items-end mb-6 bg-slate-900 p-4 rounded-xl border border-slate-700">
+                <div>
+                  <h2 className="text-xl font-bold text-white">Deck Thinning</h2>
+                  <p className="text-slate-400 text-sm">Sever contracts to remove weak cards.</p>
+                </div>
+                <div className="text-right">
+                  <div className="text-xs text-slate-500 font-bold uppercase tracking-widest">Sever Cost</div>
+                  <div className="text-xl font-black text-cyan-400 flex items-center gap-1 justify-end">
+                    <Coins size={16} /> {p.bounceCost}
+                  </div>
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-4 justify-center md:justify-start pb-8">
+                {allCards.map((card) => (
+                  <div key={card.uid} onClick={() => bounceDeckCard(card.uid)} className="relative w-32 h-44 rounded-xl bg-slate-900 border-2 border-slate-700 flex flex-col items-center p-2 cursor-pointer hover:border-red-500 hover:bg-red-950/20 transition-all">
+                    <img src={getAvatar(card.seed)} alt={card.name} className="w-10 h-10 bg-slate-800 rounded-full mb-2" />
+                    <div className="font-bold text-slate-200 text-xs uppercase text-center mb-auto leading-tight">{card.name}</div>
+                    <div className="absolute inset-0 bg-red-950/80 backdrop-blur-sm opacity-0 hover:opacity-100 transition-opacity rounded-lg flex flex-col items-center justify-center font-bold text-white">
+                      <XCircle size={24} className="mb-1 text-red-500" /> SEVER
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div className="flex flex-col lg:flex-row gap-6 flex-1 pb-8">
+              <div className="w-full lg:w-72 flex flex-col gap-4">
+                <div className="bg-slate-900 border border-slate-700 rounded-xl p-5 shadow-lg">
+                  <h3 className="text-md font-black text-white mb-3 uppercase tracking-wide">Club Expansion</h3>
+                  <div className="bg-slate-950 border border-slate-800 rounded-lg p-3 mb-3 text-sm">
+                    <div className="flex justify-between mb-1">
+                      <span className="text-slate-500">Current:</span> <span className="text-white">{expansion.name}</span>
+                    </div>
+                    <div className="flex justify-between mb-1">
+                      <span className="text-slate-500">Max Heat:</span> <span className="text-orange-500 font-bold">{expansion.maxHeat}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-500">Capacity:</span> <span className="text-cyan-400 font-bold">{expansion.capacity} guests</span>
+                    </div>
+                  </div>
+
+                  {EXPANSIONS[p.expansionLevel + 1] ? (
+                    <button
+                      onClick={buyExpansion}
+                      disabled={p.credits < EXPANSIONS[p.expansionLevel + 1].cost}
+                      className="w-full py-3 bg-slate-800 disabled:opacity-50 border border-slate-600 hover:border-cyan-500 hover:bg-slate-800 text-slate-300 rounded-lg font-bold flex items-center justify-center gap-2 transition-all text-sm"
+                    >
+                      Expand Club{' '}
+                      <span className="text-cyan-400 flex items-center gap-1 bg-slate-950 px-1.5 py-0.5 rounded border border-slate-700 ml-1">
+                        <Coins size={12} /> {EXPANSIONS[p.expansionLevel + 1].cost}
+                      </span>
+                    </button>
+                  ) : (
+                    <div className="w-full py-3 bg-emerald-900/30 text-emerald-500 border border-emerald-800/50 rounded-lg text-center font-bold text-sm">FULLY EXPANDED</div>
+                  )}
+                </div>
+
+                <div className="bg-slate-900/50 border border-slate-800 rounded-xl p-5 hidden lg:block">
+                  <h3 className="text-xs font-bold text-slate-400 mb-2 uppercase tracking-widest">Synergy Intel</h3>
+                  <p className="text-slate-500 text-xs leading-relaxed">
+                    Hackers get bonus credits from Punks. Influencers get bonus hype from Locals. Bouncers reduce total heat while active. Buy 4 Anomalies to win.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex-1 grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4 content-start">
+                {Object.entries(CARD_DB).map(([key, card]) => {
+                  const unlocked = p.hype >= card.reqHype;
+                  const canAfford = p.credits >= card.cost;
+
+                  return (
+                    <div key={card.name} className={`relative flex flex-col items-center p-3 bg-slate-900 border rounded-xl transition-all ${unlocked ? 'border-slate-700' : 'border-slate-800 opacity-50 bg-slate-950'}`}>
+                      {!unlocked && (
+                        <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-[2px] z-20 flex flex-col items-center justify-center rounded-xl p-4 text-center border border-slate-800">
+                          <Star size={24} className="text-pink-900 mb-2" />
+                          <div className="text-slate-500 font-bold uppercase tracking-widest text-[10px] mb-1">Requires</div>
+                          <div className="text-pink-600 font-black text-lg">{card.reqHype} HYPE</div>
+                        </div>
+                      )}
+
+                      <img src={getAvatar(card.seed)} alt={card.name} className="w-12 h-12 bg-slate-800 rounded-full border border-slate-700 mb-2" />
+                      <div className={`font-black text-sm tracking-wide leading-tight uppercase text-center mb-1 ${card.id === 'anomaly' ? 'text-white drop-shadow-[0_0_5px_#fff]' : 'text-slate-200'}`}>
+                        {card.name}
+                      </div>
+                      <div className="text-[10px] text-slate-400 italic text-center mb-3 h-8 leading-tight">&quot;{card.text}&quot;</div>
+
+                      <div className="w-full flex flex-col gap-1 mb-3 bg-slate-950 p-2 rounded border border-slate-800">
+                        {card.credits > 0 && (
+                          <div className="flex justify-between text-cyan-400 font-bold text-[10px]">
+                            <span className="flex items-center gap-1">
+                              <Coins size={10} /> Credits
+                            </span>
+                            <span>+{card.credits}</span>
+                          </div>
+                        )}
+                        {card.hype > 0 && (
+                          <div className="flex justify-between text-pink-400 font-bold text-[10px]">
+                            <span className="flex items-center gap-1">
+                              <Star size={10} /> Hype
+                            </span>
+                            <span>+{card.hype}</span>
+                          </div>
+                        )}
+                        {card.heat !== 0 && (
+                          <div className={`flex justify-between font-bold text-[10px] ${card.heat > 0 ? 'text-orange-500' : 'text-emerald-400'}`}>
+                            <span className="flex items-center gap-1">
+                              <Flame size={10} /> Heat
+                            </span>
+                            <span>{card.heat > 0 ? `+${card.heat}` : card.heat}</span>
+                          </div>
+                        )}
+                      </div>
+
+                      <button
+                        onClick={() => buyCard(key)}
+                        disabled={!unlocked || !canAfford}
+                        className="w-full mt-auto py-2.5 bg-cyan-950 border border-cyan-900 hover:bg-cyan-700 hover:text-white disabled:opacity-50 disabled:hover:bg-cyan-950 disabled:hover:border-cyan-900 disabled:cursor-not-allowed rounded-lg font-bold flex justify-center items-center gap-2 transition-all text-cyan-400 shadow-sm"
+                      >
+                        RECRUIT{' '}
+                        <span className="bg-slate-950 px-1.5 py-0.5 rounded text-xs flex items-center gap-1 border border-cyan-900/50">
+                          <Coins size={12} /> {card.cost}
+                        </span>
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
