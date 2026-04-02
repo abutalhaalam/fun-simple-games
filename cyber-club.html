@@ -1,792 +1,766 @@
-import React, { useState, useMemo } from 'react';
-import {
-  Coins, Star, Flame, DoorOpen, SkipForward, Users, 
-  XCircle, ChevronRight, Home, Beer, Leaf, Gamepad2, Trophy, Speaker, Sparkles
-} from 'lucide-react';
-
-// --- MATH & UTILS ---
-const hashSeed = (value) => {
-  let h = 2166136261;
-  for (let i = 0; i < value.length; i += 1) {
-    h ^= value.charCodeAt(i);
-    h = Math.imul(h, 16777619);
-  }
-  return h >>> 0;
-};
-const pick = (seed, items, offset = 0) => items[(hashSeed(`${seed}-${offset}`) + offset) % items.length];
-const shuffle = (array) => [...array].sort(() => Math.random() - 0.5);
-const createUid = () => `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
-
-// --- GRID MATH ---
-const GRID_W = 5; 
-const getAdjacentIndices = (index, totalTiles) => {
-  const adj = [];
-  const x = index % GRID_W;
-  const y = Math.floor(index / GRID_W);
-  const rows = Math.ceil(totalTiles / GRID_W);
-  
-  if (x > 0) adj.push(index - 1); 
-  if (x < GRID_W - 1) adj.push(index + 1); 
-  if (y > 0) adj.push(index - GRID_W); 
-  if (y < rows - 1) adj.push(index + GRID_W); 
-  return adj.filter(i => i < totalTiles);
-};
-
-// --- ROSTER & STYLES ---
-const ROLE_STYLE = {
-  slacker: { primary: '#64748b', secondary: '#94a3b8', accent: '#cbd5e1', vibe: 'CHILL' },
-  student: { primary: '#3b82f6', secondary: '#93c5fd', accent: '#bfdbfe', vibe: 'STUD' },
-  worker: { primary: '#eab308', secondary: '#fde047', accent: '#fef08a', vibe: 'WORK' },
-  partygoer: { primary: '#ec4899', secondary: '#f9a8d4', accent: '#fbcfe8', vibe: 'PARTY' },
-  punk: { primary: '#ef4444', secondary: '#fca5a5', accent: '#fecaca', vibe: 'PUNK' },
-  dealer: { primary: '#f97316', secondary: '#fdba74', accent: '#fed7aa', vibe: 'SHADY' },
-  promoter: { primary: '#d946ef', secondary: '#f0abfc', accent: '#fdf4ff', vibe: 'HYPE' },
-  bouncer: { primary: '#10b981', secondary: '#6ee7b7', accent: '#a7f3d0', vibe: 'SEC' },
-  hacker: { primary: '#06b6d4', secondary: '#67e8f9', accent: '#cffafe', vibe: 'NET' },
-  dj: { primary: '#8b5cf6', secondary: '#c4b5fd', accent: '#ede9fe', vibe: 'DJ' },
-  manager: { primary: '#ca8a04', secondary: '#fef08a', accent: '#fef9c3', vibe: 'BOSS' },
-  cop: { primary: '#2563eb', secondary: '#60a5fa', accent: '#dbeafe', vibe: 'LAW' },
-  vip: { primary: '#fbbf24', secondary: '#fef3c7', accent: '#fffbeb', vibe: 'VIP' },
-  fixer: { primary: '#059669', secondary: '#34d399', accent: '#d1fae5', vibe: 'FIX' },
-  kingpin: { primary: '#dc2626', secondary: '#f87171', accent: '#fee2e2', vibe: 'DON' },
-  mayor: { primary: '#4f46e5', secondary: '#a5b4fc', accent: '#e0e7ff', vibe: 'GOV' },
-  celebrity: { primary: '#db2777', secondary: '#f472b6', accent: '#fce7f3', vibe: 'STAR' },
-  mastermind: { primary: '#0f766e', secondary: '#34d399', accent: '#ecfdf5', vibe: 'MIND' },
-  anomaly: { primary: '#ffffff', secondary: '#cbd5e1', accent: '#67e8f9', vibe: '???' },
-};
-
-const CARD_DB = {
-  slacker: { name: 'Slacker', role: 'slacker', seed: 'S1', cost: 1, credits: 1, hype: 0, heat: 0, reqHype: 0, text: 'Base: +$1' },
-  student: { name: 'Student', role: 'student', seed: 'S2', cost: 3, credits: 1, hype: 1, heat: 1, reqHype: 0, text: 'Base: +$1, +1 Hype, +1 Heat' },
-  worker: { name: 'Worker', role: 'worker', seed: 'W1', cost: 4, credits: 2, hype: 0, heat: 0, reqHype: 0, text: 'Base: +$2' },
-  partygoer: { name: 'Partygoer', role: 'partygoer', seed: 'P1', cost: 5, credits: 0, hype: 2, heat: 0, reqHype: 0, text: 'Base: +2 Hype' },
-  punk: { name: 'Punk', role: 'punk', seed: 'P2', cost: 5, credits: 3, hype: 0, heat: 1, reqHype: 0, text: 'Base: +$3, +1 Heat' },
-  
-  dealer: { name: 'Dealer', role: 'dealer', seed: 'D1', cost: 10, credits: 4, hype: 0, heat: 2, reqHype: 5, text: 'Base: +$4, +2 Heat' },
-  promoter: { name: 'Promoter', role: 'promoter', seed: 'P3', cost: 12, credits: 0, hype: 1, heat: 0, reqHype: 5, text: 'Adjacent: +1 Hype per Slacker' },
-  bouncer: { name: 'Bouncer', role: 'bouncer', seed: 'B1', cost: 15, credits: 0, hype: 0, heat: -1, reqHype: 10, text: 'Base: -1 Heat. ACTIVE: Kick guest' },
-  hacker: { name: 'Netrunner', role: 'hacker', seed: 'H1', cost: 18, credits: 1, hype: 0, heat: 0, reqHype: 15, text: 'ACTIVE: Reroll any guest' },
-  dj: { name: 'Star DJ', role: 'dj', seed: 'D2', cost: 22, credits: 1, hype: 2, heat: 0, reqHype: 15, text: 'Global: +1 Hype per 3 total guests' },
-  
-  manager: { name: 'Manager', role: 'manager', seed: 'M1', cost: 25, credits: 1, hype: 0, heat: 0, reqHype: 25, text: 'Adjacent: +$2 per Worker' },
-  cop: { name: 'Cop', role: 'cop', seed: 'C1', cost: 28, credits: 0, hype: 0, heat: -2, reqHype: 30, text: 'Base: -2 Heat. Adjacent: +1 Heat per Punk' },
-  influencer: { name: 'Influencer', role: 'partygoer', seed: 'I1', cost: 30, credits: 0, hype: 3, heat: 1, reqHype: 30, text: 'Adjacent: +1 Hype per Partygoer' },
-  vip: { name: 'VIP', role: 'vip', seed: 'V1', cost: 35, credits: 6, hype: 2, heat: 1, reqHype: 40, text: 'Base: +$6, +2 Hype, +1 Heat' },
-  fixer: { name: 'Fixer', role: 'fixer', seed: 'F1', cost: 40, credits: 2, hype: 0, heat: -1, reqHype: 45, text: 'Adjacent: Negates all Heat from Dealers' },
-  
-  kingpin: { name: 'Kingpin', role: 'kingpin', seed: 'K1', cost: 50, credits: 5, hype: 0, heat: 2, reqHype: 60, text: 'Adjacent: +$3 per Punk or Dealer' },
-  mayor: { name: 'Mayor', role: 'mayor', seed: 'M2', cost: 60, credits: 4, hype: 4, heat: -1, reqHype: 75, text: 'Base: +$4, +4 Hype, -1 Heat' },
-  celebrity: { name: 'Mega Star', role: 'celebrity', seed: 'C2', cost: 65, credits: 0, hype: 8, heat: 1, reqHype: 80, text: 'Base: +8 Hype, +1 Heat' },
-  mastermind: { name: 'Mastermind', role: 'mastermind', seed: 'M3', cost: 75, credits: 0, hype: 0, heat: -3, reqHype: 90, text: 'Base: -3 Heat. ACTIVE: Kick 2 guests' },
-  anomaly: { name: 'Anomaly', role: 'anomaly', seed: 'Void', cost: 100, credits: 0, hype: 0, heat: 0, reqHype: 120, text: 'Gather 4 on the board to Transcend' },
-};
-
-// Phase 3: Permanent Furniture Data
-const FURNITURE_DB = {
-  plant: { name: 'Potted Plant', icon: Leaf, cost: 10, credits: 0, hype: 0, heat: -1, color: 'text-emerald-400 border-emerald-500', text: 'Permanent: -1 Heat globally' },
-  keg: { name: 'Keg', icon: Beer, cost: 20, credits: 0, hype: 2, heat: 0, color: 'text-amber-500 border-amber-500', text: 'Permanent: +2 Hype globally' },
-  arcade: { name: 'Arcade Cab', icon: Gamepad2, cost: 35, credits: 2, hype: 0, heat: 0, color: 'text-fuchsia-400 border-fuchsia-500', text: 'Permanent: +$2 globally' },
-  statue: { name: 'Gold Statue', icon: Trophy, cost: 60, credits: 0, hype: 5, heat: 0, color: 'text-yellow-400 border-yellow-400', text: 'Permanent: +5 Hype globally' },
-};
-
-const EXPANSIONS = [
-  { level: 1, cost: 0, maxHeat: 4, capacity: 10, name: 'Back Alley Basement' }, 
-  { level: 2, cost: 30, maxHeat: 5, capacity: 15, name: 'Warehouse Party' }, 
-  { level: 3, cost: 75, maxHeat: 7, capacity: 20, name: 'Neon Nightclub' }, 
-  { level: 4, cost: 150, maxHeat: 10, capacity: 30, name: 'Mansion Estate' }, 
-];
-
-const generateCard = (id) => ({ uid: createUid(), id, type: 'guest', abilityUsed: 0, ...CARD_DB[id] });
-const resetCard = (card) => ({ ...card, abilityUsed: 0 });
-
-const createPlayerState = (name) => ({
-  name,
-  deck: shuffle([...Array(5).fill('slacker'), ...Array(3).fill('punk')].map(generateCard)),
-  discard: [],
-  grid: Array(10).fill(null), 
-  credits: 0,
-  hype: 0,
-  expansionLevel: 0,
-  bounceCost: 5,
-});
-
-// --- AVATAR RENDERER ---
-const getAvatar = (seed, roleId = 'slacker') => {
-  const style = ROLE_STYLE[roleId] || ROLE_STYLE.slacker;
-  const skin = pick(seed, ['#f5d0a5', '#ddb08a', '#8d5d42', '#f0bf93', '#4a3022', '#a86f52'], 1);
-  const hair = pick(seed, ['#0f172a', '#334155', '#7c2d12', '#a16207', '#7e22ce', '#be123c', '#fbbf24', '#f472b6'], 2);
-  const faceType = hashSeed(`${seed}-${roleId}-face`) % 3;
-  const outfitType = hashSeed(`${seed}-${roleId}-outfit`) % 3;
-
-  let hairBlocks = `<rect x="9" y="7" width="14" height="4" fill="${hair}"/><rect x="8" y="9" width="2" height="5" fill="${hair}"/><rect x="22" y="9" width="2" height="5" fill="${hair}"/>`;
-  if (style.vibe === 'PUNK' || style.vibe === 'SHADY') hairBlocks = `<rect x="14" y="2" width="4" height="10" fill="${hair}"/><rect x="12" y="5" width="2" height="6" fill="${hair}"/><rect x="18" y="5" width="2" height="6" fill="${hair}"/>`;
-  else if (style.vibe === 'SEC' || style.vibe === 'LAW') hairBlocks = `<rect x="8" y="7" width="16" height="3" fill="#1e293b"/>`; 
-  else if (style.vibe === '???') hairBlocks = '<rect x="9" y="6" width="14" height="16" rx="4" fill="#e2e8f0" opacity="0.6"/><rect x="12" y="10" width="8" height="2" fill="#ffffff"/><rect x="11" y="18" width="10" height="2" fill="#67e8f9"/>';
-
-  const face = faceType === 0 ? '<rect x="12" y="15" width="2" height="2" fill="#0f172a"/><rect x="18" y="15" width="2" height="2" fill="#0f172a"/><rect x="14" y="19" width="4" height="1" fill="#7c2d12"/>' : faceType === 1 ? '<rect x="12" y="15" width="2" height="2" fill="#0f172a"/><rect x="18" y="15" width="2" height="2" fill="#0f172a"/><rect x="13" y="19" width="6" height="2" fill="#0f172a"/>' : '<rect x="12" y="16" width="2" height="1" fill="#0f172a"/><rect x="18" y="16" width="2" height="1" fill="#0f172a"/><rect x="14" y="19" width="4" height="2" fill="#7c2d12"/>'; 
-  const torso = outfitType === 0 ? `<rect x="10" y="21" width="12" height="8" fill="${style.primary}"/><rect x="13" y="22" width="6" height="7" fill="${style.secondary}"/>` : `<rect x="10" y="21" width="12" height="8" fill="${style.secondary}"/><rect x="14" y="21" width="4" height="8" fill="${style.primary}"/>`;
-
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" shape-rendering="crispEdges"><rect width="32" height="32" fill="transparent"/>${style.vibe === '???' ? '<rect x="4" y="4" width="24" height="24" rx="4" fill="#67e8f9" opacity="0.15"/>' : ''}<rect x="11" y="10" width="10" height="11" rx="1" fill="${skin}"/>${hairBlocks}${style.vibe !== '???' ? face : ''}${torso}<rect x="9" y="22" width="2" height="4" fill="${skin}"/><rect x="21" y="22" width="2" height="4" fill="${skin}"/></svg>`;
-  return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
-};
-
-export default function App() {
-  const [phase, setPhase] = useState('MENU');
-  const [gameMode, setGameMode] = useState(1);
-  const [players, setPlayers] = useState([]);
-  const [activeIdx, setActiveIdx] = useState(0);
-  const [day, setDay] = useState(1);
-  const [viewingDeck, setViewingDeck] = useState(false);
-  const [targeting, setTargeting] = useState(null); 
-
-  const p = players[activeIdx] || createPlayerState('');
-  const expansion = EXPANSIONS[p.expansionLevel] || EXPANSIONS[0];
-
-  const updateP = (updater) => {
-    setPlayers((prev) =>
-      prev.map((player, idx) => {
-        if (idx !== activeIdx) return player;
-        return { ...player, ...(typeof updater === 'function' ? updater(player) : updater) };
-      })
-    );
-  };
-
-  const initGame = (mode) => {
-    const nextPlayers = [createPlayerState('Player 1')];
-    if (mode === 2) nextPlayers.push(createPlayerState('Player 2'));
-    setGameMode(mode);
-    setPlayers(nextPlayers);
-    setActiveIdx(0);
-    setDay(1);
-    setViewingDeck(false);
-    setTargeting(null);
-    setPhase('PARTY');
-  };
-
-  // --- GRID MATH & ADJACENCY SYNERGIES ---
-  const computeGridStats = (gridState) => {
-    const stats = { credits: 0, hype: 0, heat: 0, anomalies: 0 };
-    const totalTiles = gridState.length;
-    let guestCount = 0;
-
-    gridState.forEach((item, index) => {
-      if (!item) return;
-
-      // Base Stats apply to both guests and furniture
-      stats.credits += item.credits || 0;
-      stats.hype += item.hype || 0;
-      stats.heat += item.heat || 0;
-      
-      if (item.type === 'guest') {
-        guestCount++;
-        if (item.id === 'anomaly') stats.anomalies += 1;
-
-        // Synergies (Check neighbors)
-        const adjIndices = getAdjacentIndices(index, totalTiles);
-        const adjCards = adjIndices.map(i => gridState[i]).filter(Boolean);
-
-        if (item.id === 'promoter') {
-          stats.hype += adjCards.filter(c => c.id === 'slacker').length;
-        }
-        if (item.id === 'manager') {
-          stats.credits += adjCards.filter(c => c.id === 'worker').length * 2;
-        }
-        if (item.id === 'influencer') {
-          stats.hype += adjCards.filter(c => c.id === 'partygoer').length;
-        }
-        if (item.id === 'cop') {
-          stats.heat += adjCards.filter(c => c.id === 'punk').length;
-        }
-        if (item.id === 'kingpin') {
-          stats.credits += adjCards.filter(c => c.id === 'punk' || c.id === 'dealer').length * 3;
-        }
-        if (item.id === 'fixer') {
-          stats.heat -= adjCards.filter(c => c.id === 'dealer').length * 2;
-        }
-      }
-    });
-
-    // Global synergies
-    gridState.forEach((item) => {
-      if (item && item.id === 'dj') stats.hype += Math.floor(guestCount / 3);
-    });
-
-    stats.heat = Math.max(0, stats.heat); 
-    return stats;
-  };
-
-  const runStats = useMemo(() => computeGridStats(p.grid), [p.grid]);
-  
-  // allCards displays cards you can bounce (deck + discard + current guests)
-  const allCards = useMemo(() => [...p.deck, ...p.discard, ...p.grid.filter(i => i && i.type === 'guest')], [p.grid, p.deck, p.discard]);
-  const capacityUsed = p.grid.filter(Boolean).length;
-
-  // --- ACTIONS ---
-  const admitGuest = () => {
-    let currentDeck = [...p.deck];
-    let currentDiscard = [...p.discard];
-
-    if (currentDeck.length === 0) {
-      if (currentDiscard.length === 0) return;
-      currentDeck = shuffle(currentDiscard.map(resetCard));
-      currentDiscard = [];
-    }
-
-    const drawnCard = currentDeck.shift();
-    if (!drawnCard) return;
-
-    // Find random empty tile
-    const emptyIndices = p.grid.map((c, i) => c === null ? i : null).filter(i => i !== null);
-    if (emptyIndices.length === 0) return; 
-
-    const placementIndex = emptyIndices[Math.floor(Math.random() * emptyIndices.length)];
-    const newGrid = [...p.grid];
-    newGrid[placementIndex] = resetCard(drawnCard);
-
-    const nextStats = computeGridStats(newGrid);
-
-    updateP({ grid: newGrid, deck: currentDeck, discard: currentDiscard });
-    setTargeting(null);
-
-    if (nextStats.anomalies >= 4) {
-      setPhase('VICTORY');
-    } else if (nextStats.heat >= expansion.maxHeat) {
-      setPhase('BUSTED');
-    }
-  };
-
-  const useAbility = (gridIndex, type) => {
-    const source = p.grid[gridIndex];
-    if (!source || source.abilityUsed >= (source.id === 'mastermind' ? 2 : 1) || source.type === 'furniture') return;
-    if (targeting?.sourceIdx === gridIndex) {
-      setTargeting(null); return;
-    }
-    setTargeting({ sourceIdx: gridIndex, type });
-  };
-
-  const handleTileClick = (targetIndex) => {
-    if (!targeting) return;
-
-    const source = p.grid[targeting.sourceIdx];
-    const target = p.grid[targetIndex];
-
-    // Invalid target (empty, self, or trying to bounce/hack furniture)
-    if (!target || targetIndex === targeting.sourceIdx || target.type === 'furniture') {
-      setTargeting(null); return; 
-    }
-
-    const newGrid = [...p.grid];
-    newGrid[targeting.sourceIdx] = { ...source, abilityUsed: source.abilityUsed + 1 };
-    newGrid[targetIndex] = null; 
-
-    if (targeting.type === 'BOUNCE') {
-      updateP(prev => ({ grid: newGrid, discard: [...prev.discard, resetCard(target)] }));
-    } else if (targeting.type === 'HACK') {
-      let curDeck = [...p.deck];
-      let curDiscard = [...p.discard, resetCard(target)];
-
-      if (curDeck.length === 0 && curDiscard.length > 0) {
-        curDeck = shuffle(curDiscard.map(resetCard));
-        curDiscard = [];
-      }
-
-      if (curDeck.length > 0) {
-        newGrid[targetIndex] = resetCard(curDeck.shift()); 
-      }
-
-      const nextStats = computeGridStats(newGrid);
-      updateP({ grid: newGrid, deck: curDeck, discard: curDiscard });
-      
-      if (nextStats.anomalies >= 4) setPhase('VICTORY');
-      else if (nextStats.heat >= expansion.maxHeat) setPhase('BUSTED');
-      
-      setTargeting(null);
-      return;
-    }
-
-    if (source.id === 'mastermind' && source.abilityUsed < 1) {
-       // Mastermind keeps targeting active for 2nd bounce
-    } else {
-       setTargeting(null);
-    }
-  };
-
-  const endParty = () => {
-    updateP(prev => ({
-      credits: prev.credits + Math.max(0, runStats.credits),
-      hype: prev.hype + Math.max(0, runStats.hype),
-    }));
-    setViewingDeck(false);
-    setTargeting(null);
-    setPhase('SHOP');
-  };
-
-  const buyItem = (id, itemType) => {
-    if (itemType === 'furniture') {
-      const itemInfo = FURNITURE_DB[id];
-      if (!itemInfo || p.credits < itemInfo.cost) return;
-      
-      updateP(prev => {
-        const newGrid = [...prev.grid];
-        const emptyIdx = newGrid.findIndex(c => c === null);
-        if (emptyIdx === -1) return prev; // No room to place furniture!
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cyber Club: Anomaly</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        body { background-color: #0f172a; color: #f8fafc; font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
+        .pixelated { image-rendering: pixelated; }
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #0f172a; }
+        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
         
-        newGrid[emptyIdx] = { uid: createUid(), id, type: 'furniture', ...itemInfo };
-        return { credits: prev.credits - itemInfo.cost, grid: newGrid };
-      });
-    } else {
-      const cardInfo = CARD_DB[id];
-      if (!cardInfo || p.credits < cardInfo.cost || p.hype < cardInfo.reqHype) return;
-      updateP(prev => ({
-        credits: prev.credits - cardInfo.cost,
-        discard: [...prev.discard, generateCard(id)],
-      }));
-    }
-  };
+        /* Animations */
+        @keyframes pulse-glow { 0%, 100% { opacity: 1; box-shadow: 0 0 20px rgba(34, 211, 238, 0.4); } 50% { opacity: .7; box-shadow: 0 0 10px rgba(34, 211, 238, 0.2); } }
+        .animate-pulse-glow { animation: pulse-glow 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+        @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
+        .animate-float { animation: float 3s ease-in-out infinite; }
+        
+        /* Grid Layouts for Phase 4 */
+        .room-divider { border-top: 4px dashed rgba(236, 72, 153, 0.3); margin-top: 8px; padding-top: 8px; position: relative; }
+        .room-divider::before { content: attr(data-room); position: absolute; top: -12px; left: 16px; background: #0a0a16; padding: 0 8px; font-size: 10px; color: #f472b6; font-weight: 900; letter-spacing: 0.2em; text-transform: uppercase; border: 1px solid rgba(236, 72, 153, 0.3); border-radius: 4px; }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col bg-slate-900 selection:bg-cyan-500/30">
+    <div id="app" class="flex-1 flex flex-col"></div>
 
-  const buyExpansion = () => {
-    const nextExp = EXPANSIONS[p.expansionLevel + 1];
-    if (!nextExp || p.credits < nextExp.cost) return;
-    updateP(prev => {
-      const newGrid = [...prev.grid];
-      while(newGrid.length < nextExp.capacity) newGrid.push(null);
-      return {
-        credits: prev.credits - nextExp.cost,
-        expansionLevel: prev.expansionLevel + 1,
-        grid: newGrid
-      };
-    });
-  };
+    <script>
+        // --- MATH & UTILS ---
+        const hashSeed = (value) => {
+            let h = 2166136261;
+            for (let i = 0; i < value.length; i += 1) {
+                h ^= value.charCodeAt(i);
+                h = Math.imul(h, 16777619);
+            }
+            return h >>> 0;
+        };
+        const pick = (seed, items, offset = 0) => items[(hashSeed(`${seed}-${offset}`) + offset) % items.length];
+        const shuffle = (array) => [...array].sort(() => Math.random() - 0.5);
+        const createUid = () => `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
 
-  const bounceDeckCard = (uid) => {
-    if (p.credits < p.bounceCost || allCards.length <= 4) return;
-    updateP(prev => ({
-      credits: prev.credits - prev.bounceCost,
-      bounceCost: prev.bounceCost + 5,
-      deck: prev.deck.filter(c => c.uid !== uid),
-      discard: prev.discard.filter(c => c.uid !== uid),
-      grid: prev.grid.map(c => c && c.uid === uid ? null : c), 
-    }));
-  };
+        // --- GRID MATH ---
+        const GRID_W = 5;
+        const getAdjacentIndices = (index, totalTiles) => {
+            const adj = [];
+            const x = index % GRID_W;
+            const y = Math.floor(index / GRID_W);
+            const rows = Math.ceil(totalTiles / GRID_W);
+            if (x > 0) adj.push(index - 1);
+            if (x < GRID_W - 1) adj.push(index + 1);
+            if (y > 0) adj.push(index - GRID_W);
+            if (y < rows - 1) adj.push(index + GRID_W);
+            return adj.filter(i => i < totalTiles);
+        };
 
-  const nextPlayerOrDay = () => {
-    // Only shuffle Guests into discard. Furniture stays on the grid!
-    updateP((prev) => {
-      const guests = prev.grid.filter(c => c && c.type === 'guest');
-      const furnitures = prev.grid.map(c => c && c.type === 'furniture' ? c : null);
-      
-      return {
-        discard: [...prev.discard, ...guests.map(resetCard)],
-        grid: furnitures, // Furnitures persist across days
-      };
-    });
+        // --- DATABASE ---
+        const ROLE_STYLE = {
+            slacker: { primary: '#64748b', secondary: '#94a3b8', accent: '#cbd5e1', vibe: 'CHILL' },
+            student: { primary: '#3b82f6', secondary: '#93c5fd', accent: '#bfdbfe', vibe: 'STUD' },
+            worker: { primary: '#eab308', secondary: '#fde047', accent: '#fef08a', vibe: 'WORK' },
+            partygoer: { primary: '#ec4899', secondary: '#f9a8d4', accent: '#fbcfe8', vibe: 'PARTY' },
+            punk: { primary: '#ef4444', secondary: '#fca5a5', accent: '#fecaca', vibe: 'PUNK' },
+            dealer: { primary: '#f97316', secondary: '#fdba74', accent: '#fed7aa', vibe: 'SHADY' },
+            promoter: { primary: '#d946ef', secondary: '#f0abfc', accent: '#fdf4ff', vibe: 'HYPE' },
+            bouncer: { primary: '#10b981', secondary: '#6ee7b7', accent: '#a7f3d0', vibe: 'SEC' },
+            hacker: { primary: '#06b6d4', secondary: '#67e8f9', accent: '#cffafe', vibe: 'NET' },
+            dj: { primary: '#8b5cf6', secondary: '#c4b5fd', accent: '#ede9fe', vibe: 'DJ' },
+            manager: { primary: '#ca8a04', secondary: '#fef08a', accent: '#fef9c3', vibe: 'BOSS' },
+            cop: { primary: '#2563eb', secondary: '#60a5fa', accent: '#dbeafe', vibe: 'LAW' },
+            vip: { primary: '#fbbf24', secondary: '#fef3c7', accent: '#fffbeb', vibe: 'VIP' },
+            fixer: { primary: '#059669', secondary: '#34d399', accent: '#d1fae5', vibe: 'FIX' },
+            kingpin: { primary: '#dc2626', secondary: '#f87171', accent: '#fee2e2', vibe: 'DON' },
+            mayor: { primary: '#4f46e5', secondary: '#a5b4fc', accent: '#e0e7ff', vibe: 'GOV' },
+            celebrity: { primary: '#db2777', secondary: '#f472b6', accent: '#fce7f3', vibe: 'STAR' },
+            mastermind: { primary: '#0f766e', secondary: '#34d399', accent: '#ecfdf5', vibe: 'MIND' },
+            anomaly: { primary: '#ffffff', secondary: '#cbd5e1', accent: '#67e8f9', vibe: '???' },
+        };
 
-    setTargeting(null);
-    setViewingDeck(false);
+        const CARD_DB = {
+            slacker: { name: 'Slacker', role: 'slacker', seed: 'S1', cost: 1, credits: 1, hype: 0, heat: 0, reqHype: 0, text: 'Base: +$1' },
+            student: { name: 'Student', role: 'student', seed: 'S2', cost: 3, credits: 1, hype: 1, heat: 1, reqHype: 0, text: 'Base: +$1, +1 Hype, +1 Heat' },
+            worker: { name: 'Worker', role: 'worker', seed: 'W1', cost: 4, credits: 2, hype: 0, heat: 0, reqHype: 0, text: 'Base: +$2' },
+            partygoer: { name: 'Partygoer', role: 'partygoer', seed: 'P1', cost: 5, credits: 0, hype: 2, heat: 0, reqHype: 0, text: 'Base: +2 Hype' },
+            punk: { name: 'Punk', role: 'punk', seed: 'P2', cost: 5, credits: 3, hype: 0, heat: 1, reqHype: 0, text: 'Base: +$3, +1 Heat' },
+            dealer: { name: 'Dealer', role: 'dealer', seed: 'D1', cost: 10, credits: 4, hype: 0, heat: 2, reqHype: 5, text: 'Base: +$4, +2 Heat' },
+            promoter: { name: 'Promoter', role: 'promoter', seed: 'P3', cost: 12, credits: 0, hype: 1, heat: 0, reqHype: 5, text: 'Adjacent: +1 Hype per Slacker' },
+            bouncer: { name: 'Bouncer', role: 'bouncer', seed: 'B1', cost: 15, credits: 0, hype: 0, heat: -1, reqHype: 10, text: 'Base: -1 Heat. ACTIVE: Kick guest' },
+            hacker: { name: 'Netrunner', role: 'hacker', seed: 'H1', cost: 18, credits: 1, hype: 0, heat: 0, reqHype: 15, text: 'ACTIVE: Reroll any guest' },
+            dj: { name: 'Star DJ', role: 'dj', seed: 'D2', cost: 22, credits: 1, hype: 2, heat: 0, reqHype: 15, text: 'Global: +1 Hype per 3 total guests' },
+            manager: { name: 'Manager', role: 'manager', seed: 'M1', cost: 25, credits: 1, hype: 0, heat: 0, reqHype: 25, text: 'Adjacent: +$2 per Worker' },
+            cop: { name: 'Cop', role: 'cop', seed: 'C1', cost: 28, credits: 0, hype: 0, heat: -2, reqHype: 30, text: 'Base: -2 Heat. Adjacent: +1 Heat per Punk' },
+            influencer: { name: 'Influencer', role: 'partygoer', seed: 'I1', cost: 30, credits: 0, hype: 3, heat: 1, reqHype: 30, text: 'Adjacent: +1 Hype per Partygoer' },
+            vip: { name: 'VIP', role: 'vip', seed: 'V1', cost: 35, credits: 6, hype: 2, heat: 1, reqHype: 40, text: 'Base: +$6, +2 Hype, +1 Heat' },
+            fixer: { name: 'Fixer', role: 'fixer', seed: 'F1', cost: 40, credits: 2, hype: 0, heat: -1, reqHype: 45, text: 'Adjacent: Negates all Heat from Dealers' },
+            kingpin: { name: 'Kingpin', role: 'kingpin', seed: 'K1', cost: 50, credits: 5, hype: 0, heat: 2, reqHype: 60, text: 'Adjacent: +$3 per Punk or Dealer' },
+            mayor: { name: 'Mayor', role: 'mayor', seed: 'M2', cost: 60, credits: 4, hype: 4, heat: -1, reqHype: 75, text: 'Base: +$4, +4 Hype, -1 Heat' },
+            celebrity: { name: 'Mega Star', role: 'celebrity', seed: 'C2', cost: 65, credits: 0, hype: 8, heat: 1, reqHype: 80, text: 'Base: +8 Hype, +1 Heat' },
+            mastermind: { name: 'Mastermind', role: 'mastermind', seed: 'M3', cost: 75, credits: 0, hype: 0, heat: -3, reqHype: 90, text: 'Base: -3 Heat. ACTIVE: Kick 2 guests' },
+            anomaly: { name: 'Anomaly', role: 'anomaly', seed: 'Void', cost: 100, credits: 0, hype: 0, heat: 0, reqHype: 120, text: 'Gather 4 on the board to Transcend' },
+        };
 
-    if (gameMode === 1) {
-      setDay(d => d + 1);
-      setPhase('PARTY');
-    } else {
-      setActiveIdx(activeIdx === 0 ? 1 : 0);
-      if (activeIdx !== 0) setDay(d => d + 1);
-      setPhase('PARTY');
-    }
-  };
+        const FURNITURE_DB = {
+            plant: { name: 'Potted Plant', icon: 'leaf', cost: 10, credits: 0, hype: 0, heat: -1, color: 'text-emerald-400 border-emerald-500', text: 'Permanent: -1 Heat globally' },
+            keg: { name: 'Keg', icon: 'beer', cost: 20, credits: 0, hype: 2, heat: 0, color: 'text-amber-500 border-amber-500', text: 'Permanent: +2 Hype globally' },
+            arcade: { name: 'Arcade Cab', icon: 'gamepad-2', cost: 35, credits: 2, hype: 0, heat: 0, color: 'text-fuchsia-400 border-fuchsia-500', text: 'Permanent: +$2 globally' },
+            statue: { name: 'Gold Statue', icon: 'trophy', cost: 60, credits: 0, hype: 5, heat: 0, color: 'text-yellow-400 border-yellow-400', text: 'Permanent: +5 Hype globally' },
+        };
 
-  // --- RENDERERS ---
+        const EXPANSIONS = [
+            { level: 1, cost: 0, maxHeat: 4, capacity: 10, name: 'Back Alley Basement' },
+            { level: 2, cost: 30, maxHeat: 5, capacity: 15, name: 'Warehouse Party' },
+            { level: 3, cost: 75, maxHeat: 7, capacity: 20, name: 'Neon Nightclub' },
+            { level: 4, cost: 150, maxHeat: 10, capacity: 30, name: 'Mansion Estate' },
+        ];
 
-  const renderTopBar = () => (
-    <div className="sticky top-0 z-50 w-full border-b border-slate-800 bg-slate-900 p-4 shadow-lg">
-      <div className="mx-auto flex w-full max-w-6xl items-center justify-between">
-        <div className="flex items-center gap-4 sm:gap-8">
-          <div className="flex items-center gap-2 rounded border border-cyan-500/50 bg-cyan-900/30 px-3 py-1 text-xl font-black text-cyan-400 shadow-inner">
-            <Coins size={20} /> {p.credits}
-          </div>
-          <div className="flex items-center gap-2 rounded border border-pink-600/50 bg-pink-900/30 px-3 py-1 text-xl font-black text-pink-400 shadow-inner">
-            <Star size={20} /> {p.hype}
-          </div>
-        </div>
-        <div className="flex items-center gap-4 font-bold uppercase tracking-widest text-slate-400">
-          {gameMode === 2 && <span className={activeIdx === 0 ? 'text-cyan-400' : 'text-purple-400'}>{p.name} | </span>}
-          {phase === 'SHOP' ? <><Home size={18} /> THE SYNDICATE</> : `NIGHT ${day}`}
-        </div>
-      </div>
-    </div>
-  );
+        // --- STATE MANAGEMENT ---
+        let state = {
+            phase: 'MENU', 
+            gameMode: 1,
+            players: [],
+            activeIdx: 0,
+            day: 1,
+            viewingDeck: false,
+            targeting: null
+        };
 
-  const renderGridItem = (item, index) => {
-    if (item.type === 'furniture') {
-      const Icon = item.icon;
-      return (
-        <div key={item.uid} className={`group relative z-10 flex h-full w-full flex-col items-center justify-center rounded border-2 bg-slate-900 shadow-md ${item.color}`}>
-           <div className="absolute inset-x-0 bottom-0 h-6 bg-gradient-to-t from-black/60 to-transparent rounded-b" />
-           <Icon size={32} className="z-10 drop-shadow-[0_0_10px_currentColor] opacity-80" />
-           <div className="z-10 mt-2 w-full px-1 text-center text-[9px] font-black uppercase leading-tight tracking-tight text-white truncate">
-            {item.name}
-          </div>
-        </div>
-      );
-    }
+        const generateCard = (id) => ({ uid: createUid(), id, type: 'guest', abilityUsed: 0, ...CARD_DB[id] });
+        const resetCard = (card) => ({ ...card, abilityUsed: 0 });
 
-    // Guest Rendering
-    const isTargetingMode = Boolean(targeting) && targeting.sourceIdx !== index;
-    const canUseAbility = !item.abilityUsed && phase === 'PARTY';
-    const isBouncer = item.role === 'bouncer' || item.role === 'mastermind';
-    const isHacker = item.role === 'hacker';
+        const createPlayerState = (name) => ({
+            name,
+            deck: shuffle([...Array(5).fill('slacker'), ...Array(3).fill('punk')].map(generateCard)),
+            discard: [],
+            grid: Array(10).fill(null),
+            credits: 0,
+            hype: 0,
+            expansionLevel: 0,
+            bounceCost: 5,
+        });
 
-    return (
-      <div
-        key={item.uid}
-        onClick={(e) => { e.stopPropagation(); if (isTargetingMode) handleTileClick(index); }}
-        className={`group relative z-10 flex h-full w-full flex-col items-center justify-start rounded border-b-4 border-l border-r border-t bg-slate-900 pt-1 shadow-md transition-all duration-200 ${item.color || 'border-slate-800'} ${
-          isTargetingMode ? 'cursor-pointer hover:scale-105 hover:shadow-[0_0_15px_rgba(239,68,68,0.5)] hover:border-red-500' : ''
-        }`}
-      >
-        <div className="absolute inset-x-0 bottom-0 h-6 bg-gradient-to-t from-black/60 to-transparent rounded-b" />
+        function updateP(updater) {
+            let p = state.players[state.activeIdx];
+            let updates = typeof updater === 'function' ? updater(p) : updater;
+            state.players[state.activeIdx] = { ...p, ...updates };
+            renderApp();
+        }
 
-        {!isTargetingMode && canUseAbility && (isBouncer || isHacker) && (
-          <button
-            onClick={(e) => { e.stopPropagation(); useAbility(index, isBouncer ? 'BOUNCE' : 'HACK'); }}
-            className={`absolute -right-2 -top-2 z-20 rounded px-1.5 py-0.5 text-[8px] font-black shadow-lg ${
-              isBouncer ? 'bg-red-500 text-white hover:bg-red-400' : 'bg-cyan-400 text-slate-950 hover:bg-cyan-300'
-            }`}
-          >
-            {isBouncer ? 'KICK' : 'HACK'}
-          </button>
-        )}
+        // --- PROCEDURAL AVATAR (SVG Generator) ---
+        const getAvatar = (seed, roleId = 'slacker') => {
+            const style = ROLE_STYLE[roleId] || ROLE_STYLE.slacker;
+            const skin = pick(seed, ['#f5d0a5', '#ddb08a', '#8d5d42', '#f0bf93', '#4a3022', '#a86f52'], 1);
+            const hair = pick(seed, ['#0f172a', '#334155', '#7c2d12', '#a16207', '#7e22ce', '#be123c', '#fbbf24', '#f472b6'], 2);
+            const faceType = hashSeed(`${seed}-${roleId}-face`) % 3;
+            const outfitType = hashSeed(`${seed}-${roleId}-outfit`) % 3;
 
-        <img src={getAvatar(item.seed, item.role)} alt={item.name} className="z-10 h-10 w-10 drop-shadow-md rounded bg-slate-800" style={{ imageRendering: 'pixelated' }} />
+            let hairBlocks = `<rect x="9" y="7" width="14" height="4" fill="${hair}"/><rect x="8" y="9" width="2" height="5" fill="${hair}"/><rect x="22" y="9" width="2" height="5" fill="${hair}"/>`;
+            if (style.vibe === 'PUNK' || style.vibe === 'SHADY') hairBlocks = `<rect x="14" y="2" width="4" height="10" fill="${hair}"/><rect x="12" y="5" width="2" height="6" fill="${hair}"/><rect x="18" y="5" width="2" height="6" fill="${hair}"/>`;
+            else if (style.vibe === 'SEC' || style.vibe === 'LAW') hairBlocks = `<rect x="8" y="7" width="16" height="3" fill="#1e293b"/>`;
+            else if (style.vibe === '???') hairBlocks = '<rect x="9" y="6" width="14" height="16" rx="4" fill="#e2e8f0" opacity="0.6"/><rect x="12" y="10" width="8" height="2" fill="#ffffff"/><rect x="11" y="18" width="10" height="2" fill="#67e8f9"/>';
 
-        <div className="z-10 mt-auto w-full px-1 pb-1 text-center text-[8px] font-black uppercase leading-tight tracking-tight text-slate-100 truncate">
-          {item.name}
-        </div>
+            const face = faceType === 0 ? '<rect x="12" y="15" width="2" height="2" fill="#0f172a"/><rect x="18" y="15" width="2" height="2" fill="#0f172a"/><rect x="14" y="19" width="4" height="1" fill="#7c2d12"/>' : faceType === 1 ? '<rect x="12" y="15" width="2" height="2" fill="#0f172a"/><rect x="18" y="15" width="2" height="2" fill="#0f172a"/><rect x="13" y="19" width="6" height="2" fill="#0f172a"/>' : '<rect x="12" y="16" width="2" height="1" fill="#0f172a"/><rect x="18" y="16" width="2" height="1" fill="#0f172a"/><rect x="14" y="19" width="4" height="2" fill="#7c2d12"/>';
+            const torso = outfitType === 0 ? `<rect x="10" y="21" width="12" height="8" fill="${style.primary}"/><rect x="13" y="22" width="6" height="7" fill="${style.secondary}"/>` : `<rect x="10" y="21" width="12" height="8" fill="${style.secondary}"/><rect x="14" y="21" width="4" height="8" fill="${style.primary}"/>`;
 
-        {isTargetingMode && <div className="pointer-events-none absolute inset-0 animate-pulse rounded border border-red-500/50 bg-red-500/10" />}
-      </div>
-    );
-  };
+            const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" shape-rendering="crispEdges"><rect width="32" height="32" fill="transparent"/>${style.vibe === '???' ? '<rect x="4" y="4" width="24" height="24" rx="4" fill="#67e8f9" opacity="0.15"/>' : ''}<rect x="11" y="10" width="10" height="11" rx="1" fill="${skin}"/>${hairBlocks}${style.vibe !== '???' ? face : ''}${torso}<rect x="9" y="22" width="2" height="4" fill="${skin}"/><rect x="21" y="22" width="2" height="4" fill="${skin}"/></svg>`;
+            return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
+        };
 
-  if (phase === 'MENU') {
-    return (
-      <div className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden bg-[#050510] p-6 text-white">
-        <div className="absolute inset-0 bg-[linear-gradient(rgba(0,255,255,0.05)_1px,transparent_1px),linear-gradient(90deg,rgba(0,255,255,0.05)_1px,transparent_1px)] bg-[size:40px_40px] pointer-events-none" style={{ perspective: '1000px', transform: 'rotateX(60deg) scale(2.5) translateY(-20%)', transformOrigin: 'top' }} />
-        <div className="absolute inset-0 bg-gradient-to-t from-[#050510] via-transparent to-[#050510]" />
+        // --- GRID MATH & ADJACENCY SYNERGIES ---
+        const computeGridStats = (gridState) => {
+            const stats = { credits: 0, hype: 0, heat: 0, anomalies: 0 };
+            const totalTiles = gridState.length;
+            let guestCount = 0;
 
-        <div className="relative z-10 flex flex-col items-center">
-          <img src={getAvatar('Void', 'anomaly')} className="mb-6 h-20 w-20 animate-pulse rounded border-2 border-white bg-slate-800 shadow-[0_0_20px_#fff]" style={{ imageRendering: 'pixelated' }} />
-          <h1 className="mb-2 bg-gradient-to-r from-cyan-400 to-pink-500 bg-clip-text text-center text-5xl font-black tracking-tighter text-transparent drop-shadow-lg md:text-7xl">CYBER CLUB</h1>
-          <h2 className="mb-12 text-center text-xl font-bold uppercase tracking-[0.5em] text-white md:text-2xl">Syndicate Expansion</h2>
+            gridState.forEach((item, index) => {
+                if (!item) return;
+                stats.credits += item.credits || 0;
+                stats.hype += item.hype || 0;
+                stats.heat += item.heat || 0;
+                
+                if (item.type === 'guest') {
+                    guestCount++;
+                    if (item.id === 'anomaly') stats.anomalies += 1;
 
-          <div className="flex flex-col gap-4">
-            <button onClick={() => initGame(1)} className="rounded-xl bg-cyan-600 px-12 py-4 font-black tracking-widest text-white shadow-[0_0_30px_rgba(8,145,178,0.3)] transition-all hover:-translate-y-1 hover:bg-cyan-500">
-              1 PLAYER SIMULATION
-            </button>
-            <button onClick={() => initGame(2)} className="rounded-xl bg-purple-600 px-12 py-4 font-black tracking-widest text-white shadow-[0_0_30px_rgba(147,51,234,0.3)] transition-all hover:-translate-y-1 hover:bg-purple-500">
-              2 PLAYER (HOTSEAT)
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
+                    const adjIndices = getAdjacentIndices(index, totalTiles);
+                    const adjCards = adjIndices.map(i => gridState[i]).filter(Boolean);
 
-  if (phase === 'VICTORY') {
-    return (
-      <div className="flex min-h-screen flex-col items-center justify-center bg-[#050510] p-6 text-white">
-        <Sparkles size={80} className="mb-8 text-cyan-400 animate-pulse shadow-[0_0_50px_#22d3ee]" />
-        <h1 className="mb-4 bg-gradient-to-r from-white to-cyan-400 bg-clip-text text-center text-4xl font-black text-transparent md:text-6xl">TRANSCENDENCE ACHIEVED</h1>
-        <p className="mb-8 max-w-lg text-center text-xl text-slate-400">{p.name} gathered 4 Anomalies on the grid on Night {day}!</p>
-        <button onClick={() => setPhase('MENU')} className="rounded-lg bg-cyan-600 px-8 py-4 font-bold tracking-widest transition-all hover:bg-cyan-500">RETURN TO MENU</button>
-      </div>
-    );
-  }
+                    if (item.id === 'promoter') stats.hype += adjCards.filter(c => c.id === 'slacker').length;
+                    if (item.id === 'manager') stats.credits += adjCards.filter(c => c.id === 'worker').length * 2;
+                    if (item.id === 'influencer') stats.hype += adjCards.filter(c => c.id === 'partygoer').length;
+                    if (item.id === 'cop') stats.heat += adjCards.filter(c => c.id === 'punk').length;
+                    if (item.id === 'kingpin') stats.credits += adjCards.filter(c => c.id === 'punk' || c.id === 'dealer').length * 3;
+                    if (item.id === 'fixer') stats.heat -= adjCards.filter(c => c.id === 'dealer').length * 2;
+                }
+            });
 
-  return (
-    <div className="flex min-h-screen flex-col bg-slate-900 font-sans text-slate-200">
-      {renderTopBar()}
+            gridState.forEach((item) => {
+                if (item && item.id === 'dj') stats.hype += Math.floor(guestCount / 3);
+            });
 
-      {phase === 'PARTY' && (
-        <div className="relative mx-auto flex min-h-0 w-full max-w-4xl flex-1 flex-col p-4 md:p-6">
-          
-          <div className="relative z-20 mb-4 flex w-full flex-col gap-4 md:flex-row">
-            <div className="flex flex-1 items-center justify-between rounded-xl border border-slate-700 bg-slate-800 p-4 shadow-lg">
-              <div>
-                <h2 className="mb-1 text-[10px] font-bold uppercase tracking-widest text-slate-400">Pending Payout</h2>
-                <div className="flex gap-6">
-                  <span className="flex items-center gap-1 text-xl font-black text-cyan-400"><Coins size={18} /> +{runStats.credits}</span>
-                  <span className="flex items-center gap-1 text-xl font-black text-pink-400"><Star size={18} /> +{runStats.hype}</span>
-                </div>
-              </div>
-              <button onClick={endParty} className="flex flex-col items-center gap-1 rounded-lg border border-emerald-800 bg-emerald-950/50 px-4 py-2 font-bold tracking-widest text-emerald-400 transition-all hover:bg-emerald-600 hover:text-white">
-                <SkipForward size={18} /> <span className="text-[10px] uppercase">End Party</span>
-              </button>
-            </div>
+            stats.heat = Math.max(0, stats.heat);
+            return stats;
+        };
 
-            <div className="relative flex flex-1 flex-col justify-center overflow-hidden rounded-xl border border-slate-700 bg-slate-800 p-4 shadow-lg">
-              <h2 className="mb-2 flex items-center justify-between text-[10px] font-bold uppercase tracking-widest text-slate-400">
-                <span>Current Heat</span>
-                <span className="rounded bg-orange-950/50 px-2 py-0.5 text-orange-500">{runStats.heat} / {expansion.maxHeat}</span>
-              </h2>
-              <div className="flex h-3 w-full gap-0.5 overflow-hidden rounded bg-slate-950">
-                {Array.from({ length: expansion.maxHeat }).map((_, i) => (
-                  <div key={i} className={`flex-1 rounded-sm transition-all duration-300 ${i < runStats.heat ? 'bg-gradient-to-t from-orange-600 to-red-500' : 'bg-slate-700'}`} />
-                ))}
-              </div>
-            </div>
+        // --- ACTIONS ---
+        window.initGame = (mode) => {
+            const nextPlayers = [createPlayerState('Player 1')];
+            if (mode === 2) nextPlayers.push(createPlayerState('Player 2'));
+            state = { ...state, gameMode: mode, players: nextPlayers, activeIdx: 0, day: 1, viewingDeck: false, targeting: null, phase: 'PARTY' };
+            renderApp();
+        };
+
+        window.admitGuest = () => {
+            let p = state.players[state.activeIdx];
+            let currentDeck = [...p.deck];
+            let currentDiscard = [...p.discard];
+
+            if (currentDeck.length === 0) {
+                if (currentDiscard.length === 0) return;
+                currentDeck = shuffle(currentDiscard.map(resetCard));
+                currentDiscard = [];
+            }
+
+            const drawnCard = currentDeck.shift();
+            if (!drawnCard) return;
+
+            const emptyIndices = p.grid.map((c, i) => c === null ? i : null).filter(i => i !== null);
+            if (emptyIndices.length === 0) return;
+
+            const placementIndex = emptyIndices[Math.floor(Math.random() * emptyIndices.length)];
+            const newGrid = [...p.grid];
+            newGrid[placementIndex] = resetCard(drawnCard);
+
+            const expansion = EXPANSIONS[p.expansionLevel];
+            const nextStats = computeGridStats(newGrid);
+
+            updateP({ grid: newGrid, deck: currentDeck, discard: currentDiscard });
+            state.targeting = null;
+
+            if (nextStats.anomalies >= 4) {
+                state.phase = 'VICTORY';
+            } else if (nextStats.heat >= expansion.maxHeat) {
+                state.phase = 'BUSTED';
+            }
+            renderApp();
+        };
+
+        window.useAbility = (gridIndex, type) => {
+            let p = state.players[state.activeIdx];
+            const source = p.grid[gridIndex];
+            if (!source || source.abilityUsed >= (source.id === 'mastermind' ? 2 : 1) || source.type === 'furniture') return;
             
-            <div className="flex flex-col items-center justify-center rounded-xl border border-slate-700 bg-slate-800 p-4 shadow-lg min-w-[120px]">
-              <h2 className="mb-1 text-[10px] font-bold uppercase tracking-widest text-slate-400">Capacity</h2>
-              <div className="text-xl font-black text-slate-200">{capacityUsed} / {expansion.capacity}</div>
-            </div>
-          </div>
+            if (state.targeting?.sourceIdx === gridIndex) {
+                state.targeting = null;
+            } else {
+                state.targeting = { sourceIdx: gridIndex, type };
+            }
+            renderApp();
+        };
 
-          {/* DANCEFLOOR VISUALS OVERHAUL */}
-          <div className="w-full relative bg-[#0a0a16] rounded-2xl border-4 border-slate-900 shadow-2xl p-4 md:p-8 flex flex-col overflow-hidden">
-            
-            {/* Stage / DJ Header - Full width solid design to fix visual bug */}
-            <div className="relative z-20 w-full mb-6 border-b-4 border-cyan-500/40 bg-slate-900 rounded shadow-xl py-3 px-6 flex justify-center items-center">
-               <h2 className="text-cyan-400 font-black tracking-[0.4em] uppercase text-xl drop-shadow-[0_0_10px_rgba(34,211,238,0.8)]">
-                  {expansion.name}
-               </h2>
-            </div>
+        window.handleTileClick = (targetIndex) => {
+            if (!state.targeting) return;
+            let p = state.players[state.activeIdx];
+            const expansion = EXPANSIONS[p.expansionLevel];
 
-            {/* Perspective Floor */}
-            <div className="absolute inset-0 top-20 pointer-events-none overflow-hidden origin-bottom z-0" style={{ transform: 'perspective(1000px) rotateX(60deg) scale(2.2)', backgroundImage: 'linear-gradient(rgba(236,72,153,0.3) 2px, transparent 2px), linear-gradient(90deg, rgba(236,72,153,0.3) 2px, transparent 2px)', backgroundSize: '60px 60px', backgroundPosition: 'center bottom' }} />
-            <div className="absolute inset-x-0 top-20 h-32 bg-gradient-to-b from-[#0a0a16] via-[#0a0a16]/80 to-transparent pointer-events-none z-0" />
+            const source = p.grid[state.targeting.sourceIdx];
+            const target = p.grid[targetIndex];
 
-            <div className="grid gap-3 relative z-10 mx-auto w-full" style={{ gridTemplateColumns: `repeat(${GRID_W}, minmax(0, 1fr))`, maxWidth: '600px' }}>
-              {p.grid.map((item, index) => (
-                <div 
-                  key={index} 
-                  className={`aspect-[3/4] w-full rounded border-2 flex items-center justify-center transition-all ${item ? 'border-transparent bg-transparent' : 'border-slate-800 border-dashed bg-slate-900/50 backdrop-blur-sm'}`}
-                >
-                  {item && renderGridItem(item, index)}
-                </div>
-              ))}
-            </div>
-            
-            {capacityUsed === 0 && (
-              <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none z-20">
-                <p className="text-slate-400 font-black text-xl tracking-widest uppercase mt-32 bg-slate-950/90 border border-slate-800 px-6 py-3 rounded shadow-lg animate-pulse">The floor is empty.</p>
-              </div>
-            )}
-          </div>
+            if (!target || targetIndex === state.targeting.sourceIdx || target.type === 'furniture') {
+                state.targeting = null; 
+                renderApp(); return;
+            }
 
-          <div className="relative z-20 mt-4 flex w-full items-center justify-between px-4">
-            <div className="flex flex-col items-center text-xs font-bold uppercase tracking-widest text-slate-500">
-              <div className="mb-2 flex h-16 w-12 items-center justify-center rounded border border-slate-700 bg-slate-800 text-lg shadow-inner">{p.discard.length}</div>
-              Discard
-            </div>
+            const newGrid = [...p.grid];
+            newGrid[state.targeting.sourceIdx] = { ...source, abilityUsed: source.abilityUsed + 1 };
+            newGrid[targetIndex] = null;
 
-            {targeting ? (
-              <button onClick={() => setTargeting(null)} className="animate-pulse rounded-xl bg-red-600 px-8 py-4 text-lg font-black tracking-widest text-white shadow-[0_0_20px_rgba(220,38,38,0.4)] hover:bg-red-500">
-                CANCEL ABILITY
-              </button>
-            ) : (
-              <button
-                onClick={admitGuest}
-                disabled={(p.deck.length === 0 && p.discard.length === 0) || capacityUsed >= expansion.capacity}
-                className="rounded-xl bg-cyan-600 px-10 py-5 text-xl font-black tracking-widest text-white shadow-[0_0_20px_rgba(8,145,178,0.4)] transition-all hover:scale-105 hover:bg-cyan-500 disabled:bg-slate-800 disabled:text-slate-600 disabled:hover:scale-100 disabled:shadow-none"
-              >
-                <DoorOpen size={24} className="-mt-1 mr-2 inline" /> ADMIT
-              </button>
-            )}
+            if (state.targeting.type === 'BOUNCE') {
+                updateP(prev => ({ grid: newGrid, discard: [...prev.discard, resetCard(target)] }));
+            } else if (state.targeting.type === 'HACK') {
+                let curDeck = [...p.deck];
+                let curDiscard = [...p.discard, resetCard(target)];
 
-            <div className="flex flex-col items-center text-xs font-bold uppercase tracking-widest text-cyan-500">
-              <div className="mb-2 flex h-16 w-12 items-center justify-center rounded border border-cyan-800 bg-cyan-950 text-lg text-white shadow-[0_0_10px_rgba(34,211,238,0.2)]">{p.deck.length}</div>
-              Deck
-            </div>
-          </div>
-        </div>
-      )}
+                if (curDeck.length === 0 && curDiscard.length > 0) {
+                    curDeck = shuffle(curDiscard.map(resetCard));
+                    curDiscard = [];
+                }
+                if (curDeck.length > 0) {
+                    newGrid[targetIndex] = resetCard(curDeck.shift());
+                }
 
-      {phase === 'BUSTED' && (
-        <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-[#050510]/95 p-6 backdrop-blur-lg">
-          <Flame size={100} className="mb-6 animate-bounce text-orange-500 drop-shadow-[0_0_40px_rgba(249,115,22,1)]" />
-          <h1 className="mb-2 text-center text-5xl font-black tracking-[0.2em] text-red-500 md:text-7xl">RAIDED!</h1>
-          <div className="mb-8 max-w-lg rounded-xl border border-red-900/50 bg-red-950/30 p-4 text-center">
-            <p className="text-lg text-red-200">The authorities shut down the party.</p>
-            <p className="mt-2 text-sm font-bold text-red-400">You lose all pending Credits and Hype for tonight.</p>
-          </div>
+                const nextStats = computeGridStats(newGrid);
+                updateP({ grid: newGrid, deck: curDeck, discard: curDiscard });
 
-          <button
-            onClick={() => {
-              updateP((prev) => {
+                if (nextStats.anomalies >= 4) state.phase = 'VICTORY';
+                else if (nextStats.heat >= expansion.maxHeat) state.phase = 'BUSTED';
+                
+                state.targeting = null;
+                renderApp();
+                return;
+            }
+
+            if (source.id === 'mastermind' && source.abilityUsed < 1) {
+                // Keep targeting
+            } else {
+                state.targeting = null;
+            }
+            renderApp();
+        };
+
+        window.endParty = () => {
+            let p = state.players[state.activeIdx];
+            let runStats = computeGridStats(p.grid);
+            updateP(prev => ({
+                credits: prev.credits + Math.max(0, runStats.credits),
+                hype: prev.hype + Math.max(0, runStats.hype),
+            }));
+            state.viewingDeck = false;
+            state.targeting = null;
+            state.phase = 'SHOP';
+            renderApp();
+        };
+
+        window.buyItem = (id, itemType) => {
+            let p = state.players[state.activeIdx];
+            if (itemType === 'furniture') {
+                const itemInfo = FURNITURE_DB[id];
+                if (!itemInfo || p.credits < itemInfo.cost) return;
+                updateP(prev => {
+                    const newGrid = [...prev.grid];
+                    const emptyIdx = newGrid.findIndex(c => c === null);
+                    if (emptyIdx === -1) return prev;
+                    newGrid[emptyIdx] = { uid: createUid(), id, type: 'furniture', ...itemInfo };
+                    return { credits: prev.credits - itemInfo.cost, grid: newGrid };
+                });
+            } else {
+                const cardInfo = CARD_DB[id];
+                if (!cardInfo || p.credits < cardInfo.cost || p.hype < cardInfo.reqHype) return;
+                updateP(prev => ({
+                    credits: prev.credits - cardInfo.cost,
+                    discard: [...prev.discard, generateCard(id)],
+                }));
+            }
+        };
+
+        window.buyExpansion = () => {
+            let p = state.players[state.activeIdx];
+            const nextExp = EXPANSIONS[p.expansionLevel + 1];
+            if (!nextExp || p.credits < nextExp.cost) return;
+            updateP(prev => {
+                const newGrid = [...prev.grid];
+                while(newGrid.length < nextExp.capacity) newGrid.push(null);
+                return {
+                    credits: prev.credits - nextExp.cost,
+                    expansionLevel: prev.expansionLevel + 1,
+                    grid: newGrid
+                };
+            });
+        };
+
+        window.bounceDeckCard = (uid) => {
+            let p = state.players[state.activeIdx];
+            const allCards = [...p.deck, ...p.discard, ...p.grid.filter(i => i && i.type === 'guest')];
+            if (p.credits < p.bounceCost || allCards.length <= 4) return;
+            updateP(prev => ({
+                credits: prev.credits - prev.bounceCost,
+                bounceCost: prev.bounceCost + 5,
+                deck: prev.deck.filter(c => c.uid !== uid),
+                discard: prev.discard.filter(c => c.uid !== uid),
+                grid: prev.grid.map(c => c && c.uid === uid ? null : c),
+            }));
+        };
+
+        window.nextPlayerOrDay = () => {
+            updateP((prev) => {
+                const guests = prev.grid.filter(c => c && c.type === 'guest');
+                const furnitures = prev.grid.map(c => c && c.type === 'furniture' ? c : null);
+                return {
+                    discard: [...prev.discard, ...guests.map(resetCard)],
+                    grid: furnitures,
+                };
+            });
+            state.targeting = null;
+            state.viewingDeck = false;
+
+            if (state.gameMode === 1) {
+                state.day++;
+                state.phase = 'PARTY';
+            } else {
+                state.activeIdx = state.activeIdx === 0 ? 1 : 0;
+                if (state.activeIdx !== 0) state.day++;
+                state.phase = 'PARTY';
+            }
+            renderApp();
+        };
+
+        window.fleeToSafehouse = () => {
+            updateP((prev) => {
                  const furnitures = prev.grid.map(c => c && c.type === 'furniture' ? c : null);
                  const guests = prev.grid.filter(c => c && c.type === 'guest');
                  return { grid: furnitures, discard: [...prev.discard, ...guests.map(resetCard)] };
-              });
-              setTargeting(null);
-              setPhase('SHOP');
-            }}
-            className="rounded-xl bg-slate-800 px-10 py-5 font-bold tracking-widest text-white shadow-2xl transition-all hover:bg-slate-700"
-          >
-            FLEE TO SAFEHOUSE
-          </button>
-        </div>
-      )}
+            });
+            state.targeting = null;
+            state.phase = 'SHOP';
+            renderApp();
+        };
 
-      {phase === 'SHOP' && (
-        <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col p-4 md:p-6">
-          <div className="mb-6 flex flex-col items-start justify-between gap-4 border-b border-slate-800 pb-4 md:flex-row md:items-center">
-            <div>
-              <h1 className="text-3xl font-black tracking-widest text-white">THE SYNDICATE</h1>
-              <p className="text-sm text-slate-500">Buy guests, expand the club, or install permanent furniture.</p>
-            </div>
-            <div className="flex gap-3">
-              <button onClick={() => setViewingDeck((value) => !value)} className="flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-800 px-4 py-2 text-sm font-bold text-slate-300 hover:bg-slate-700">
-                <Users size={16} /> {viewingDeck ? 'SHOP' : `DECK (${allCards.length})`}
-              </button>
-              <button onClick={nextPlayerOrDay} className="flex items-center gap-2 rounded-lg bg-cyan-600 px-6 py-2 text-sm font-bold tracking-widest text-white shadow-[0_0_15px_rgba(8,145,178,0.4)] transition-all hover:bg-cyan-500">
-                {gameMode === 2 && activeIdx === 0 ? 'END TURN' : 'START NIGHT'} <ChevronRight size={18} />
-              </button>
-            </div>
-          </div>
+        window.toggleViewingDeck = () => {
+            state.viewingDeck = !state.viewingDeck;
+            renderApp();
+        };
 
-          {viewingDeck ? (
-            <div className="flex-1">
-              <div className="mb-6 flex items-end justify-between rounded-xl border border-slate-700 bg-slate-800 p-4">
-                <div>
-                  <h2 className="text-xl font-bold text-white">Deck Thinning</h2>
-                  <p className="text-sm text-slate-400">Sever contracts to remove weak cards.</p>
+        window.cancelAbility = () => {
+            state.targeting = null;
+            renderApp();
+        };
+
+        window.goMenu = () => {
+            state.phase = 'MENU';
+            renderApp();
+        }
+
+        // --- HTML TEMPLATE GENERATORS ---
+
+        const renderTopBar = (p) => `
+            <div class="sticky top-0 z-50 w-full border-b border-slate-800 bg-slate-900 p-4 shadow-lg">
+                <div class="mx-auto flex w-full max-w-6xl items-center justify-between">
+                    <div class="flex items-center gap-4 sm:gap-8">
+                        <div class="flex items-center gap-2 rounded border border-cyan-500/50 bg-cyan-900/30 px-3 py-1 text-xl font-black text-cyan-400 shadow-inner">
+                            <i data-lucide="coins" class="w-5 h-5"></i> ${p.credits || 0}
+                        </div>
+                        <div class="flex items-center gap-2 rounded border border-pink-600/50 bg-pink-900/30 px-3 py-1 text-xl font-black text-pink-400 shadow-inner">
+                            <i data-lucide="star" class="w-5 h-5"></i> ${p.hype || 0}
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-4 font-bold uppercase tracking-widest text-slate-400">
+                        ${state.gameMode === 2 ? `<span class="${state.activeIdx === 0 ? 'text-cyan-400' : 'text-purple-400'}">${p.name} | </span>` : ''}
+                        ${state.phase === 'SHOP' ? `<i data-lucide="home" class="w-4 h-4"></i> THE SYNDICATE` : `NIGHT ${state.day}`}
+                    </div>
                 </div>
-                <div className="text-right">
-                  <div className="text-xs font-bold uppercase tracking-widest text-slate-500">Sever Cost</div>
-                  <div className="flex items-center justify-end gap-1 text-xl font-black text-cyan-400">
-                    <Coins size={16} /> {p.bounceCost}
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex flex-wrap justify-center gap-4 pb-8 md:justify-start">
-                {allCards.map((card) => (
-                  <div
-                    key={card.uid}
-                    onClick={() => bounceDeckCard(card.uid)}
-                    className="relative flex h-36 w-28 cursor-pointer flex-col items-center rounded-xl border-2 border-slate-700 bg-slate-900 p-2 transition-all hover:border-red-500 hover:bg-red-950/20"
-                  >
-                    <img src={getAvatar(card.seed, card.role)} alt={card.name} className="mb-2 h-10 w-10 rounded bg-slate-800" style={{ imageRendering: 'pixelated' }} />
-                    <div className="mb-auto text-center text-[10px] font-bold uppercase leading-tight text-slate-200">{card.name}</div>
-                    <div className="absolute inset-0 flex flex-col items-center justify-center rounded-lg bg-red-950/80 font-bold text-white opacity-0 transition-opacity hover:opacity-100 backdrop-blur-sm">
-                      <XCircle size={24} className="mb-1 text-red-500" /> SEVER
-                    </div>
-                  </div>
-                ))}
-              </div>
             </div>
-          ) : (
-            <div className="flex flex-1 flex-col gap-6 pb-8 lg:flex-row">
-              <div className="flex w-full flex-col gap-4 lg:w-72">
-                <div className="rounded-xl border border-slate-700 bg-slate-800 p-5 shadow-lg">
-                  <h3 className="mb-3 text-sm font-black uppercase tracking-wide text-white">Club Expansion</h3>
-                  <div className="mb-3 rounded-lg border border-slate-700 bg-slate-900 p-3 text-xs">
-                    <div className="mb-1 flex justify-between">
-                      <span className="text-slate-400">Current:</span>
-                      <span className="text-white font-bold">{expansion.name}</span>
-                    </div>
-                    <div className="mb-1 flex justify-between">
-                      <span className="text-slate-400">Max Heat:</span>
-                      <span className="font-bold text-orange-500">{expansion.maxHeat}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-slate-400">Capacity:</span>
-                      <span className="font-bold text-cyan-400">{expansion.capacity} slots</span>
-                    </div>
-                  </div>
+        `;
 
-                  {EXPANSIONS[p.expansionLevel + 1] ? (
-                    <button
-                      onClick={buyExpansion}
-                      disabled={p.credits < EXPANSIONS[p.expansionLevel + 1].cost}
-                      className="flex w-full items-center justify-center gap-2 rounded-lg border border-slate-600 bg-slate-700 py-3 text-sm font-bold text-slate-200 transition-all hover:border-cyan-500 hover:bg-slate-600 disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                      Expand Club <span className="flex items-center gap-1 rounded bg-slate-900 px-1.5 py-0.5 text-cyan-400"><Coins size={12} /> {EXPANSIONS[p.expansionLevel + 1].cost}</span>
-                    </button>
-                  ) : (
-                    <div className="w-full rounded-lg border border-emerald-800/50 bg-emerald-900/30 py-3 text-center text-sm font-bold text-emerald-500">
-                      FULLY EXPANDED
-                    </div>
-                  )}
-                </div>
+        const renderGrid = (p) => {
+            const expansion = EXPANSIONS[p.expansionLevel] || EXPANSIONS[0];
+            
+            // Phase 4: Organize grid into physical rooms by slicing the array
+            // Basement: 10 tiles. Warehouse: +5. Nightclub: +5. Mansion: +10.
+            const rooms = [
+                { name: 'Dancefloor', tiles: p.grid.slice(0, 10) },
+                ...(p.grid.length >= 15 ? [{ name: 'Back Bar', tiles: p.grid.slice(10, 15) }] : []),
+                ...(p.grid.length >= 20 ? [{ name: 'VIP Lounge', tiles: p.grid.slice(15, 20) }] : []),
+                ...(p.grid.length >= 30 ? [{ name: 'Garden Estate', tiles: p.grid.slice(20, 30) }] : [])
+            ];
 
-                {/* FURNITURE SHOP SECTION */}
-                <div className="rounded-xl border border-slate-700 bg-slate-800 p-5 shadow-lg">
-                  <h3 className="mb-3 text-sm font-black uppercase tracking-wide text-white">Permanent Props</h3>
-                  <p className="text-[10px] text-slate-400 mb-3 leading-tight">These take up capacity but stay on the grid forever.</p>
-                  <div className="flex flex-col gap-2">
-                    {Object.entries(FURNITURE_DB).map(([itemId, item]) => {
-                      const Icon = item.icon;
-                      return (
-                        <div key={item.name} className="flex justify-between items-center bg-slate-900 border border-slate-700 p-2 rounded">
-                          <div className="flex items-center gap-2">
-                            <Icon size={16} className="text-slate-400"/>
-                            <div>
-                              <div className="text-xs font-bold text-white uppercase">{item.name}</div>
-                              <div className="text-[8px] text-slate-400">{item.text}</div>
+            let html = '';
+            let globalTileIdx = 0;
+
+            rooms.forEach(room => {
+                html += `<div class="room-divider" data-room="${room.name}"><div class="grid gap-3 mx-auto w-full" style="grid-template-columns: repeat(5, minmax(0, 1fr)); max-width: 600px;">`;
+                
+                room.tiles.forEach((item) => {
+                    const idx = globalTileIdx++;
+                    
+                    if (!item) {
+                        html += `<div onclick="handleTileClick(${idx})" class="aspect-[3/4] w-full rounded border-2 transition-all border-slate-800 border-dashed bg-slate-900/50 backdrop-blur-sm cursor-pointer hover:border-cyan-500"></div>`;
+                        return;
+                    }
+
+                    if (item.type === 'furniture') {
+                        html += `
+                            <div class="group relative z-10 flex h-full w-full flex-col items-center justify-center rounded border-2 bg-slate-900 shadow-md ${item.color}">
+                                <div class="absolute inset-x-0 bottom-0 h-6 bg-gradient-to-t from-black/60 to-transparent rounded-b"></div>
+                                <i data-lucide="${item.icon}" class="w-8 h-8 z-10 drop-shadow-[0_0_10px_currentColor] opacity-80"></i>
+                                <div class="z-10 mt-2 w-full px-1 text-center text-[9px] font-black uppercase leading-tight tracking-tight text-white truncate">${item.name}</div>
                             </div>
-                          </div>
-                          <button
-                            onClick={() => buyItem(itemId, 'furniture')}
-                            disabled={p.credits < item.cost || p.grid.every(c => c !== null)}
-                            className="bg-slate-800 hover:bg-cyan-700 text-cyan-400 hover:text-white px-2 py-1 rounded text-[10px] font-bold border border-slate-600 disabled:opacity-50 disabled:hover:bg-slate-800 flex items-center gap-1 transition-colors"
-                          >
-                            <Coins size={10} /> {item.cost}
-                          </button>
+                        `;
+                        return;
+                    }
+
+                    const isTargetingMode = Boolean(state.targeting) && state.targeting.sourceIdx !== idx;
+                    const canUseAbility = !item.abilityUsed && state.phase === 'PARTY';
+                    const isBouncer = item.role === 'bouncer' || item.role === 'mastermind';
+                    const isHacker = item.role === 'hacker';
+
+                    html += `
+                        <div onclick="event.stopPropagation(); if(${isTargetingMode}) handleTileClick(${idx});" class="group relative z-10 flex h-full w-full flex-col items-center justify-start rounded border-b-4 border-l border-r border-t bg-slate-900 pt-1 shadow-md transition-all duration-200 ${item.color || 'border-slate-800'} ${isTargetingMode ? 'cursor-pointer hover:scale-105 hover:shadow-[0_0_15px_rgba(239,68,68,0.5)] hover:border-red-500' : ''}">
+                            <div class="absolute inset-x-0 bottom-0 h-6 bg-gradient-to-t from-black/60 to-transparent rounded-b"></div>
+                            
+                            ${(!isTargetingMode && canUseAbility && (isBouncer || isHacker)) ? `
+                                <button onclick="event.stopPropagation(); useAbility(${idx}, '${isBouncer ? 'BOUNCE' : 'HACK'}');" class="absolute -right-2 -top-2 z-20 rounded px-1.5 py-0.5 text-[8px] font-black shadow-lg ${isBouncer ? 'bg-red-500 text-white hover:bg-red-400' : 'bg-cyan-400 text-slate-950 hover:bg-cyan-300'}">
+                                    ${isBouncer ? 'KICK' : 'HACK'}
+                                </button>
+                            ` : ''}
+
+                            ${(state.targeting && state.targeting.sourceIdx === idx) ? `
+                                <div class="absolute -top-5 z-30 whitespace-nowrap rounded border border-yellow-500 bg-black/90 px-1 py-0.5 text-[8px] font-bold text-yellow-300">Targeting...</div>
+                            ` : ''}
+
+                            <img src="${getAvatar(item.seed, item.role)}" class="z-10 h-10 w-10 drop-shadow-md rounded bg-slate-800 pixelated" />
+                            <div class="z-10 mt-auto w-full px-1 pb-1 text-center text-[8px] font-black uppercase leading-tight tracking-tight text-slate-100 truncate">${item.name}</div>
+                            ${isTargetingMode ? '<div class="pointer-events-none absolute inset-0 animate-pulse rounded border border-red-500/50 bg-red-500/10"></div>' : ''}
                         </div>
-                      )
-                    })}
-                  </div>
-                </div>
-              </div>
+                    `;
+                });
+                html += `</div></div>`;
+            });
 
-              {/* Card Shop Grid */}
-              <div className="flex-1">
-                <h3 className="text-sm font-black uppercase tracking-wide text-white mb-4 pl-2 border-l-4 border-pink-500">GUEST ROSTER</h3>
-                <div className="content-start gap-3 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4">
-                  {Object.entries(CARD_DB).sort(([, a], [, b]) => a.cost - b.cost).map(([cardId, card]) => {
-                    const unlocked = p.hype >= card.reqHype;
-                    const canAfford = p.credits >= card.cost;
+            return html;
+        };
 
-                    return (
-                      <div key={card.name} className={`relative flex flex-col items-center rounded-xl border-2 p-2 transition-all ${unlocked ? 'border-slate-700 bg-slate-900 hover:border-slate-500 shadow-sm' : 'border-slate-800 bg-slate-950 opacity-50'}`}>
-                        {!unlocked && (
-                          <div className="absolute inset-0 z-20 flex flex-col items-center justify-center rounded-xl bg-slate-950/80 p-2 text-center backdrop-blur-sm">
-                            <Star size={20} className="mb-1 text-pink-800" />
-                            <div className="mb-1 text-[8px] font-bold uppercase tracking-widest text-slate-400">Requires</div>
-                            <div className="text-base font-black text-pink-600">{card.reqHype}</div>
-                          </div>
-                        )}
+        const renderApp = () => {
+            const app = document.getElementById('app');
+            let p = state.players[state.activeIdx] || createPlayerState('Player');
+            let expansion = EXPANSIONS[p.expansionLevel] || EXPANSIONS[0];
+            let runStats = computeGridStats(p.grid || []);
+            let allCards = [...(p.deck||[]), ...(p.discard||[]), ...(p.grid||[]).filter(i => i && i.type === 'guest')];
+            let capacityUsed = (p.grid||[]).filter(Boolean).length;
 
-                        <img src={getAvatar(card.seed, card.role)} alt={card.name} className="mb-1 h-10 w-10 rounded border border-slate-700 bg-slate-800" style={{ imageRendering: 'pixelated' }} />
-                        <div className={`mb-1 w-full truncate text-center text-[10px] font-black uppercase tracking-tight ${card.id === 'anomaly' ? 'text-white drop-shadow-[0_0_4px_#fff]' : 'text-slate-200'}`}>
-                          {card.name}
+            let html = '';
+
+            if (state.phase === 'MENU') {
+                html = `
+                    <div class="relative flex min-h-screen flex-col items-center justify-center overflow-hidden bg-[#050510] p-6 text-white">
+                        <div class="absolute inset-0 pointer-events-none" style="background-image: linear-gradient(rgba(0,255,255,0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(0,255,255,0.05) 1px, transparent 1px); background-size: 40px 40px; transform: perspective(1000px) rotateX(60deg) scale(2.5) translateY(-20%); transform-origin: top;"></div>
+                        <div class="absolute inset-0 bg-gradient-to-t from-[#050510] via-transparent to-[#050510]"></div>
+                        <div class="relative z-10 flex flex-col items-center">
+                            <img src="${getAvatar('Void', 'anomaly')}" class="mb-6 h-20 w-20 animate-pulse rounded border-2 border-white bg-slate-800 shadow-[0_0_20px_#fff] pixelated" />
+                            <h1 class="mb-2 bg-gradient-to-r from-cyan-400 to-pink-500 bg-clip-text text-center text-5xl font-black tracking-tighter text-transparent drop-shadow-lg md:text-7xl">CYBER CLUB</h1>
+                            <h2 class="mb-12 text-center text-xl font-bold uppercase tracking-[0.5em] text-white md:text-2xl">Syndicate Expansion</h2>
+                            <div class="flex flex-col gap-4">
+                                <button onclick="initGame(1)" class="rounded-xl bg-cyan-600 px-12 py-4 font-black tracking-widest text-white shadow-[0_0_30px_rgba(8,145,178,0.3)] transition-all hover:-translate-y-1 hover:bg-cyan-500">1 PLAYER SIMULATION</button>
+                                <button onclick="initGame(2)" class="rounded-xl bg-purple-600 px-12 py-4 font-black tracking-widest text-white shadow-[0_0_30px_rgba(147,51,234,0.3)] transition-all hover:-translate-y-1 hover:bg-purple-500">2 PLAYER (HOTSEAT)</button>
+                            </div>
                         </div>
-                        <div className="mb-2 h-7 w-full overflow-hidden text-center text-[8px] leading-tight text-slate-400 line-clamp-2">{card.text}</div>
+                    </div>
+                `;
+            } 
+            else if (state.phase === 'VICTORY') {
+                html = `
+                    <div class="flex min-h-screen flex-col items-center justify-center bg-[#050510] p-6 text-white">
+                        <i data-lucide="sparkles" class="w-20 h-20 mb-8 text-cyan-400 animate-pulse drop-shadow-[0_0_50px_#22d3ee]"></i>
+                        <h1 class="mb-4 bg-gradient-to-r from-white to-cyan-400 bg-clip-text text-center text-4xl font-black text-transparent md:text-6xl">TRANSCENDENCE ACHIEVED</h1>
+                        <p class="mb-8 max-w-lg text-center text-xl text-slate-400">${p.name} gathered 4 Anomalies on the grid on Night ${state.day}!</p>
+                        <button onclick="goMenu()" class="rounded-lg bg-cyan-600 px-8 py-4 font-bold tracking-widest transition-all hover:bg-cyan-500">RETURN TO MENU</button>
+                    </div>
+                `;
+            }
+            else if (state.phase === 'BUSTED') {
+                html = `
+                    <div class="flex min-h-screen flex-col items-center justify-center bg-[#050510]/95 p-6 backdrop-blur-lg">
+                        <i data-lucide="flame" class="w-24 h-24 mb-6 animate-bounce text-orange-500 drop-shadow-[0_0_40px_rgba(249,115,22,1)]"></i>
+                        <h1 class="mb-2 text-center text-5xl font-black tracking-[0.2em] text-red-500 md:text-7xl">RAIDED!</h1>
+                        <div class="mb-8 max-w-lg rounded-xl border border-red-900/50 bg-red-950/30 p-4 text-center">
+                            <p class="text-lg text-red-200">The authorities shut down the party.</p>
+                            <p class="mt-2 text-sm font-bold text-red-400">You lose all pending Credits and Hype for tonight.</p>
+                        </div>
+                        <button onclick="fleeToSafehouse()" class="rounded-xl bg-slate-800 px-10 py-5 font-bold tracking-widest text-white shadow-2xl transition-all hover:bg-slate-700">FLEE TO SAFEHOUSE</button>
+                    </div>
+                `;
+            }
+            else if (state.phase === 'PARTY') {
+                html = `
+                    ${renderTopBar(p)}
+                    <div class="relative mx-auto flex min-h-0 w-full max-w-4xl flex-1 flex-col p-4 md:p-6">
+                        <div class="relative z-20 mb-4 flex w-full flex-col gap-4 md:flex-row">
+                            <div class="flex flex-1 items-center justify-between rounded-xl border border-slate-700 bg-slate-800 p-4 shadow-lg">
+                                <div>
+                                    <h2 class="mb-1 text-[10px] font-bold uppercase tracking-widest text-slate-400">Pending Payout</h2>
+                                    <div class="flex gap-6">
+                                        <span class="flex items-center gap-1 text-xl font-black text-cyan-400"><i data-lucide="coins" class="w-5 h-5"></i> +${runStats.credits}</span>
+                                        <span class="flex items-center gap-1 text-xl font-black text-pink-400"><i data-lucide="star" class="w-5 h-5"></i> +${runStats.hype}</span>
+                                    </div>
+                                </div>
+                                <button onclick="endParty()" class="flex flex-col items-center gap-1 rounded-lg border border-emerald-800 bg-emerald-950/50 px-4 py-2 font-bold tracking-widest text-emerald-400 transition-all hover:bg-emerald-600 hover:text-white">
+                                    <i data-lucide="skip-forward" class="w-5 h-5"></i> <span class="text-[10px] uppercase">End Party</span>
+                                </button>
+                            </div>
 
-                        <div className="mb-2 flex w-full flex-col gap-0.5 rounded bg-slate-950 p-1.5 border border-slate-800">
-                          {card.credits > 0 && <div className="flex justify-between text-[9px] font-bold text-cyan-400"><span>Cash</span><span>+{card.credits}</span></div>}
-                          {card.hype > 0 && <div className="flex justify-between text-[9px] font-bold text-pink-400"><span>Hype</span><span>+{card.hype}</span></div>}
-                          {card.heat !== 0 && <div className={`flex justify-between text-[9px] font-bold ${card.heat > 0 ? 'text-orange-500' : 'text-emerald-400'}`}><span>Heat</span><span>{card.heat > 0 ? `+${card.heat}` : card.heat}</span></div>}
+                            <div class="relative flex flex-1 flex-col justify-center overflow-hidden rounded-xl border border-slate-700 bg-slate-800 p-4 shadow-lg">
+                                <h2 class="mb-2 flex items-center justify-between text-[10px] font-bold uppercase tracking-widest text-slate-400">
+                                    <span>Current Heat</span>
+                                    <span class="rounded bg-orange-950/50 px-2 py-0.5 text-orange-500">${runStats.heat} / ${expansion.maxHeat}</span>
+                                </h2>
+                                <div class="flex h-3 w-full gap-0.5 overflow-hidden rounded bg-slate-950">
+                                    ${Array.from({ length: expansion.maxHeat }).map((_, i) => `<div class="flex-1 rounded-sm transition-all duration-300 ${i < runStats.heat ? 'bg-gradient-to-t from-orange-600 to-red-500' : 'bg-slate-700'}"></div>`).join('')}
+                                </div>
+                            </div>
+                            
+                            <div class="flex flex-col items-center justify-center rounded-xl border border-slate-700 bg-slate-800 p-4 shadow-lg min-w-[120px]">
+                                <h2 class="mb-1 text-[10px] font-bold uppercase tracking-widest text-slate-400">Capacity</h2>
+                                <div class="text-xl font-black text-slate-200">${capacityUsed} / ${expansion.capacity}</div>
+                            </div>
                         </div>
 
-                        <button
-                          onClick={() => buyItem(cardId, 'guest')}
-                          disabled={!unlocked || !canAfford}
-                          className="mt-auto flex w-full items-center justify-center gap-1 rounded bg-slate-800 py-1.5 text-[10px] font-bold text-white transition-all hover:bg-cyan-600 disabled:cursor-not-allowed disabled:bg-slate-900 disabled:text-slate-600"
-                        >
-                          BUY <span className="flex items-center gap-0.5 text-cyan-400"><Coins size={10} /> {card.cost}</span>
-                        </button>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
+                        <!-- DANCEFLOOR VISUALS OVERHAUL with Phase 4 Room Layouts -->
+                        <div class="w-full relative bg-[#0a0a16] rounded-2xl border-4 border-slate-900 shadow-2xl p-4 md:p-8 flex flex-col overflow-hidden">
+                            <div class="relative z-20 w-full mb-6 border-b-4 border-cyan-500/40 bg-slate-900 rounded shadow-xl py-3 px-6 flex justify-center items-center">
+                                <h2 class="text-cyan-400 font-black tracking-[0.4em] uppercase text-xl drop-shadow-[0_0_10px_rgba(34,211,238,0.8)]">${expansion.name}</h2>
+                            </div>
 
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
+                            <div class="absolute inset-0 top-20 pointer-events-none overflow-hidden origin-bottom z-0" style="transform: perspective(1000px) rotateX(60deg) scale(2.2); background-image: linear-gradient(rgba(236,72,153,0.3) 2px, transparent 2px), linear-gradient(90deg, rgba(236,72,153,0.3) 2px, transparent 2px); background-size: 60px 60px; background-position: center bottom;"></div>
+                            <div class="absolute inset-x-0 top-20 h-32 bg-gradient-to-b from-[#0a0a16] via-[#0a0a16]/80 to-transparent pointer-events-none z-0"></div>
+
+                            ${renderGrid(p)}
+                            
+                            ${capacityUsed === 0 ? `
+                                <div class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none z-20">
+                                    <p class="text-slate-400 font-black text-xl tracking-widest uppercase mt-32 bg-slate-950/90 border border-slate-800 px-6 py-3 rounded shadow-lg animate-pulse-glow">The floor is empty.</p>
+                                </div>
+                            ` : ''}
+                        </div>
+
+                        <div class="relative z-20 mt-4 flex w-full items-center justify-between px-4">
+                            <div class="flex flex-col items-center text-xs font-bold uppercase tracking-widest text-slate-500">
+                                <div class="mb-2 flex h-16 w-12 items-center justify-center rounded border border-slate-700 bg-slate-800 text-lg shadow-inner">${p.discard.length}</div>
+                                Discard
+                            </div>
+
+                            ${state.targeting ? `
+                                <button onclick="cancelAbility()" class="animate-pulse-glow rounded-xl bg-red-600 px-8 py-4 text-lg font-black tracking-widest text-white hover:bg-red-500">CANCEL ABILITY</button>
+                            ` : `
+                                <button onclick="admitGuest()" ${((p.deck.length === 0 && p.discard.length === 0) || capacityUsed >= expansion.capacity) ? 'disabled' : ''} class="rounded-xl bg-cyan-600 px-10 py-5 text-xl font-black tracking-widest text-white shadow-[0_0_20px_rgba(8,145,178,0.4)] transition-all hover:scale-105 hover:bg-cyan-500 disabled:bg-slate-800 disabled:text-slate-600 disabled:hover:scale-100 disabled:shadow-none flex items-center justify-center gap-2">
+                                    <i data-lucide="door-open" class="w-6 h-6"></i> ADMIT
+                                </button>
+                            `}
+
+                            <div class="flex flex-col items-center text-xs font-bold uppercase tracking-widest text-cyan-500">
+                                <div class="mb-2 flex h-16 w-12 items-center justify-center rounded border border-cyan-800 bg-cyan-950 text-lg text-white shadow-[0_0_10px_rgba(34,211,238,0.2)]">${p.deck.length}</div>
+                                Deck
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+            else if (state.phase === 'SHOP') {
+                html = `
+                    ${renderTopBar(p)}
+                    <div class="mx-auto flex w-full max-w-6xl flex-1 flex-col p-4 md:p-6">
+                        <div class="mb-6 flex flex-col items-start justify-between gap-4 border-b border-slate-800 pb-4 md:flex-row md:items-center">
+                            <div>
+                                <h1 class="text-3xl font-black tracking-widest text-white">THE SYNDICATE</h1>
+                                <p class="text-sm text-slate-500">Buy guests, expand the club, or install permanent furniture.</p>
+                            </div>
+                            <div class="flex gap-3">
+                                <button onclick="toggleViewingDeck()" class="flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-800 px-4 py-2 text-sm font-bold text-slate-300 hover:bg-slate-700">
+                                    <i data-lucide="users" class="w-4 h-4"></i> ${state.viewingDeck ? 'SHOP' : `DECK (${allCards.length})`}
+                                </button>
+                                <button onclick="nextPlayerOrDay()" class="flex items-center gap-2 rounded-lg bg-cyan-600 px-6 py-2 text-sm font-bold tracking-widest text-white shadow-[0_0_15px_rgba(8,145,178,0.4)] transition-all hover:bg-cyan-500">
+                                    ${state.gameMode === 2 && state.activeIdx === 0 ? 'END TURN' : 'START NIGHT'} <i data-lucide="chevron-right" class="w-4 h-4"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        ${state.viewingDeck ? `
+                            <div class="flex-1">
+                                <div class="mb-6 flex items-end justify-between rounded-xl border border-slate-700 bg-slate-800 p-4">
+                                    <div>
+                                        <h2 class="text-xl font-bold text-white">Deck Thinning</h2>
+                                        <p class="text-sm text-slate-400">Sever contracts to remove weak cards.</p>
+                                    </div>
+                                    <div class="text-right">
+                                        <div class="text-xs font-bold uppercase tracking-widest text-slate-500">Sever Cost</div>
+                                        <div class="flex items-center justify-end gap-1 text-xl font-black text-cyan-400"><i data-lucide="coins" class="w-4 h-4"></i> ${p.bounceCost}</div>
+                                    </div>
+                                </div>
+                                <div class="flex flex-wrap justify-center gap-4 pb-8 md:justify-start">
+                                    ${allCards.map((card) => `
+                                        <div onclick="bounceDeckCard('${card.uid}')" class="relative flex h-36 w-28 cursor-pointer flex-col items-center rounded-xl border-2 border-slate-700 bg-slate-900 p-2 transition-all hover:border-red-500 hover:bg-red-950/20 group">
+                                            <img src="${getAvatar(card.seed, card.role)}" class="mb-2 h-10 w-10 rounded bg-slate-800 pixelated" />
+                                            <div class="mb-auto text-center text-[10px] font-bold uppercase leading-tight text-slate-200">${card.name}</div>
+                                            <div class="absolute inset-0 flex flex-col items-center justify-center rounded-lg bg-red-950/80 font-bold text-white opacity-0 transition-opacity group-hover:opacity-100 backdrop-blur-sm">
+                                                <i data-lucide="x-circle" class="w-6 h-6 mb-1 text-red-500"></i> SEVER
+                                            </div>
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            </div>
+                        ` : `
+                            <div class="flex flex-1 flex-col gap-6 pb-8 lg:flex-row">
+                                <div class="flex w-full flex-col gap-4 lg:w-72">
+                                    <div class="rounded-xl border border-slate-700 bg-slate-800 p-5 shadow-lg">
+                                        <h3 class="mb-3 text-sm font-black uppercase tracking-wide text-white">Club Expansion</h3>
+                                        <div class="mb-3 rounded-lg border border-slate-700 bg-slate-900 p-3 text-xs">
+                                            <div class="mb-1 flex justify-between"><span class="text-slate-400">Current:</span><span class="text-white font-bold">${expansion.name}</span></div>
+                                            <div class="mb-1 flex justify-between"><span class="text-slate-400">Max Heat:</span><span class="font-bold text-orange-500">${expansion.maxHeat}</span></div>
+                                            <div class="flex justify-between"><span class="text-slate-400">Capacity:</span><span class="font-bold text-cyan-400">${expansion.capacity} slots</span></div>
+                                        </div>
+                                        ${EXPANSIONS[p.expansionLevel + 1] ? `
+                                            <button onclick="buyExpansion()" ${p.credits < EXPANSIONS[p.expansionLevel + 1].cost ? 'disabled' : ''} class="flex w-full items-center justify-center gap-2 rounded-lg border border-slate-600 bg-slate-700 py-3 text-sm font-bold text-slate-200 transition-all hover:border-cyan-500 hover:bg-slate-600 disabled:cursor-not-allowed disabled:opacity-50">
+                                                Expand Club <span class="flex items-center gap-1 rounded bg-slate-900 px-1.5 py-0.5 text-cyan-400"><i data-lucide="coins" class="w-3 h-3"></i> ${EXPANSIONS[p.expansionLevel + 1].cost}</span>
+                                            </button>
+                                        ` : `<div class="w-full rounded-lg border border-emerald-800/50 bg-emerald-900/30 py-3 text-center text-sm font-bold text-emerald-500">FULLY EXPANDED</div>`}
+                                    </div>
+
+                                    <div class="rounded-xl border border-slate-700 bg-slate-800 p-5 shadow-lg">
+                                        <h3 class="mb-3 text-sm font-black uppercase tracking-wide text-white">Permanent Props</h3>
+                                        <p class="text-[10px] text-slate-400 mb-3 leading-tight">These take up capacity but stay on the grid forever.</p>
+                                        <div class="flex flex-col gap-2">
+                                            ${Object.entries(FURNITURE_DB).map(([itemId, item]) => `
+                                                <div class="flex justify-between items-center bg-slate-900 border border-slate-700 p-2 rounded">
+                                                    <div class="flex items-center gap-2">
+                                                        <i data-lucide="${item.icon}" class="w-4 h-4 text-slate-400"></i>
+                                                        <div>
+                                                            <div class="text-xs font-bold text-white uppercase">${item.name}</div>
+                                                            <div class="text-[8px] text-slate-400">${item.text}</div>
+                                                        </div>
+                                                    </div>
+                                                    <button onclick="buyItem('${itemId}', 'furniture')" ${(p.credits < item.cost || capacityUsed >= expansion.capacity) ? 'disabled' : ''} class="bg-slate-800 hover:bg-cyan-700 text-cyan-400 hover:text-white px-2 py-1 rounded text-[10px] font-bold border border-slate-600 disabled:opacity-50 disabled:hover:bg-slate-800 flex items-center gap-1 transition-colors">
+                                                        <i data-lucide="coins" class="w-3 h-3"></i> ${item.cost}
+                                                    </button>
+                                                </div>
+                                            `).join('')}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="flex-1">
+                                    <h3 class="text-sm font-black uppercase tracking-wide text-white mb-4 pl-2 border-l-4 border-pink-500">GUEST ROSTER</h3>
+                                    <div class="content-start gap-3 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4">
+                                        ${Object.entries(CARD_DB).sort(([, a], [, b]) => a.cost - b.cost).map(([cardId, card]) => {
+                                            const unlocked = p.hype >= card.reqHype;
+                                            const canAfford = p.credits >= card.cost;
+                                            return `
+                                                <div class="relative flex flex-col items-center rounded-xl border-2 p-2 transition-all ${unlocked ? 'border-slate-700 bg-slate-900 hover:border-slate-500 shadow-sm' : 'border-slate-800 bg-slate-950 opacity-50'}">
+                                                    ${!unlocked ? `
+                                                        <div class="absolute inset-0 z-20 flex flex-col items-center justify-center rounded-xl bg-slate-950/80 p-2 text-center backdrop-blur-sm">
+                                                            <i data-lucide="star" class="w-5 h-5 mb-1 text-pink-800"></i>
+                                                            <div class="mb-1 text-[8px] font-bold uppercase tracking-widest text-slate-400">Requires</div>
+                                                            <div class="text-base font-black text-pink-600">${card.reqHype}</div>
+                                                        </div>
+                                                    ` : ''}
+                                                    <img src="${getAvatar(card.seed, card.role)}" class="mb-1 h-10 w-10 rounded border border-slate-700 bg-slate-800 pixelated" />
+                                                    <div class="mb-1 w-full truncate text-center text-[10px] font-black uppercase tracking-tight ${card.id === 'anomaly' ? 'text-white drop-shadow-[0_0_4px_#fff]' : 'text-slate-200'}">${card.name}</div>
+                                                    <div class="mb-2 h-7 w-full overflow-hidden text-center text-[8px] leading-tight text-slate-400 line-clamp-2">${card.text}</div>
+                                                    <div class="mb-2 flex w-full flex-col gap-0.5 rounded bg-slate-950 p-1.5 border border-slate-800">
+                                                        ${card.credits > 0 ? `<div class="flex justify-between text-[9px] font-bold text-cyan-400"><span>Cash</span><span>+${card.credits}</span></div>` : ''}
+                                                        ${card.hype > 0 ? `<div class="flex justify-between text-[9px] font-bold text-pink-400"><span>Hype</span><span>+${card.hype}</span></div>` : ''}
+                                                        ${card.heat !== 0 ? `<div class="flex justify-between text-[9px] font-bold ${card.heat > 0 ? 'text-orange-500' : 'text-emerald-400'}"><span>Heat</span><span>${card.heat > 0 ? `+${card.heat}` : card.heat}</span></div>` : ''}
+                                                    </div>
+                                                    <button onclick="buyItem('${cardId}', 'guest')" ${(!unlocked || !canAfford) ? 'disabled' : ''} class="mt-auto flex w-full items-center justify-center gap-1 rounded bg-slate-800 py-1.5 text-[10px] font-bold text-white transition-all hover:bg-cyan-600 disabled:cursor-not-allowed disabled:bg-slate-900 disabled:text-slate-600">
+                                                        BUY <span class="flex items-center gap-0.5 text-cyan-400"><i data-lucide="coins" class="w-3 h-3"></i> ${card.cost}</span>
+                                                    </button>
+                                                </div>
+                                            `;
+                                        }).join('')}
+                                    </div>
+                                </div>
+                            </div>
+                        `}
+                    </div>
+                `;
+            }
+
+            app.innerHTML = html;
+            lucide.createIcons(); // Parse icons every render
+        };
+
+        // --- INIT ---
+        window.onload = () => {
+            renderApp();
+        };
+    </script>
+</body>
+</html>
