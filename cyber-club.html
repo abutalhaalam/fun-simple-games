@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cyber Club Game</title>
+    <script src="https://unpkg.com/react/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/babel-standalone@6.26.0/babel.min.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; }
+        #app { text-align: center; }
+        .icon { display: inline-block; width: 24px; height: 24px; }
+    </style>
+</head>
+<body>
+<div id="app"></div>
+<script type="text/babel">
+    // React Components and Game Logic
+
+    // Inline SVG Icons
+    const CoinsIcon = () => <svg className="icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 1.5A10.5 10.5 0 1 0 22.5 12 10.5 10.5 0 0 0 12 1.5zm0 19A8.5 8.5 0 1 1 20.5 12 8.5 8.5 0 0 1 12 20.5zM12 6a1.5 1.5 0 1 0 1.5 1.5A1.5 1.5 0 0 0 12 6zm0 5a1.5 1.5 0 1 0 1.5 1.5A1.5 1.5 0 0 0 12 11zm0 5a1.5 1.5 0 1 0 1.5 1.5A1.5 1.5 0 0 0 12 16z"/></svg>;
+    const StarIcon = () => <svg className="icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 1.5l3.09 6.26L22.5 8.67l-5 4.87 1.18 6.85L12 17.75l-6.68 3.4 1.18-6.85-5-4.87 7.41-1.09L12 1.5z"/></svg>;
+    const FlameIcon = () => <svg className="icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 2a5 5 0 0 0-3.5 8.5c-1 1.5-.5 3.5 1 4.5 0 0-1 1-1 2s1 3 3 3 3-2 3-3-1-2-1-2c.5-1 2-3 1-4.5A5 5 0 0 0 12 2z"/></svg>;
+
+    class Game extends React.Component {
+        state = {
+            phase: 'MENU', // MENU, PARTY, SHOP, VICTORY, BUSTED
+            score: 0,
+            // game state variables
+        };
+
+        render() {
+            const { phase, score } = this.state;
+            let content;
+
+            switch(phase) {
+                case 'MENU':
+                    content = <h1>Welcome to Cyber Club!</h1>;
+                    break;
+                case 'PARTY':
+                    content = <h1>Party Time! Score: {score} <CoinsIcon /></h1>;
+                    break;
+                case 'SHOP':
+                    content = <h1>Shop Phase</h1>;
+                    break;
+                case 'VICTORY':
+                    content = <h1>You Win! Score: {score} <StarIcon /></h1>;
+                    break;
+                case 'BUSTED':
+                    content = <h1>Busted! <FlameIcon /></h1>;
+                    break;
+                default:
+                    content = <h1>Unknown Phase</h1>;
+            }
+
+            return <div>{content}</div>;
+        }
+    }
+
+    ReactDOM.render(<Game />, document.getElementById('app'));
+</script>
+</body>
+</html>
