@@ -35,6 +35,8 @@
             flex-direction: column;
             justify-content: space-between;
         }
+        
+        /* --- GENERAL HUD CSS --- */
         .hud-panel {
             background: rgba(10, 15, 30, 0.85);
             border: 1px solid #3b82f6;
@@ -45,6 +47,7 @@
         .text-glow { text-shadow: 0 0 8px rgba(96, 165, 250, 0.8); }
         .text-glow-purple { text-shadow: 0 0 8px rgba(168, 85, 247, 0.8); }
         .text-glow-green { text-shadow: 0 0 8px rgba(74, 222, 128, 0.8); }
+        .text-glow-red { text-shadow: 0 0 8px rgba(239, 68, 68, 0.8); }
         
         #main-menu { z-index: 100; pointer-events: auto; }
         
@@ -86,6 +89,39 @@
             border-left: 3px solid #c084fc;
             transform: translateX(4px);
         }
+
+        /* --- POST-MISSION STATS CSS --- */
+        .stats-grid {
+            background: rgba(0, 0, 0, 0.5);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 1.5rem;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+            text-align: left;
+            box-shadow: inset 0 0 20px rgba(0,0,0,0.8);
+        }
+        .stat-box {
+            background: rgba(255, 255, 255, 0.03);
+            padding: 0.5rem 0.75rem;
+            border-radius: 6px;
+            border-left: 2px solid #3b82f6;
+        }
+        .stat-label {
+            font-size: 0.65rem;
+            text-transform: uppercase;
+            color: #9ca3af;
+            letter-spacing: 0.05em;
+            margin-bottom: 0.25rem;
+            display: block;
+        }
+        .stat-value {
+            font-size: 1.1rem;
+            font-weight: 700;
+            font-family: monospace;
+        }
     </style>
 </head>
 <body>
@@ -102,7 +138,7 @@
         
         <button id="start-btn" class="px-10 py-4 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded shadow-[0_0_20px_rgba(37,99,235,0.6)] transition-all transform hover:scale-105 tracking-widest mb-10">START MISSION</button>
 
-        <div class="leaderboard-container p-6 rounded-lg w-full max-w-md">
+        <div class="leaderboard-container p-6 w-full max-w-md">
             <h2 class="text-xl font-bold leaderboard-header mb-4 text-center pb-2">LOCAL LEADERBOARD</h2>
             <div class="flex justify-between text-xs text-gray-400 mb-2 px-2 font-bold tracking-widest">
                 <span>PILOT</span>
@@ -182,7 +218,7 @@
                 <p class="text-sm font-bold text-orange-400">F <span class="text-gray-400 font-normal">to Toggle Scoop</span></p>
                 <p class="text-sm font-bold text-purple-400">H <span class="text-gray-400 font-normal">to Harvest (Landed)</span></p>
                 <p class="text-sm font-bold mt-1 text-yellow-400">M <span class="text-gray-400 font-normal">to Toggle Map View</span></p>
-                <p class="text-sm font-bold mt-1 text-gray-300">SCROLL <span class="text-gray-400 font-normal">to Zoom In/Out</span></p>
+                <p class="text-sm font-bold mt-1 text-gray-300">SCROLL <span class="text-gray-400 font-normal">to Zoom</span></p>
                 <button onclick="abortToMenu()" class="mt-4 px-4 py-1 text-xs border border-red-500 text-red-500 hover:bg-red-500 hover:text-white rounded transition-colors">ABORT MISSION</button>
             </div>
         </div>
@@ -203,10 +239,15 @@
             </div>
         </div>
 
-        <!-- End Screen Overlay -->
-        <div id="end-screen" class="hidden absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 hud-panel p-8 rounded-xl text-center z-50 shadow-2xl backdrop-blur-md border-gray-500 w-11/12 max-w-md">
-            <h1 id="end-title" class="text-3xl font-bold mb-4 tracking-wider">MISSION STATUS</h1>
-            <p id="end-desc" class="text-gray-300 mb-6 text-sm leading-relaxed">Details go here.</p>
+        <!-- End Screen Overlay (Post-Mission Analytics) -->
+        <div id="end-screen" class="hidden absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 hud-panel p-6 rounded-xl text-center z-50 shadow-2xl backdrop-blur-md border-gray-500 w-11/12 max-w-lg">
+            <h1 id="end-title" class="text-3xl font-bold mb-2 tracking-wider">MISSION STATUS</h1>
+            <p id="end-desc" class="text-gray-300 mb-4 text-sm leading-relaxed">Details go here.</p>
+            
+            <!-- Dynamic Stats Grid -->
+            <div id="stats-grid" class="stats-grid">
+                <!-- Populated via JS -->
+            </div>
             
             <div id="score-entry" class="hidden mb-6">
                 <p class="text-sm text-green-400 mb-2">Enter your name for the Leaderboard:</p>
@@ -240,6 +281,15 @@
         { name: 'GRACE', time: 44.30 },
         { name: 'STRATT', time: 49.99 }
     ];
+
+    // --- Post-Mission Analytics State ---
+    let runStats = {
+        topSpeed: 0,
+        fuelBurned: 0,
+        fuelScooped: 0,
+        distance: 0,
+        maxHeat: 0
+    };
 
     // --- Game Constants & State ---
     const GRAVITY_CONSTANT = 200000000; 
@@ -310,7 +360,7 @@
     window.addEventListener('wheel', (e) => {
         if (gameState !== 'playing') return;
         camera.manualZoomOffset -= e.deltaY * 0.002;
-        camera.manualZoomOffset = Math.max(-4, Math.min(camera.manualZoomOffset, 6)); // Massively expanded zoom bounds
+        camera.manualZoomOffset = Math.max(-4, Math.min(camera.manualZoomOffset, 6)); 
     });
 
     function resize() {
@@ -358,6 +408,7 @@
             orbitAssistActive: false, heat: 0
         };
         timeState = { shipTime: 0, earthTime: 0, hasLaunched: false };
+        runStats = { topSpeed: 0, fuelBurned: 0, fuelScooped: 0, distance: 0, maxHeat: 0 };
         camera = { x: 0, y: 0, zoom: 1.0, mapView: false, manualZoomOffset: 0 };
         input = { left: false, right: false, thrust: false, harvest: false };
         cachedBaseTraj = null;
@@ -415,15 +466,27 @@
             const effectiveThrust = ship.thrustPower * (0.1 + 0.9 * Math.pow(ship.throttle, 2));
             accelX = Math.cos(ship.angle) * effectiveThrust;
             accelY = Math.sin(ship.angle) * effectiveThrust;
-            ship.fuel -= FUEL_DRAIN_RATE * dt * ship.throttle;
+            
+            const fuelUsed = FUEL_DRAIN_RATE * dt * ship.throttle;
+            ship.fuel -= fuelUsed;
+            runStats.fuelBurned += fuelUsed; 
+            
             if (ship.fuel < 0) ship.fuel = 0;
         }
 
         const currentVelocity = Math.hypot(ship.vx, ship.vy);
+        
+        // Track Top Display Speed
+        let engineBeta = currentVelocity / C_SPEED;
+        engineBeta = Math.min(engineBeta, 0.9999);
+        let trueBeta = Math.pow(engineBeta, 3); 
+        runStats.topSpeed = Math.max(runStats.topSpeed, trueBeta * REAL_C);
 
         if (ship.isScooping) {
             if (currentVelocity <= MAX_SCOOP_SPEED) {
-                ship.fuel += FUEL_SCOOP_RATE * dt;
+                const fuelGained = FUEL_SCOOP_RATE * dt;
+                ship.fuel += fuelGained;
+                runStats.fuelScooped += fuelGained;
                 if (ship.fuel > MAX_FUEL) ship.fuel = MAX_FUEL;
             }
             const scoopDrag = 20;
@@ -458,17 +521,18 @@
             if (p.hasAtmosphere && dist < p.radius + p.atmHeight && !ship.isGrounded) {
                 const atmDensityLocal = 1 - ((dist - p.radius) / p.atmHeight);
                 const speedSq = ship.vx * ship.vx + ship.vy * ship.vy;
-                const currentVelocity = Math.sqrt(speedSq);
+                const localVelocity = Math.sqrt(speedSq);
                 
-                if (currentVelocity > 0) {
+                if (localVelocity > 0) {
                     const dragMag = atmDensityLocal * speedSq * 0.00003; 
-                    accelX += -(ship.vx / currentVelocity) * dragMag;
-                    accelY += -(ship.vy / currentVelocity) * dragMag;
+                    accelX += -(ship.vx / localVelocity) * dragMag;
+                    accelY += -(ship.vy / localVelocity) * dragMag;
                 }
                 
                 // Ramp heat based on velocity inside atmosphere
-                const heatTarget = Math.min(1, (currentVelocity * atmDensityLocal) / 600);
+                const heatTarget = Math.min(1, (localVelocity * atmDensityLocal) / 600);
                 ship.heat += (heatTarget - ship.heat) * (dt * 5); 
+                runStats.maxHeat = Math.max(runStats.maxHeat, ship.heat);
             }
 
             if (dist <= p.radius + 1) { 
@@ -481,11 +545,7 @@
                     let crashEngineBeta = impactVelocity / C_SPEED;
                     let crashTrueBeta = Math.pow(crashEngineBeta, 3);
                     let crashVelDisplay = crashTrueBeta * REAL_C;
-                    let safeEngineBeta = SAFE_LANDING_SPEED / C_SPEED;
-                    let safeTrueBeta = Math.pow(safeEngineBeta, 3);
-                    let safeVelDisplay = safeTrueBeta * REAL_C;
-
-                    showEndScreen("HULL COMPROMISED", `You crashed into ${p.name} at ${crashVelDisplay.toLocaleString('en-US', {maximumFractionDigits: 0})} m/s.<br><br>Maximum safe landing velocity is ${safeVelDisplay.toLocaleString('en-US', {maximumFractionDigits: 0})} m/s.`);
+                    showEndScreen("HULL COMPROMISED", `You crashed into ${p.name} at ${crashVelDisplay.toLocaleString('en-US', {maximumFractionDigits: 0})} m/s.`);
                 } else {
                     ship.isGrounded = true;
                     if(!ship.isThrusting) {
@@ -514,11 +574,14 @@
         ship.vx += (accelX + gravX) * dt;
         ship.vy += (accelY + gravY) * dt;
 
+        // Track actual distance traveled this frame
+        runStats.distance += Math.hypot(ship.vx * dt, ship.vy * dt);
+
         // --- ORBIT AUTO-LOCK ASSIST (FLIGHT COMPUTER) ---
         ship.orbitAssistActive = false;
         if (domPlanet && !ship.isGrounded && !ship.isThrusting) {
             const dist = Math.hypot(domPlanet.x - ship.x, domPlanet.y - ship.y);
-            const soi = domPlanet.radius * 12; // Capture radius
+            const soi = domPlanet.radius * 12; 
             if (dist < soi && dist > domPlanet.radius * 1.05) {
                 const v_circ = Math.sqrt(GRAVITY_CONSTANT / dist);
                 const nx = (ship.x - domPlanet.x) / dist;
@@ -526,7 +589,6 @@
                 const tx = -ny, ty = nx;
                 const vt = ship.vx * tx + ship.vy * ty;
                 
-                // Only assist if they are moving roughly the speed of an orbit
                 if (Math.abs(vt) > v_circ * 0.15 && currentVelocity < v_circ * 1.5) {
                     ship.orbitAssistActive = true;
                     const dir = Math.sign(vt);
@@ -561,9 +623,6 @@
         }
 
         // --- RELATIVITY CALCULATIONS ---
-        let engineBeta = currentVelocity / C_SPEED;
-        engineBeta = Math.min(engineBeta, 0.9999);
-        let trueBeta = Math.pow(engineBeta, 3); 
         const gamma = 1 / Math.sqrt(1 - trueBeta * trueBeta);
         
         if (timeState.hasLaunched) {
@@ -574,20 +633,34 @@
 
         if (timeState.earthTime >= MAX_EARTH_TIME && gameState === 'playing') {
             gameState = 'lost';
-            showEndScreen("HUMANITY EXPIRED", `50 Earth Years have passed.<br>The planet has succumbed to the threat while you were in transit.`);
+            showEndScreen("HUMANITY EXPIRED", `50 Earth Years have passed. The planet has succumbed to the threat.`);
         } else if (ship.landedOn === earth && ship.isGrounded && ship.hasCure && gameState === 'playing') {
             gameState = 'won';
-            showEndScreen("MISSION ACCOMPLISHED", `You returned to Earth with the cure!<br><br><b>Ship Time Passed:</b> ${timeState.shipTime.toFixed(2)} Years<br><b>Earth Time Passed:</b> ${timeState.earthTime.toFixed(2)} Years<br><br>Humanity will survive because of you.`, true);
+            showEndScreen("MISSION ACCOMPLISHED", `You returned to Earth with the cure! Humanity will survive because of you.`, true);
         }
     }
 
+    // --- End Screen & Analytics Injection ---
     function showEndScreen(title, desc, isWin = false) {
         document.getElementById('harvest-prompt').classList.add('hidden');
         const titleEl = document.getElementById('end-title');
         titleEl.innerText = title;
-        titleEl.className = `text-3xl font-bold mb-4 tracking-wider ${isWin ? 'text-green-400' : 'text-red-500'}`;
+        titleEl.className = `text-3xl font-bold mb-2 tracking-wider ${isWin ? 'text-green-400' : 'text-red-500'}`;
         document.getElementById('end-desc').innerHTML = desc;
         
+        // Inject Post-Mission Stats
+        const dilationDiff = timeState.earthTime - timeState.shipTime;
+        const heatColor = runStats.maxHeat > 0.8 ? 'text-red-500' : (runStats.maxHeat > 0.4 ? 'text-yellow-400' : 'text-green-400');
+        
+        document.getElementById('stats-grid').innerHTML = `
+            <div class="stat-box" style="border-color: #3b82f6;"><span class="stat-label">Top Velocity</span><span class="stat-value text-blue-400">${(runStats.topSpeed).toLocaleString('en-US', {maximumFractionDigits:0})} m/s</span></div>
+            <div class="stat-box" style="border-color: #10b981;"><span class="stat-label">Distance Logged</span><span class="stat-value text-green-400">${Math.floor(runStats.distance).toLocaleString()} km</span></div>
+            <div class="stat-box" style="border-color: #a855f7;"><span class="stat-label">Time Dilation Shift</span><span class="stat-value text-purple-400">+${dilationDiff.toFixed(2)} Yrs</span></div>
+            <div class="stat-box" style="border-color: ${runStats.maxHeat > 0.8 ? '#ef4444' : '#f59e0b'};"><span class="stat-label">Peak Hull Heat</span><span class="stat-value ${heatColor}">${(runStats.maxHeat * 100).toFixed(1)}%</span></div>
+            <div class="stat-box" style="border-color: #f97316;"><span class="stat-label">Fuel Combusted</span><span class="stat-value text-orange-400">${runStats.fuelBurned.toFixed(1)} L</span></div>
+            <div class="stat-box" style="border-color: #22d3ee;"><span class="stat-label">Ramjet Harvest</span><span class="stat-value text-cyan-400">${runStats.fuelScooped.toFixed(1)} L</span></div>
+        `;
+
         const scoreEntry = document.getElementById('score-entry');
         const endBtn = document.getElementById('end-btn');
 
@@ -620,7 +693,6 @@
         let simFuel = ship.fuel;
         
         const currentSpeed = Math.hypot(simVx, simVy);
-        // Smaller step ratio creates higher resolution rendering curves
         const simDt = Math.max(0.8, currentSpeed / 60); 
         
         const path = [];
@@ -715,7 +787,6 @@
         const scrollZoomFactor = Math.pow(2, camera.manualZoomOffset);
 
         if (camera.mapView) {
-            // Dynamic Map Camera: Smoothly pan from system-wide to ship-focused as you zoom in
             const mapCenterX = TARGET_DISTANCE / 2;
             const mapCenterY = 0;
             const shipWeight = Math.max(0, Math.min(1, (camera.manualZoomOffset + 2) / 4));
@@ -810,7 +881,6 @@
                 baseFrameCounter = 0;
             }
 
-            // Smooth Quadratic Curve Rendering for Stable Orbit
             ctx.strokeStyle = getPOPColor(cachedBaseTraj.state);
             ctx.lineWidth = 2;
             ctx.globalAlpha = ship.isThrusting ? 0.3 : 0.8; 
@@ -834,7 +904,6 @@
                     burnFrameCounter = 0;
                 }
                 
-                // Smooth Quadratic Curve Rendering for Hypothetical Burn
                 ctx.strokeStyle = getPOPColor(cachedBurnTraj.state);
                 ctx.lineWidth = 2;
                 ctx.setLineDash([10, 10]);
@@ -899,7 +968,6 @@
         if (ship.heat > 0.05) {
             ctx.save();
             const velAngle = Math.atan2(ship.vy, ship.vx);
-            // Counter ship rotation, align strictly to velocity vector
             ctx.rotate(-ship.angle - Math.PI/2); 
             ctx.rotate(velAngle + Math.PI/2); 
             
@@ -912,8 +980,8 @@
             ctx.shadowColor = '#ef4444';
             
             ctx.beginPath();
-            ctx.moveTo(0, -heatLength * 0.7); // Nose shockwave
-            ctx.quadraticCurveTo(heatWidth, 0, 0, heatLength * 0.8); // Wrap to tail
+            ctx.moveTo(0, -heatLength * 0.7); 
+            ctx.quadraticCurveTo(heatWidth, 0, 0, heatLength * 0.8); 
             ctx.quadraticCurveTo(-heatWidth, 0, 0, -heatLength * 0.7); 
             ctx.fill();
             
@@ -928,7 +996,6 @@
             ctx.restore();
         }
 
-        // Scoop Graphic
         if (ship.isScooping) {
             ctx.fillStyle = 'rgba(56, 189, 248, 0.3)';
             ctx.beginPath();
@@ -946,7 +1013,6 @@
             }
         }
 
-        // Engine Flame (Scales with Throttle)
         if (ship.isThrusting) {
             ctx.fillStyle = '#f97316'; 
             ctx.beginPath();
@@ -987,7 +1053,6 @@
             ctx.stroke();
         }
 
-        // Ship Body
         ctx.fillStyle = '#e2e8f0';
         ctx.beginPath();
         ctx.moveTo(0, -sHeight/2);
