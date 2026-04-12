@@ -147,21 +147,24 @@
     let width, height;
 
     // --- Game Constants & State ---
-    const GRAVITY_CONSTANT = 1500000;
+    // Increased gravity constant dramatically for easier orbital capture
+    const GRAVITY_CONSTANT = 4000000; 
     const PLANET_RADIUS = 800;
     const C_SPEED = 5000; 
     const REAL_C = 299792458; 
     const TARGET_DISTANCE = 500000; 
     const MAX_EARTH_TIME = 50; 
     
-    // SAFE_LANDING_SPEED is in Engine Units.
-    // 40 Engine Units = roughly 153 m/s Display Velocity via the cubic scale.
-    const SAFE_LANDING_SPEED = 40; 
-    const EARTH_TIME_RATE = 0.12; 
+    // SAFE_LANDING_SPEED increased slightly for stronger gravity wells
+    const SAFE_LANDING_SPEED = 60; 
+    
+    // Mission time drastically extended. Earth time ticks much slower now,
+    // giving you plenty of time for orbital mechanics and harvesting.
+    const EARTH_TIME_RATE = 0.03; 
 
     // Fuel & Harvest
     const MAX_FUEL = 100;
-    const FUEL_DRAIN_RATE = 4.0;
+    const FUEL_DRAIN_RATE = 3.0; // Slightly more forgiving fuel drain for larger engine
     const FUEL_SCOOP_RATE = 8.0;
     const MAX_SCOOP_SPEED = C_SPEED * 0.5; 
     const HARVEST_TIME_REQUIRED = 5; 
@@ -188,7 +191,7 @@
         angle: -Math.PI / 2,
         width: 12,
         height: 24,
-        thrustPower: 450, 
+        thrustPower: 1200, // Massive engine buff to combat the 4x stronger gravity
         throttle: 0,      
         rotationSpeed: 3,
         isThrusting: false,
@@ -428,7 +431,6 @@
         let state = 'orbit';
 
         // BOUNDARY MATH FIX: Stop calculating if the line goes far off the visible screen.
-        // This completely eliminates the GPU Canvas stroke lag!
         const maxVisibleDist = (width / camera.zoom) * 1.5; 
         const maxDistSq = maxVisibleDist * maxVisibleDist;
 
@@ -524,11 +526,12 @@
         ctx.fillStyle = '#050510';
         ctx.fillRect(0, 0, width, height);
 
-        // Infinite Parallax Stars
+        // Infinite Parallax Stars Fixed - Decoupled from camera zoom for smooth motion!
         stars.forEach(star => {
-            let sx = (star.x - camera.x * star.depth * camera.zoom) % width;
+            // Apply a very gentle multiplier (0.02) to the camera.x position, completely ignoring zoom scale
+            let sx = (star.x - camera.x * star.depth * 0.02) % width;
             if (sx < 0) sx += width;
-            let sy = (star.y - camera.y * star.depth * camera.zoom) % height;
+            let sy = (star.y - camera.y * star.depth * 0.02) % height;
             if (sy < 0) sy += height;
 
             ctx.fillStyle = `rgba(255, 255, 255, ${star.depth})`; 
@@ -583,11 +586,10 @@
         ctx.fillStyle = targetStar.color;
         ctx.beginPath(); ctx.arc(tScreenX, tScreenY, tScreenRadius, 0, Math.PI*2); ctx.fill();
 
-        // Draw POP (Projected Orbital Paths) - Now safely runs everywhere!
+        // Draw POP (Projected Orbital Paths)
         if (!ship.isGrounded && !camera.mapView) {
             
             baseFrameCounter++;
-            // CPU SAVER: Only recalculate the base trajectory naturally or on thrust, NOT on pure rotation.
             if (!cachedBaseTraj || baseFrameCounter > 5 || input.thrust) {
                 cachedBaseTraj = simulateTrajectory(false);
                 baseFrameCounter = 0;
