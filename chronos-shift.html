@@ -51,10 +51,10 @@
     <canvas id="gameCanvas"></canvas>
 
     <!-- MAIN MENU -->
-    <div id="screen-menu" class="layer justify-center items-center p-6 bg-[#050510] fade-screen z-50 pointer-auto">
+    <div id="screen-menu" class="layer justify-center items-center p-6 bg-black/80 backdrop-blur-md fade-screen z-50 pointer-auto">
         <h1 class="text-4xl md:text-6xl font-bold text-blue-400 text-glow mb-4 text-center tracking-wider">CHRONOS SHIFT</h1>
         <p class="text-gray-300 mb-8 max-w-2xl text-center text-sm md:text-base leading-relaxed">
-            Phase 4: Asteroids & Sprites Expansion.<br><br>
+            Phase 4: Asteroids & Custom Planets Expansion.<br><br>
             Design your spacecraft. Master gravity. Navigate the debris fields.
         </p>
         
@@ -73,7 +73,7 @@
     </div>
 
     <!-- SHIPYARD (BUILDER) -->
-    <div id="screen-shipyard" class="layer justify-center items-center p-6 bg-black/80 backdrop-blur-md fade-screen fade-out z-40 pointer-auto hidden">
+    <div id="screen-shipyard" class="layer justify-center items-center p-6 bg-black/90 backdrop-blur-md fade-screen fade-out z-40 pointer-auto hidden">
         <h1 class="text-3xl font-bold text-blue-400 text-glow mb-6 tracking-wider">ENGINEERING BAY</h1>
         
         <div class="flex flex-col md:flex-row gap-8 items-start">
@@ -88,12 +88,13 @@
                 <div id="builder-grid" class="grid-board" oncontextmenu="return false;"></div>
             </div>
 
-            <div class="hud-panel p-4 rounded-xl w-64 flex flex-col justify-between h-full">
+            <div class="hud-panel p-4 rounded-xl w-72 flex flex-col justify-between h-full">
                 <div>
                     <h3 class="text-xs text-gray-400 uppercase tracking-widest border-b border-gray-600 pb-1 mb-3">Vessel Specs</h3>
                     <div class="space-y-3">
                         <div><span class="text-xs text-gray-400 block">Total Mass</span><span id="sy-mass" class="font-bold text-lg">0</span></div>
                         <div><span class="text-xs text-gray-400 block">Thrust Output</span><span id="sy-thrust" class="font-bold text-blue-400 text-lg">0</span></div>
+                        <div><span class="text-xs text-gray-400 block">Thrust/Weight</span><span id="sy-twr" class="font-bold text-yellow-400 text-lg">0</span></div>
                         <div><span class="text-xs text-gray-400 block">Fuel Capacity</span><span id="sy-fuel" class="font-bold text-orange-400 text-lg">0</span></div>
                         <div><span class="text-xs text-gray-400 block">Landing Tolerance</span><span id="sy-landing" class="font-bold text-green-400 text-lg">0 m/s</span></div>
                         <div><span class="text-xs text-gray-400 block">Status</span><span id="sy-status" class="font-bold text-red-500 text-sm">MISSING COMMAND POD</span></div>
@@ -179,6 +180,7 @@
 <script>
     // ==========================================
     // 🚀 ASSET CONFIGURATION 
+    // Vector ship blocks (Always renders properly)
     // ==========================================
     const USER_ASSETS = {
         shipSpriteSheet: 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(`
@@ -245,17 +247,18 @@
     const MAX_SCOOP_SPEED = C_SPEED * 0.5; 
     const HARVEST_TIME_REQUIRED = 5; 
 
-    // --- Celestial Bodies (Expanded Universe w/ User Assets) ---
+    // --- Celestial Bodies (Mapped exactly to requested uploads) ---
     let earth = { name: "EARTH", x: 0, y: 0, radius: PLANET_RADIUS, color: '#1e3a8a', hasOcean: true, hasAtmosphere: true, atmHeight: 1200, imgUrl: 'planet00.jpg' };
-    let luna = { name: "LUNA", x: 18000, y: 0, radius: 600, color: '#9ca3af', hasOcean: false, hasAtmosphere: false, atmHeight: 0, imgUrl: 'planet04.jpg' };
-    let ares = { name: "ARES", x: 60000, y: 40000, radius: 1500, color: '#b91c1c', hasOcean: false, hasAtmosphere: true, atmHeight: 800, imgUrl: 'planet02.png' };
-    let jupiter = { name: "JUPITER", x: 200000, y: -20000, radius: 8000, color: '#d97706', hasOcean: false, hasAtmosphere: true, atmHeight: 4000, imgUrl: 'planet05.jpg' };
+    let luna = { name: "LUNA", x: 18000, y: 0, radius: 600, color: '#9ca3af', hasOcean: false, hasAtmosphere: false, atmHeight: 0, imgUrl: 'sphere0.png' };
+    let ares = { name: "MARS", x: 60000, y: 40000, radius: 1500, color: '#b91c1c', hasOcean: false, hasAtmosphere: true, atmHeight: 800, imgUrl: 'planet08.jpg' };
+    let saturn = { name: "SATURN", x: 200000, y: -20000, radius: 8000, color: '#d97706', hasOcean: false, hasAtmosphere: true, atmHeight: 4000, imgUrl: 'planet05.jpg' };
     let alienPlanet = { name: "PROXIMA PRIME", x: TARGET_DISTANCE - 60000, y: 0, radius: 1800, color: '#7e22ce', hasOcean: false, hasAtmosphere: true, atmHeight: 1500, imgUrl: 'planet09.png' };
     
-    const planets = [earth, luna, ares, jupiter, alienPlanet];
+    const planets = [earth, luna, ares, saturn, alienPlanet];
     
     planets.forEach(p => {
         p.img = new Image();
+        p.img.crossOrigin = "Anonymous"; // Allows canvas drawing without crashing
         p.img.src = p.imgUrl;
     });
 
@@ -277,10 +280,11 @@
     }
 
     // --- SHIPYARD MODULE DEFS ---
+    // CRITICAL TWR FIX: Thrust raised from 2500 to 5000 so the ship can actually escape Earth's massive gravity!
     const MODULES = {
         POD: { id: 'POD', name: 'Command Pod', sx: 0, sy: 0, mass: 20, desc: 'Required core.' },
         FUEL: { id: 'FUEL', name: 'Fuel Cell', sx: 1, sy: 0, mass: 15, fuel: 100, desc: 'Increases tank capacity.' },
-        THRUST: { id: 'THRUST', name: 'Plasma Thruster', sx: 2, sy: 0, mass: 10, thrust: 2500, desc: 'Provides propulsion.' },
+        THRUST: { id: 'THRUST', name: 'Plasma Thruster', sx: 2, sy: 0, mass: 10, thrust: 5000, desc: 'Provides propulsion.' },
         SCOOP: { id: 'SCOOP', name: 'Ramjet Scoop', sx: 0, sy: 1, mass: 10, special: 'scoop', desc: 'Harvests interstellar fuel.' },
         LEG: { id: 'LEG', name: 'Landing Strut', sx: 1, sy: 1, mass: 5, armor: 10, desc: 'Increases landing survival speed.' },
         SHIELD: { id: 'SHIELD', name: 'Blast Shield', sx: 2, sy: 1, mass: 25, armor: 40, desc: 'Extreme armor & asteroid resistance.' }
@@ -430,10 +434,19 @@
             }
         }
         
+        const earthGravity = GRAVITY_CONSTANT / (earth.radius * earth.radius);
+        const twr = m > 0 ? (t / m) / earthGravity : 0;
+
         const elMass = document.getElementById('sy-mass'); if(elMass) elMass.innerText = m + ' kg';
         const elThrust = document.getElementById('sy-thrust'); if(elThrust) elThrust.innerText = t + ' kN';
         const elFuel = document.getElementById('sy-fuel'); if(elFuel) elFuel.innerText = f + ' L';
         const elLand = document.getElementById('sy-landing'); if(elLand) elLand.innerText = a + ' m/s';
+        
+        const elTWR = document.getElementById('sy-twr');
+        if (elTWR) {
+            elTWR.innerText = twr.toFixed(2);
+            elTWR.className = twr < 1.0 ? "font-bold text-red-500 text-lg" : "font-bold text-green-400 text-lg text-glow-green";
+        }
 
         const btn = document.getElementById('btn-launch');
         const stat = document.getElementById('sy-status');
@@ -441,6 +454,7 @@
             if (pods !== 1) { stat.innerText = "MUST HAVE EXACTLY 1 POD"; stat.className="font-bold text-red-500 text-sm"; btn.disabled = true; }
             else if (t === 0) { stat.innerText = "NO THRUSTERS EQUIPPED"; stat.className="font-bold text-red-500 text-sm"; btn.disabled = true; }
             else if (f === 0) { stat.innerText = "NO FUEL TANKS EQUIPPED"; stat.className="font-bold text-red-500 text-sm"; btn.disabled = true; }
+            else if (twr < 1.0) { stat.innerText = "TWR < 1.0 (TOO HEAVY TO FLY)"; stat.className="font-bold text-red-500 text-sm"; btn.disabled = true; }
             else { stat.innerText = "ALL SYSTEMS NOMINAL"; stat.className="font-bold text-green-400 text-sm text-glow-green"; btn.disabled = false; }
         }
     }
@@ -475,34 +489,22 @@
                     if(mod.armor) a += mod.armor;
                     if(id === 'SCOOP') ship.hasScoop = true;
                     
+                    // Center rendering.
                     ship.blocks.push({ id: id, lx: (c - 2) * 4, ly: (r - 3) * 4, sx: mod.sx, sy: mod.sy });
                 }
             }
         }
         
         ship.mass = m; ship.thrustPower = t; ship.maxFuel = f; ship.fuel = f; ship.safeLandingSpeed = a;
-        ship.x = 0; ship.y = -(earth.radius + 2); ship.vx = 0; ship.vy = 0; ship.angle = -Math.PI / 2;
+        ship.x = 0; ship.y = -(earth.radius + 10); ship.vx = 0; ship.vy = 0; ship.angle = -Math.PI / 2;
         ship.isGrounded = true; ship.landedOn = earth; ship.heat = 0; ship.throttle = 0;
         ship.hasCure = false; ship.harvestProgress = 0; ship.isScooping = false;
     }
 
     // --- GAME LOOP & PHYSICS ---
-    function togglePause() {
-        if (gameState === 'playing') {
-            gameState = 'paused';
-            document.getElementById('screen-pause').classList.remove('hidden');
-            setTimeout(()=>document.getElementById('screen-pause').classList.remove('fade-out'), 50);
-        } else if (gameState === 'paused') {
-            document.getElementById('screen-pause').classList.add('fade-out');
-            setTimeout(()=>{
-                document.getElementById('screen-pause').classList.add('hidden');
-                gameState = 'playing';
-                lastTime = performance.now();
-            }, 300);
-        }
-    }
-
     let lastTime = 0;
+
+    let cachedBaseTraj = null, cachedBurnTraj = null, baseFrameCounter = 0, burnFrameCounter = 0;
 
     function gameLoop(timestamp) {
         requestAnimationFrame(gameLoop);
@@ -521,6 +523,7 @@
             if (gameState === 'playing') updatePhysics(dt);
             updateParticles(dt);
             
+            // Asteroid Physics (Orbiting)
             asteroids.forEach(a => {
                 a.angle += a.speed * dt;
                 a.x = a.cx + Math.cos(a.angle) * a.dist;
@@ -579,7 +582,7 @@
         ship.landedOn = null;
         let nearestDist = Infinity, domPlanet = null, maxG = 0;
 
-        // Apply Planet Gravity & Collision
+        // Apply Planet Gravity
         planets.forEach(p => {
             const dist = Math.hypot(p.x - ship.x, p.y - ship.y);
             if (dist - p.radius < nearestDist) nearestDist = dist - p.radius;
@@ -608,7 +611,6 @@
                 runStats.maxHeat = Math.max(runStats.maxHeat, ship.heat);
             }
 
-            // CRITICAL BUG FIX: Hard surface floor logic to prevent clipping inside the planet
             if (dist <= p.radius + 2) { 
                 isColliding = true;
                 ship.landedOn = p;
@@ -625,32 +627,16 @@
                     triggerEndScreen("INCINERATED", `Your vessel burned up in the atmosphere of ${p.name}. Build more heat shields or enter at a shallower angle.`, false);
                 } else {
                     ship.isGrounded = true;
-                    
-                    // Force the physical coordinates to be EXACTLY on the surface.
-                    // This is the floor that prevents falling through the planet.
-                    const angleToShip = Math.atan2(ship.y - p.y, ship.x - p.x);
-                    ship.x = p.x + Math.cos(angleToShip) * p.radius;
-                    ship.y = p.y + Math.sin(angleToShip) * p.radius;
-
                     if(!ship.isThrusting) {
-                        // Resting on the ground without thrusters:
+                        const angleToShip = Math.atan2(ship.y - p.y, ship.x - p.x);
+                        ship.x = p.x + Math.cos(angleToShip) * p.radius;
+                        ship.y = p.y + Math.sin(angleToShip) * p.radius;
                         ship.vx = 0; ship.vy = 0; ship.angle = angleToShip; 
-                        
-                        // Counteract gravity perfectly so the ship rests
-                        const gravityMag = GRAVITY_CONSTANT / (p.radius * p.radius);
-                        gravX -= ((p.x - ship.x) / p.radius) * gravityMag;
-                        gravY -= ((p.y - ship.y) / p.radius) * gravityMag;
-                    } else {
-                        // If thrusting, nullify inward velocity so we slide/launch instead of digging
-                        const nx = Math.cos(angleToShip);
-                        const ny = Math.sin(angleToShip);
-                        const dot = ship.vx * nx + ship.vy * ny;
-                        if (dot < 0) { // Moving inward
-                            ship.vx -= dot * nx;
-                            ship.vy -= dot * ny;
-                        }
+                        const gravityMag = GRAVITY_CONSTANT / (dist * dist);
+                        gravX -= ((p.x - ship.x) / dist) * gravityMag;
+                        gravY -= ((p.y - ship.y) / dist) * gravityMag;
+                        ship.heat = 0;
                     }
-                    ship.heat = 0;
                 }
             }
         });
@@ -662,6 +648,7 @@
             gravX += ((targetStar.x - ship.x) / starDist) * starGMag;
             gravY += ((targetStar.y - ship.y) / starDist) * starGMag;
             
+            // Extreme heat if near star
             if (starDist < targetStar.radius * 2) {
                 const heatResist = 1 + (ship.blocks.filter(b=>b.id==='SHIELD').length * 0.5);
                 const starHeat = Math.min(1, (targetStar.radius * 2 / starDist) / heatResist);
@@ -677,16 +664,18 @@
         // Asteroid Collisions
         asteroids.forEach(a => {
             const dist = Math.hypot(a.x - ship.x, a.y - ship.y);
+            // Rough collision envelope based on ship width
             if (dist < a.size + ship.width) {
                 const impactVelocity = Math.hypot(ship.vx, ship.vy);
                 const shieldCount = ship.blocks.filter(b=>b.id==='SHIELD').length;
-                const impactResistance = 100 + (shieldCount * 150); 
+                const impactResistance = 100 + (shieldCount * 150); // Blast shields massively help
 
                 if (impactVelocity > impactResistance) {
                     gameState = 'crashed';
                     spawnExplosion(ship.x, ship.y, ship.vx, ship.vy);
                     triggerEndScreen("CATASTROPHIC IMPACT", `Your ship was destroyed by an asteroid. Blast Shields can help you survive low-speed debris impacts.`, false);
                 } else {
+                    // Bounce
                     const nx = (ship.x - a.x) / dist;
                     const ny = (ship.y - a.y) / dist;
                     const bounceStr = impactVelocity * 0.8;
@@ -773,7 +762,7 @@
                 vx: vx * 0.5 + (Math.random()-0.5)*100,
                 vy: vy * 0.5 + (Math.random()-0.5)*100,
                 life: 3.0 + Math.random()*2, maxLife: 5.0,
-                sx: b.sx, sy: b.sy, size: 12, type: 'sprite_block'
+                sx: b.sx, sy: b.sy, size: 8, type: 'sprite_block'
             });
         });
         for(let i=0; i<60; i++) {
@@ -868,7 +857,6 @@
     }
 
     // --- POP LOGIC ---
-    let cachedBaseTraj = null, cachedBurnTraj = null, baseFrameCounter = 0, burnFrameCounter = 0;
     function simulateTrajectory(useThrust, maxSteps = 250) {
         let simX = ship.x, simY = ship.y, simVx = ship.vx, simVy = ship.vy, simFuel = ship.fuel;
         const simDt = Math.max(0.8, Math.hypot(simVx, simVy) / 60); 
@@ -889,8 +877,11 @@
                 }
             }
             
+            // Check Asteroid Belt Danger Zone
             const distToBeltCenterSq = (simX - beltCenterX)**2 + (simY - beltCenterY)**2;
-            if (distToBeltCenterSq > 70000**2 && distToBeltCenterSq < 140000**2) state = 'encounter';
+            if (distToBeltCenterSq > 70000**2 && distToBeltCenterSq < 140000**2) {
+                state = 'encounter'; // Warns player they are traversing the belt
+            }
 
             if (isColliding) { state = 'collision'; break; }
             if (inSoi && state !== 'collision') state = 'encounter';
@@ -946,13 +937,17 @@
             ctx.beginPath(); ctx.arc(sx, sy, star.size, 0, Math.PI*2); ctx.fill();
         });
 
+        // Draw Asteroids
         ctx.fillStyle = '#6b7280';
         asteroids.forEach(a => {
             const aSX = toScreenX(a.x), aSY = toScreenY(a.y), aSR = toScreenSize(a.size);
+            // Don't draw if heavily offscreen
             if(aSX > -100 && aSX < width+100 && aSY > -100 && aSY < height+100) {
-                ctx.beginPath(); ctx.moveTo(aSX + aSR, aSY);
+                ctx.beginPath();
+                ctx.moveTo(aSX + aSR, aSY);
                 for(let i=1; i<6; i++) {
-                    let ang = i * Math.PI / 3; let rad = aSR * (0.8 + Math.random()*0.2);
+                    let ang = i * Math.PI / 3;
+                    let rad = aSR * (0.8 + Math.random()*0.2);
                     ctx.lineTo(aSX + Math.cos(ang)*rad, aSY + Math.sin(ang)*rad);
                 }
                 ctx.closePath(); ctx.fill();
@@ -963,31 +958,49 @@
         planets.forEach(p => {
             const pSX = toScreenX(p.x), pSY = toScreenY(p.y), pSR = toScreenSize(p.radius);
             
+            // Render Saturn's Rings
+            if (p.name === 'SATURN') {
+                try {
+                    ctx.save();
+                    ctx.beginPath();
+                    ctx.ellipse(pSX, pSY, pSR * 2.5, pSR * 0.8, Math.PI * 0.1, 0, Math.PI * 2);
+                    ctx.lineWidth = toScreenSize(1000);
+                    ctx.strokeStyle = 'rgba(253, 230, 138, 0.4)';
+                    ctx.stroke();
+                    ctx.restore();
+                } catch(e) {}
+            }
+
             if (p.hasAtmosphere) {
                 const atmRad = pSR + toScreenSize(p.atmHeight);
                 const gradient = ctx.createRadialGradient(pSX, pSY, pSR * 0.9, pSX, pSY, atmRad);
-                let rgb = p.hasOcean ? '59, 130, 246' : (p === ares ? '248, 113, 113' : (p.name === 'JUPITER' ? '217, 119, 6' : '168, 85, 247'));
+                let rgb = p.color === '#1e3a8a' ? '59, 130, 246' : (p.color === '#b91c1c' ? '248, 113, 113' : (p.color === '#d97706' ? '217, 119, 6' : '168, 85, 247'));
                 gradient.addColorStop(0, `rgba(${rgb}, 0.6)`); gradient.addColorStop(1, `rgba(${rgb}, 0)`);
                 ctx.fillStyle = gradient; ctx.beginPath(); ctx.arc(pSX, pSY, atmRad, 0, Math.PI*2); ctx.fill();
             }
             
             if (p.img && p.img.complete && p.img.naturalWidth !== 0) {
-                ctx.save();
-                ctx.beginPath(); ctx.arc(pSX, pSY, pSR, 0, Math.PI * 2); ctx.clip();
-                ctx.drawImage(p.img, pSX - pSR, pSY - pSR, pSR * 2, pSR * 2);
-                ctx.restore();
-                
-                // Add inner 3D shadow for depth
-                const innerShadow = ctx.createRadialGradient(pSX - pSR*0.3, pSY - pSR*0.3, pSR*0.1, pSX, pSY, pSR);
-                innerShadow.addColorStop(0, 'rgba(255,255,255,0.2)');
-                innerShadow.addColorStop(0.8, 'rgba(0,0,0,0)');
-                innerShadow.addColorStop(1, 'rgba(0,0,0,0.8)');
-                ctx.fillStyle = innerShadow;
-                ctx.beginPath(); ctx.arc(pSX, pSY, pSR, 0, Math.PI*2); ctx.fill();
+                try {
+                    ctx.save();
+                    ctx.beginPath(); ctx.arc(pSX, pSY, pSR, 0, Math.PI * 2); ctx.clip();
+                    ctx.drawImage(p.img, pSX - pSR, pSY - pSR, pSR * 2, pSR * 2);
+                    ctx.restore();
+                    
+                    const innerShadow = ctx.createRadialGradient(pSX - pSR*0.3, pSY - pSR*0.3, pSR*0.1, pSX, pSY, pSR);
+                    innerShadow.addColorStop(0, 'rgba(255,255,255,0.2)');
+                    innerShadow.addColorStop(0.8, 'rgba(0,0,0,0)');
+                    innerShadow.addColorStop(1, 'rgba(0,0,0,0.8)');
+                    ctx.fillStyle = innerShadow;
+                    ctx.beginPath(); ctx.arc(pSX, pSY, pSR, 0, Math.PI*2); ctx.fill();
+                } catch(e) {
+                    const bodyGrad = ctx.createRadialGradient(pSX, pSY, 0, pSX, pSY, pSR);
+                    bodyGrad.addColorStop(0, p.color); bodyGrad.addColorStop(0.8, p.color);
+                    ctx.fillStyle = bodyGrad; ctx.beginPath(); ctx.arc(pSX, pSY, pSR, 0, Math.PI*2); ctx.fill();
+                }
             } else {
                 const bodyGrad = ctx.createRadialGradient(pSX, pSY, 0, pSX, pSY, pSR);
                 bodyGrad.addColorStop(0, p.color); 
-                let edgeColor = p.hasOcean ? '#2563eb' : (p === ares ? '#ef4444' : (p.name === 'JUPITER' ? '#b45309' : (p === luna ? '#d1d5db' : '#9333ea')));
+                let edgeColor = p.color === '#1e3a8a' ? '#2563eb' : (p.color === '#b91c1c' ? '#ef4444' : (p.color === '#d97706' ? '#b45309' : (p.color === '#9ca3af' ? '#d1d5db' : '#9333ea')));
                 bodyGrad.addColorStop(0.8, edgeColor);
                 ctx.fillStyle = bodyGrad; ctx.beginPath(); ctx.arc(pSX, pSY, pSR, 0, Math.PI*2); ctx.fill();
             }
@@ -1016,7 +1029,7 @@
 
         if (camera.mapView && gameState !== 'menu') {
             planets.forEach(p => {
-                ctx.fillStyle = p.hasOcean ? '#3b82f6' : (p === ares ? '#ef4444' : (p.name === 'JUPITER' ? '#d97706' : (p === luna ? '#d1d5db' : '#a855f7')));
+                ctx.fillStyle = p.color === '#1e3a8a' ? '#3b82f6' : (p.color === '#b91c1c' ? '#ef4444' : (p.color === '#d97706' ? '#d97706' : (p.color === '#9ca3af' ? '#d1d5db' : '#a855f7')));
                 ctx.beginPath(); ctx.arc(toScreenX(p.x), toScreenY(p.y), 6, 0, Math.PI*2); ctx.fill();
                 ctx.fillStyle = 'rgba(255, 255, 255, 0.9)'; ctx.font = '12px "Space Mono"'; ctx.textAlign = 'center';
                 ctx.fillText(p.name, toScreenX(p.x), toScreenY(p.y) - 15);
@@ -1056,7 +1069,7 @@
         const sSX = toScreenX(ship.x), sSY = toScreenY(ship.y);
         ctx.save(); ctx.translate(sSX, sSY); ctx.rotate(ship.angle + Math.PI/2); 
 
-        const bSizeLocal = 4; 
+        const bSizeLocal = 10; // Increased scale for ship visibility
         const bSizeScreen = toScreenSize(bSizeLocal);
 
         if (ship.heat > 0.05) {
