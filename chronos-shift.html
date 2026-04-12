@@ -1,0 +1,686 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Chronos Shift - Full Mission Loop</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #050510;
+            font-family: 'Space Mono', monospace;
+            color: #e2e8f0;
+            user-select: none;
+            touch-action: none; 
+        }
+        canvas {
+            display: block;
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 1;
+        }
+        #ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 10;
+            pointer-events: none; 
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+        .hud-panel {
+            background: rgba(10, 15, 30, 0.7);
+            border: 1px solid #3b82f6;
+            box-shadow: 0 0 10px rgba(59, 130, 246, 0.2);
+            backdrop-filter: blur(2px);
+        }
+        .text-glow { text-shadow: 0 0 8px rgba(96, 165, 250, 0.8); }
+        .text-glow-purple { text-shadow: 0 0 8px rgba(168, 85, 247, 0.8); }
+        .text-glow-green { text-shadow: 0 0 8px rgba(74, 222, 128, 0.8); }
+    </style>
+</head>
+<body>
+
+    <canvas id="gameCanvas"></canvas>
+
+    <!-- UI Layer -->
+    <div id="ui-layer" class="p-4 sm:p-6">
+        
+        <!-- Top HUD -->
+        <div class="flex justify-between items-start">
+            <div class="hud-panel p-3 sm:p-4 rounded-lg min-w-[220px]">
+                <h2 class="text-[10px] sm:text-xs uppercase tracking-widest text-gray-400 mb-1 border-b border-gray-600 pb-1">Flight Telemetry</h2>
+                
+                <div class="flex justify-between items-end mb-1">
+                    <span class="text-xs sm:text-sm">Altitude:</span>
+                    <span class="text-sm sm:text-lg font-bold text-glow"><span id="altitude">0</span> m</span>
+                </div>
+                
+                <div class="flex justify-between items-end mb-1">
+                    <span class="text-xs sm:text-sm">Velocity:</span>
+                    <span class="text-sm sm:text-lg font-bold text-glow text-right">
+                        <span id="velocity">0</span> <span class="text-xs text-gray-400 font-normal">m/s</span>
+                        <span class="block text-[10px] text-blue-300 leading-none mt-1"><span id="velocity-c">0.000</span>c</span>
+                    </span>
+                </div>
+
+                <div class="flex justify-between items-end mb-1">
+                    <span class="text-xs sm:text-sm">Fuel:</span>
+                    <div class="w-24 h-3 bg-gray-700 rounded overflow-hidden ml-2 flex-grow mt-1 border border-gray-500">
+                        <div id="fuel-bar" class="h-full bg-orange-500 transition-all duration-100" style="width: 100%;"></div>
+                    </div>
+                </div>
+
+                <div class="flex justify-between items-end mb-1">
+                    <span class="text-xs sm:text-sm">Scoop:</span>
+                    <span class="text-sm sm:text-md font-bold text-gray-400" id="scoop-status">INACTIVE</span>
+                </div>
+
+                <div class="flex justify-between items-end border-t border-gray-600 mt-2 pt-1">
+                    <span class="text-xs sm:text-sm text-gray-400">Cargo:</span>
+                    <span class="text-sm sm:text-md font-bold text-red-500" id="cargo-status">EMPTY</span>
+                </div>
+            </div>
+
+            <!-- Relativity Engine HUD -->
+            <div class="hud-panel p-3 sm:p-4 rounded-lg min-w-[220px] mx-4 hidden sm:block">
+                <h2 class="text-[10px] sm:text-xs uppercase tracking-widest text-gray-400 mb-1 border-b border-gray-600 pb-1">Relativity Engine</h2>
+                <div class="flex justify-between items-end mb-1">
+                    <span class="text-xs sm:text-sm">Lorentz (&gamma;):</span>
+                    <span class="text-sm sm:text-lg font-bold text-blue-400" id="lorentz">1.000</span>
+                </div>
+                <div class="flex justify-between items-end mb-1">
+                    <span class="text-xs sm:text-sm">Ship Time:</span>
+                    <span class="text-sm sm:text-lg font-bold text-green-400"><span id="ship-time">0.00</span> Yr</span>
+                </div>
+                <div class="flex justify-between items-end">
+                    <span class="text-xs sm:text-sm">Earth Time:</span>
+                    <span class="text-sm sm:text-lg font-bold text-red-400"><span id="earth-time">0.00</span> / 50 Yr</span>
+                </div>
+            </div>
+
+            <div class="hud-panel p-3 sm:p-4 rounded-lg text-right hidden sm:block">
+                <p class="text-xs text-gray-400">Controls:</p>
+                <p class="text-sm font-bold">W <span class="text-gray-400 font-normal">to Thrust</span></p>
+                <p class="text-sm font-bold">A / D <span class="text-gray-400 font-normal">to Rotate</span></p>
+                <p class="text-sm font-bold text-orange-400">F <span class="text-gray-400 font-normal">to Toggle Scoop</span></p>
+                <p class="text-sm font-bold text-purple-400">H <span class="text-gray-400 font-normal">to Harvest (Landed)</span></p>
+                <p class="text-sm font-bold mt-1 text-yellow-400">M <span class="text-gray-400 font-normal">to Toggle Map View</span></p>
+            </div>
+        </div>
+
+        <!-- Harvest Prompt -->
+        <div id="harvest-prompt" class="hidden absolute top-3/4 left-1/2 transform -translate-x-1/2 -translate-y-1/2 hud-panel p-4 rounded-xl text-center">
+            <p class="text-lg font-bold text-purple-400 text-glow-purple mb-2">HOLD 'H' TO DEPLOY ASTRONAUTS</p>
+            <div class="w-64 h-4 bg-gray-700 rounded-full overflow-hidden border border-gray-500 mx-auto">
+                <div id="harvest-bar" class="h-full bg-purple-500 w-0"></div>
+            </div>
+        </div>
+
+        <!-- End Screen Overlay -->
+        <div id="end-screen" class="hidden absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 hud-panel p-8 rounded-xl text-center z-50 shadow-2xl backdrop-blur-md border-gray-500 w-11/12 max-w-md pointer-events-auto">
+            <h1 id="end-title" class="text-3xl font-bold mb-4 tracking-wider">MISSION STATUS</h1>
+            <p id="end-desc" class="text-gray-300 mb-8 text-sm leading-relaxed">Details go here.</p>
+            <button onclick="location.reload()" class="px-8 py-3 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded transition-colors w-full tracking-widest">RESTART SIMULATION</button>
+        </div>
+    </div>
+
+<script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    let width, height;
+
+    // --- Game Constants & State ---
+    const GRAVITY_CONSTANT = 1500000;
+    const PLANET_RADIUS = 800;
+    const C_SPEED = 5000; // Engine physics speed of light
+    const REAL_C = 299792458; // Real world speed of light for UI mapping
+    const TARGET_DISTANCE = 500000; // Represents 12 Light Years
+    const MAX_EARTH_TIME = 50; 
+    const SAFE_LANDING_SPEED = 20; // Engine units
+    
+    // Time Mapping: Crossing the 500,000 gap at 5000 m/s takes 100 seconds real-time.
+    // If that represents traveling 12 LY at 1.0c, then 100 real seconds = 12 Earth Years.
+    // Therefore, Earth time passes at a constant rate of 0.12 Years per Real Second.
+    const EARTH_TIME_RATE = 0.12; 
+
+    // Fuel Mechanics Constants
+    const MAX_FUEL = 100;
+    const FUEL_DRAIN_RATE = 4.0;
+    const FUEL_SCOOP_RATE = 8.0;
+    const MAX_SCOOP_SPEED = C_SPEED * 0.5; // Can only scoop at < 0.5c
+    
+    // Harvest Mechanics
+    const HARVEST_TIME_REQUIRED = 5; // Ship seconds required to hold 'H'
+    
+    // The "World" coordinates.
+    let earth = {
+        name: "EARTH",
+        x: 0,
+        y: 0,
+        radius: PLANET_RADIUS,
+        color: '#1e3a8a',
+        atmosphere: '#3b82f6',
+        hasOcean: true
+    };
+
+    let alienPlanet = {
+        name: "PROXIMA PRIME",
+        x: TARGET_DISTANCE - 40000, 
+        y: 0,
+        radius: 600,
+        color: '#7e22ce',
+        atmosphere: '#a855f7',
+        hasOcean: false
+    };
+
+    const planets = [earth, alienPlanet];
+
+    let targetStar = {
+        x: TARGET_DISTANCE,
+        y: 0,
+        radius: 6000,
+        color: '#ef4444'
+    };
+
+    let timeState = {
+        shipTime: 0,
+        earthTime: 0,
+        hasLaunched: false
+    };
+
+    let gameState = 'playing'; // 'playing', 'won', 'lost', 'crashed'
+
+    let ship = {
+        x: 0,
+        y: -PLANET_RADIUS,
+        vx: 0,
+        vy: 0,
+        angle: -Math.PI / 2,
+        width: 10,
+        height: 20,
+        thrustPower: 350,
+        rotationSpeed: 3,
+        isThrusting: false,
+        isGrounded: true,
+        landedOn: earth, 
+        fuel: MAX_FUEL,
+        isScooping: false,
+        hasCure: false,
+        harvestProgress: 0
+    };
+
+    let camera = {
+        x: 0,
+        y: 0,
+        zoom: 1.0,
+        mapView: false
+    };
+
+    let input = {
+        left: false,
+        right: false,
+        thrust: false,
+        harvest: false
+    };
+
+    // Stars background
+    const stars = [];
+    for(let i=0; i<300; i++) {
+        stars.push({
+            x: (Math.random() - 0.5) * 8000,
+            y: (Math.random() - 0.5) * 8000,
+            size: Math.random() * 2
+        });
+    }
+
+    // UI Elements
+    const uiAltitude = document.getElementById('altitude');
+    const uiVelocity = document.getElementById('velocity');
+    const uiVelocityC = document.getElementById('velocity-c');
+    const uiFuelBar = document.getElementById('fuel-bar');
+    const uiScoopStatus = document.getElementById('scoop-status');
+    const uiCargoStatus = document.getElementById('cargo-status');
+    const uiLorentz = document.getElementById('lorentz');
+    const uiShipTime = document.getElementById('ship-time');
+    const uiEarthTime = document.getElementById('earth-time');
+    const harvestPrompt = document.getElementById('harvest-prompt');
+    const harvestBar = document.getElementById('harvest-bar');
+
+    // --- Input Handling ---
+    window.addEventListener('keydown', (e) => {
+        if (e.code === 'KeyA' || e.code === 'ArrowLeft') input.left = true;
+        if (e.code === 'KeyD' || e.code === 'ArrowRight') input.right = true;
+        if (e.code === 'KeyW' || e.code === 'ArrowUp') input.thrust = true;
+        if (e.code === 'KeyH') input.harvest = true;
+        if (e.code === 'KeyM') camera.mapView = !camera.mapView; 
+        if (e.code === 'KeyF' && !e.repeat) ship.isScooping = !ship.isScooping; 
+    });
+    window.addEventListener('keyup', (e) => {
+        if (e.code === 'KeyA' || e.code === 'ArrowLeft') input.left = false;
+        if (e.code === 'KeyD' || e.code === 'ArrowRight') input.right = false;
+        if (e.code === 'KeyW' || e.code === 'ArrowUp') input.thrust = false;
+        if (e.code === 'KeyH') input.harvest = false;
+    });
+
+    function resize() {
+        width = window.innerWidth;
+        height = window.innerHeight;
+        canvas.width = width;
+        canvas.height = height;
+    }
+    window.addEventListener('resize', resize);
+    resize();
+
+    // --- Game Loop ---
+    let lastTime = 0;
+
+    function gameLoop(timestamp) {
+        if (gameState !== 'playing') return;
+
+        const dt = (timestamp - lastTime) / 1000 || 0;
+        lastTime = timestamp;
+
+        if (dt > 0 && dt < 0.1) {
+            updatePhysics(dt);
+        }
+        
+        updateCamera();
+        draw();
+        updateUI();
+
+        requestAnimationFrame(gameLoop);
+    }
+
+    function updatePhysics(dt) {
+        // Rotation
+        if (input.left) ship.angle -= ship.rotationSpeed * dt;
+        if (input.right) ship.angle += ship.rotationSpeed * dt;
+        ship.angle = ship.angle % (Math.PI * 2);
+        if (ship.angle < 0) ship.angle += Math.PI * 2;
+
+        ship.isThrusting = input.thrust && ship.fuel > 0;
+
+        // Thrust vector
+        let accelX = 0;
+        let accelY = 0;
+        
+        if (ship.isThrusting) {
+            accelX = Math.cos(ship.angle) * ship.thrustPower;
+            accelY = Math.sin(ship.angle) * ship.thrustPower;
+            ship.fuel -= FUEL_DRAIN_RATE * dt;
+            if (ship.fuel < 0) ship.fuel = 0;
+        }
+
+        const currentVelocity = Math.hypot(ship.vx, ship.vy);
+
+        // Scooping Logic
+        if (ship.isScooping) {
+            if (currentVelocity <= MAX_SCOOP_SPEED) {
+                ship.fuel += FUEL_SCOOP_RATE * dt;
+                if (ship.fuel > MAX_FUEL) ship.fuel = MAX_FUEL;
+            }
+            const scoopDrag = 20;
+            if (currentVelocity > 0) {
+                accelX += -(ship.vx / currentVelocity) * scoopDrag;
+                accelY += -(ship.vy / currentVelocity) * scoopDrag;
+            }
+        }
+
+        // Gravity vector & Collision processing
+        let gravX = 0;
+        let gravY = 0;
+        let isColliding = false;
+        ship.landedOn = null;
+
+        planets.forEach(p => {
+            const dist = Math.hypot(p.x - ship.x, p.y - ship.y);
+            
+            if (dist > 0) {
+                const gravityMag = GRAVITY_CONSTANT / (dist * dist);
+                gravX += ((p.x - ship.x) / dist) * gravityMag;
+                gravY += ((p.y - ship.y) / dist) * gravityMag;
+            }
+
+            if (dist <= p.radius + 1) { 
+                isColliding = true;
+                ship.landedOn = p;
+                
+                const impactVelocity = Math.hypot(ship.vx, ship.vy);
+                
+                if (impactVelocity > SAFE_LANDING_SPEED && !ship.isGrounded) {
+                    gameState = 'crashed';
+                    const crashVelDisplay = (impactVelocity / C_SPEED) * REAL_C;
+                    const safeVelDisplay = (SAFE_LANDING_SPEED / C_SPEED) * REAL_C;
+                    showEndScreen("HULL COMPROMISED", `You crashed into ${p.name} at ${crashVelDisplay.toLocaleString('en-US', {maximumFractionDigits: 0})} m/s.<br><br>Maximum safe landing velocity is ${safeVelDisplay.toLocaleString('en-US', {maximumFractionDigits: 0})} m/s.`);
+                } else {
+                    ship.isGrounded = true;
+                    if(!ship.isThrusting) {
+                        const angleToShip = Math.atan2(ship.y - p.y, ship.x - p.x);
+                        ship.x = p.x + Math.cos(angleToShip) * p.radius;
+                        ship.y = p.y + Math.sin(angleToShip) * p.radius;
+                        ship.vx = 0;
+                        ship.vy = 0;
+                        ship.angle = angleToShip; 
+                        
+                        const gravityMag = GRAVITY_CONSTANT / (dist * dist);
+                        gravX -= ((p.x - ship.x) / dist) * gravityMag;
+                        gravY -= ((p.y - ship.y) / dist) * gravityMag;
+                    }
+                }
+            }
+        });
+
+        if (!isColliding) ship.isGrounded = false;
+
+        ship.vx += (accelX + gravX) * dt;
+        ship.vy += (accelY + gravY) * dt;
+        ship.x += ship.vx * dt;
+        ship.y += ship.vy * dt;
+
+        // Launch trigger
+        if (ship.isThrusting && ship.landedOn === earth && !timeState.hasLaunched) {
+            timeState.hasLaunched = true;
+        }
+
+        // Harvest Logic
+        if (ship.isGrounded && ship.landedOn === alienPlanet && !ship.hasCure) {
+            harvestPrompt.classList.remove('hidden');
+            if (input.harvest) {
+                ship.harvestProgress += dt;
+                if (ship.harvestProgress >= HARVEST_TIME_REQUIRED) {
+                    ship.hasCure = true;
+                    harvestPrompt.classList.add('hidden');
+                }
+            }
+        } else {
+            harvestPrompt.classList.add('hidden');
+        }
+
+        // --- RELATIVITY CALCULATIONS (FIXED) ---
+        const velocity = Math.hypot(ship.vx, ship.vy);
+        let beta = velocity / C_SPEED;
+        beta = Math.min(beta, 0.9999);
+        const gamma = 1 / Math.sqrt(1 - beta * beta);
+        
+        if (timeState.hasLaunched) {
+            // Earth is the stationary frame. Time passes constantly for Earth.
+            const earthDt = dt * EARTH_TIME_RATE; 
+            timeState.earthTime += earthDt;
+            // Ship experiences time dilation based on its velocity relative to Earth
+            timeState.shipTime += earthDt / gamma; 
+        }
+
+        // Win / Loss Conditions
+        if (timeState.earthTime >= MAX_EARTH_TIME && gameState === 'playing') {
+            gameState = 'lost';
+            showEndScreen("HUMANITY EXPIRED", `50 Earth Years have passed.<br>The planet has succumbed to the threat while you were in transit.<br><br><b>Hint:</b> You must maintain speeds above 0.50c for the majority of the journey to survive the Earth clock.`);
+        } else if (ship.landedOn === earth && ship.isGrounded && ship.hasCure && gameState === 'playing') {
+            gameState = 'won';
+            showEndScreen("MISSION ACCOMPLISHED", `You returned to Earth with the cure!<br><br><b>Ship Time Passed:</b> ${timeState.shipTime.toFixed(2)} Years<br><b>Earth Time Passed:</b> ${timeState.earthTime.toFixed(2)} Years<br><br>Humanity will survive because of you.`);
+        }
+    }
+
+    function showEndScreen(title, desc) {
+        const titleEl = document.getElementById('end-title');
+        titleEl.innerText = title;
+        titleEl.className = `text-3xl font-bold mb-4 tracking-wider ${gameState === 'won' ? 'text-green-400' : 'text-red-500'}`;
+        document.getElementById('end-desc').innerHTML = desc;
+        document.getElementById('end-screen').classList.remove('hidden');
+    }
+
+    function updateCamera() {
+        let targetCamX = ship.x;
+        let targetCamY = ship.y;
+        let targetZoom = 1.0;
+
+        if (camera.mapView) {
+            targetCamX = TARGET_DISTANCE / 2;
+            targetCamY = 0;
+            targetZoom = width / (TARGET_DISTANCE * 1.2); 
+        } else {
+            const speed = Math.hypot(ship.vx, ship.vy);
+            targetZoom = Math.max(0.15, 1.0 - (speed / 1000));
+        }
+
+        camera.x += (targetCamX - camera.x) * 0.1;
+        camera.y += (targetCamY - camera.y) * 0.1;
+        camera.zoom += (targetZoom - camera.zoom) * 0.05;
+    }
+
+    function toScreenX(worldX) { return (worldX - camera.x) * camera.zoom + width / 2; }
+    function toScreenY(worldY) { return (worldY - camera.y) * camera.zoom + height / 2; }
+    function toScreenSize(size) { return size * camera.zoom; }
+
+    function draw() {
+        ctx.fillStyle = '#050510';
+        ctx.fillRect(0, 0, width, height);
+
+        ctx.fillStyle = '#ffffff';
+        stars.forEach(star => {
+            const sx = toScreenX(star.x * 0.1 + camera.x * 0.9);
+            const sy = toScreenY(star.y * 0.1 + camera.y * 0.9);
+            if(sx > 0 && sx < width && sy > 0 && sy < height) {
+                ctx.beginPath();
+                ctx.arc(sx, sy, toScreenSize(star.size), 0, Math.PI*2);
+                ctx.fill();
+            }
+        });
+
+        planets.forEach(p => {
+            const pScreenX = toScreenX(p.x);
+            const pScreenY = toScreenY(p.y);
+            const pScreenRadius = toScreenSize(p.radius);
+
+            const gradient = ctx.createRadialGradient(pScreenX, pScreenY, pScreenRadius * 0.9, pScreenX, pScreenY, pScreenRadius * 1.5);
+            let rgb = p.hasOcean ? '59, 130, 246' : '168, 85, 247';
+            gradient.addColorStop(0, `rgba(${rgb}, 0.6)`);
+            gradient.addColorStop(1, `rgba(${rgb}, 0)`);
+            
+            ctx.fillStyle = gradient;
+            ctx.beginPath();
+            ctx.arc(pScreenX, pScreenY, pScreenRadius * 1.5, 0, Math.PI*2);
+            ctx.fill();
+
+            const bodyGrad = ctx.createRadialGradient(pScreenX, pScreenY, 0, pScreenX, pScreenY, pScreenRadius);
+            bodyGrad.addColorStop(0, p.color); 
+            bodyGrad.addColorStop(0.8, p.hasOcean ? '#2563eb' : '#9333ea');
+            bodyGrad.addColorStop(1, p.hasOcean ? '#93c5fd' : '#d8b4fe'); 
+            
+            ctx.fillStyle = bodyGrad;
+            ctx.beginPath();
+            ctx.arc(pScreenX, pScreenY, pScreenRadius, 0, Math.PI*2);
+            ctx.fill();
+
+            if (p.hasOcean) {
+                ctx.fillStyle = '#10b981'; 
+                ctx.beginPath();
+                ctx.arc(pScreenX - pScreenRadius*0.3, pScreenY - pScreenRadius*0.2, pScreenRadius*0.5, 0, Math.PI*2);
+                ctx.arc(pScreenX + pScreenRadius*0.4, pScreenY + pScreenRadius*0.3, pScreenRadius*0.4, 0, Math.PI*2);
+                ctx.arc(pScreenX - pScreenRadius*0.1, pScreenY + pScreenRadius*0.5, pScreenRadius*0.35, 0, Math.PI*2);
+                ctx.fill();
+            }
+        });
+
+        // Target Star System
+        const tScreenX = toScreenX(targetStar.x);
+        const tScreenY = toScreenY(targetStar.y);
+        const tScreenRadius = toScreenSize(targetStar.radius);
+        
+        const starGlow = ctx.createRadialGradient(tScreenX, tScreenY, tScreenRadius * 0.5, tScreenX, tScreenY, tScreenRadius * 3);
+        starGlow.addColorStop(0, 'rgba(239, 68, 68, 0.8)');
+        starGlow.addColorStop(1, 'rgba(239, 68, 68, 0)');
+        ctx.fillStyle = starGlow;
+        ctx.beginPath();
+        ctx.arc(tScreenX, tScreenY, tScreenRadius * 3, 0, Math.PI*2);
+        ctx.fill();
+
+        ctx.fillStyle = targetStar.color;
+        ctx.beginPath();
+        ctx.arc(tScreenX, tScreenY, tScreenRadius, 0, Math.PI*2);
+        ctx.fill();
+
+        drawShip();
+
+        // TACTICAL MAP OVERLAYS
+        if (camera.mapView) {
+            ctx.fillStyle = '#3b82f6'; 
+            ctx.beginPath(); ctx.arc(toScreenX(earth.x), toScreenY(earth.y), 6, 0, Math.PI*2); ctx.fill();
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.9)'; ctx.font = '12px "Space Mono"'; ctx.textAlign = 'center';
+            ctx.fillText("EARTH", toScreenX(earth.x), toScreenY(earth.y) - 15);
+
+            ctx.fillStyle = '#a855f7'; 
+            ctx.beginPath(); ctx.arc(toScreenX(alienPlanet.x), toScreenY(alienPlanet.y), 6, 0, Math.PI*2); ctx.fill();
+            ctx.fillText("PROXIMA PRIME", toScreenX(alienPlanet.x), toScreenY(alienPlanet.y) - 15);
+
+            ctx.fillStyle = '#ef4444'; 
+            ctx.beginPath(); ctx.arc(tScreenX, tScreenY, 8, 0, Math.PI*2); ctx.fill();
+            ctx.font = 'bold 12px "Space Mono"';
+            ctx.fillText("TAU CETI", tScreenX, tScreenY - 15);
+
+            const sScreenX = toScreenX(ship.x);
+            const sScreenY = toScreenY(ship.y);
+            ctx.save();
+            ctx.translate(sScreenX, sScreenY);
+            ctx.rotate(ship.angle + Math.PI/2);
+            ctx.fillStyle = '#22d3ee'; ctx.shadowBlur = 10; ctx.shadowColor = '#22d3ee';
+            ctx.beginPath(); ctx.moveTo(0, -8); ctx.lineTo(6, 6); ctx.lineTo(-6, 6); ctx.closePath(); ctx.fill();
+            ctx.restore();
+            ctx.font = '12px "Space Mono"';
+            ctx.fillText("SHIP", sScreenX, sScreenY - 15);
+        }
+    }
+
+    function drawShip() {
+        if (camera.mapView) return; 
+
+        const sScreenX = toScreenX(ship.x);
+        const sScreenY = toScreenY(ship.y);
+        const sWidth = toScreenSize(ship.width);
+        const sHeight = toScreenSize(ship.height);
+
+        ctx.save();
+        ctx.translate(sScreenX, sScreenY);
+        ctx.rotate(ship.angle + Math.PI/2); 
+
+        if (ship.isScooping) {
+            ctx.fillStyle = 'rgba(56, 189, 248, 0.3)';
+            ctx.beginPath();
+            ctx.moveTo(0, -sHeight); 
+            ctx.lineTo(sWidth * 1.5, -sHeight * 2); 
+            ctx.lineTo(-sWidth * 1.5, -sHeight * 2);
+            ctx.closePath();
+            ctx.fill();
+            
+            ctx.fillStyle = '#fff';
+            for (let i = 0; i < 3; i++) {
+                ctx.beginPath();
+                ctx.arc((Math.random() - 0.5) * sWidth * 2, -sHeight - Math.random() * sHeight, toScreenSize(0.5), 0, Math.PI*2);
+                ctx.fill();
+            }
+        }
+
+        if (ship.isThrusting) {
+            ctx.fillStyle = '#f97316'; 
+            ctx.beginPath();
+            const flameLength = sHeight + Math.random() * sHeight; 
+            ctx.moveTo(-sWidth*0.4, sHeight/2);
+            ctx.lineTo(sWidth*0.4, sHeight/2);
+            ctx.lineTo(0, sHeight/2 + flameLength);
+            ctx.closePath();
+            ctx.fill();
+            
+            ctx.fillStyle = '#fef08a';
+            ctx.beginPath();
+            ctx.moveTo(-sWidth*0.2, sHeight/2);
+            ctx.lineTo(sWidth*0.2, sHeight/2);
+            ctx.lineTo(0, sHeight/2 + flameLength*0.6);
+            ctx.closePath();
+            ctx.fill();
+        }
+
+        ctx.fillStyle = '#e2e8f0';
+        ctx.beginPath();
+        ctx.moveTo(0, -sHeight/2);
+        ctx.lineTo(sWidth/2, sHeight/2); 
+        ctx.lineTo(-sWidth/2, sHeight/2); 
+        ctx.closePath();
+        ctx.fill();
+
+        ctx.fillStyle = '#38bdf8';
+        ctx.beginPath();
+        ctx.arc(0, 0, sWidth*0.2, 0, Math.PI*2);
+        ctx.fill();
+
+        ctx.restore();
+    }
+
+    function updateUI() {
+        const velocity = Math.hypot(ship.vx, ship.vy);
+        
+        let beta = velocity / C_SPEED;
+        beta = Math.min(beta, 0.9999);
+        const gamma = 1 / Math.sqrt(1 - beta * beta);
+        
+        const displayVelocity = beta * REAL_C;
+
+        const distToEarth = Math.hypot(earth.x - ship.x, earth.y - ship.y);
+        const distToAlien = Math.hypot(alienPlanet.x - ship.x, alienPlanet.y - ship.y);
+        let altitude;
+        if (distToEarth < distToAlien) {
+            altitude = distToEarth - earth.radius;
+        } else {
+            altitude = distToAlien - alienPlanet.radius;
+        }
+
+        uiAltitude.innerText = Math.max(0, altitude).toFixed(0);
+        uiVelocity.innerText = displayVelocity.toLocaleString('en-US', {maximumFractionDigits: 0});
+        uiVelocityC.innerText = beta.toFixed(3);
+        
+        const fuelPercent = (ship.fuel / MAX_FUEL) * 100;
+        uiFuelBar.style.width = fuelPercent + '%';
+        if (fuelPercent < 20) uiFuelBar.classList.replace('bg-orange-500', 'bg-red-600');
+        else uiFuelBar.classList.replace('bg-red-600', 'bg-orange-500');
+
+        if (ship.isScooping) {
+            if (velocity <= MAX_SCOOP_SPEED) {
+                uiScoopStatus.innerText = "GATHERING";
+                uiScoopStatus.className = "text-sm sm:text-md font-bold text-green-400 text-glow-green";
+            } else {
+                uiScoopStatus.innerText = "TOO FAST!";
+                uiScoopStatus.className = "text-sm sm:text-md font-bold text-red-500";
+            }
+        } else {
+            uiScoopStatus.innerText = "INACTIVE";
+            uiScoopStatus.className = "text-sm sm:text-md font-bold text-gray-500";
+        }
+
+        if (ship.hasCure) {
+            uiCargoStatus.innerText = "SECURED (RETURN HOME)";
+            uiCargoStatus.className = "text-sm sm:text-md font-bold text-green-400 text-glow-green";
+        } else {
+            uiCargoStatus.innerText = "EMPTY";
+            uiCargoStatus.className = "text-sm sm:text-md font-bold text-red-500";
+        }
+
+        if (ship.isGrounded && ship.landedOn === alienPlanet && !ship.hasCure) {
+            harvestBar.style.width = (ship.harvestProgress / HARVEST_TIME_REQUIRED) * 100 + '%';
+        }
+
+        uiLorentz.innerText = gamma.toFixed(3);
+        uiShipTime.innerText = timeState.shipTime.toFixed(2);
+        uiEarthTime.innerText = timeState.earthTime.toFixed(2);
+    }
+
+    requestAnimationFrame(gameLoop);
+
+</script>
+</body>
+</html>
