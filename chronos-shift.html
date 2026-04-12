@@ -36,22 +36,49 @@
             justify-content: space-between;
         }
         .hud-panel {
-            background: rgba(10, 15, 30, 0.7);
+            background: rgba(10, 15, 30, 0.85);
             border: 1px solid #3b82f6;
             box-shadow: 0 0 10px rgba(59, 130, 246, 0.2);
-            backdrop-filter: blur(2px);
+            backdrop-filter: blur(4px);
+            pointer-events: auto;
         }
         .text-glow { text-shadow: 0 0 8px rgba(96, 165, 250, 0.8); }
         .text-glow-purple { text-shadow: 0 0 8px rgba(168, 85, 247, 0.8); }
         .text-glow-green { text-shadow: 0 0 8px rgba(74, 222, 128, 0.8); }
+        
+        #main-menu { z-index: 100; pointer-events: auto; }
+        
+        .score-row:nth-child(odd) { background-color: rgba(255, 255, 255, 0.05); }
     </style>
 </head>
 <body>
 
     <canvas id="gameCanvas"></canvas>
 
+    <!-- MAIN MENU -->
+    <div id="main-menu" class="absolute top-0 left-0 w-full h-full bg-[#050510] flex flex-col items-center justify-center p-6">
+        <h1 class="text-4xl md:text-6xl font-bold text-blue-400 text-glow mb-4 text-center tracking-wider">CHRONOS SHIFT</h1>
+        <p class="text-gray-300 mb-8 max-w-2xl text-center text-sm md:text-base leading-relaxed">
+            Humanity is facing extinction. You have <span class="text-red-400 font-bold">50 Earth-Years</span> to travel to Proxima Prime, extract the cure, and return. <br><br>
+            Master Newtonian gravity and manage the devastating effects of Time Dilation. The faster you travel, the slower time passes for your ship, but Earth's clock ticks relentlessly on.
+        </p>
+        
+        <button id="start-btn" class="px-10 py-4 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded shadow-[0_0_20px_rgba(37,99,235,0.6)] transition-all transform hover:scale-105 tracking-widest mb-10">START MISSION</button>
+
+        <div class="hud-panel p-6 rounded-lg w-full max-w-md">
+            <h2 class="text-xl font-bold text-purple-400 mb-4 text-center border-b border-gray-600 pb-2">LOCAL LEADERBOARD</h2>
+            <div class="flex justify-between text-xs text-gray-400 mb-2 px-2 font-bold tracking-widest">
+                <span>PILOT</span>
+                <span>EARTH TIME USED</span>
+            </div>
+            <ul id="leaderboard-list" class="space-y-1 max-h-48 overflow-y-auto pr-2">
+                <!-- Populated via JS -->
+            </ul>
+        </div>
+    </div>
+
     <!-- UI Layer -->
-    <div id="ui-layer" class="p-4 sm:p-6">
+    <div id="ui-layer" class="p-4 sm:p-6 hidden">
         
         <!-- Top HUD -->
         <div class="flex justify-between items-start">
@@ -114,6 +141,7 @@
                 <p class="text-sm font-bold text-purple-400">H <span class="text-gray-400 font-normal">to Harvest (Landed)</span></p>
                 <p class="text-sm font-bold mt-1 text-yellow-400">M <span class="text-gray-400 font-normal">to Toggle Map View</span></p>
                 <p class="text-sm font-bold mt-1 text-gray-300">SCROLL <span class="text-gray-400 font-normal">to Zoom In/Out</span></p>
+                <button onclick="abortToMenu()" class="mt-4 px-4 py-1 text-xs border border-red-500 text-red-500 hover:bg-red-500 hover:text-white rounded transition-colors">ABORT MISSION</button>
             </div>
         </div>
 
@@ -134,10 +162,16 @@
         </div>
 
         <!-- End Screen Overlay -->
-        <div id="end-screen" class="hidden absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 hud-panel p-8 rounded-xl text-center z-50 shadow-2xl backdrop-blur-md border-gray-500 w-11/12 max-w-md pointer-events-auto">
+        <div id="end-screen" class="hidden absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 hud-panel p-8 rounded-xl text-center z-50 shadow-2xl backdrop-blur-md border-gray-500 w-11/12 max-w-md">
             <h1 id="end-title" class="text-3xl font-bold mb-4 tracking-wider">MISSION STATUS</h1>
-            <p id="end-desc" class="text-gray-300 mb-8 text-sm leading-relaxed">Details go here.</p>
-            <button onclick="location.reload()" class="px-8 py-3 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded transition-colors w-full tracking-widest">RESTART SIMULATION</button>
+            <p id="end-desc" class="text-gray-300 mb-6 text-sm leading-relaxed">Details go here.</p>
+            
+            <div id="score-entry" class="hidden mb-6">
+                <p class="text-sm text-green-400 mb-2">Enter your name for the Leaderboard:</p>
+                <input type="text" id="player-name" maxlength="10" placeholder="PILOT NAME" class="w-full bg-gray-900 border border-blue-500 text-white p-2 rounded text-center uppercase focus:outline-none focus:ring-2 focus:ring-blue-500">
+            </div>
+
+            <button id="end-btn" class="px-8 py-3 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded transition-colors w-full tracking-widest">RETURN TO MENU</button>
         </div>
     </div>
 
@@ -146,8 +180,23 @@
     const ctx = canvas.getContext('2d');
     let width, height;
 
+    // --- UI Elements (Restored) ---
+    const uiAltitude = document.getElementById('altitude');
+    const uiVelocity = document.getElementById('velocity');
+    const uiVelocityC = document.getElementById('velocity-c');
+    const uiFuelBar = document.getElementById('fuel-bar');
+    const uiLorentz = document.getElementById('lorentz');
+    const uiShipTime = document.getElementById('ship-time');
+    const uiEarthTime = document.getElementById('earth-time');
+
+    // --- Leaderboard State (In-Memory) ---
+    let localLeaderboard = [
+        { name: 'RYLAND', time: 42.15 },
+        { name: 'GRACE', time: 44.30 },
+        { name: 'STRATT', time: 49.99 }
+    ];
+
     // --- Game Constants & State ---
-    // Increased gravity constant dramatically for easier orbital capture
     const GRAVITY_CONSTANT = 4000000; 
     const PLANET_RADIUS = 800;
     const C_SPEED = 5000; 
@@ -155,16 +204,12 @@
     const TARGET_DISTANCE = 500000; 
     const MAX_EARTH_TIME = 50; 
     
-    // SAFE_LANDING_SPEED increased slightly for stronger gravity wells
     const SAFE_LANDING_SPEED = 60; 
-    
-    // Mission time drastically extended. Earth time ticks much slower now,
-    // giving you plenty of time for orbital mechanics and harvesting.
     const EARTH_TIME_RATE = 0.03; 
 
     // Fuel & Harvest
     const MAX_FUEL = 100;
-    const FUEL_DRAIN_RATE = 3.0; // Slightly more forgiving fuel drain for larger engine
+    const FUEL_DRAIN_RATE = 3.0;
     const FUEL_SCOOP_RATE = 8.0;
     const MAX_SCOOP_SPEED = C_SPEED * 0.5; 
     const HARVEST_TIME_REQUIRED = 5; 
@@ -177,31 +222,16 @@
     let alienPlanet = { name: "PROXIMA PRIME", x: TARGET_DISTANCE - 40000, y: 0, radius: 600, color: '#7e22ce', hasOcean: false };
     
     const planets = [earth, luna, ares, alienPlanet];
-
     let targetStar = { x: TARGET_DISTANCE, y: 0, radius: 6000, color: '#ef4444' };
 
     let timeState = { shipTime: 0, earthTime: 0, hasLaunched: false };
-    let gameState = 'playing';
+    let gameState = 'menu'; // 'menu', 'playing', 'won', 'lost', 'crashed'
 
     let ship = {
-        x: 0,
-        y: -PLANET_RADIUS,
-        vx: 0,
-        vy: 0,
-        angle: -Math.PI / 2,
-        width: 12,
-        height: 24,
-        thrustPower: 1200, // Massive engine buff to combat the 4x stronger gravity
-        throttle: 0,      
-        rotationSpeed: 3,
-        isThrusting: false,
-        isGrounded: true,
-        landedOn: earth, 
-        altitude: 0,
-        fuel: MAX_FUEL,
-        isScooping: false,
-        hasCure: false,
-        harvestProgress: 0
+        x: 0, y: -PLANET_RADIUS, vx: 0, vy: 0, angle: -Math.PI / 2,
+        width: 12, height: 24, thrustPower: 1200, throttle: 0, rotationSpeed: 3,
+        isThrusting: false, isGrounded: true, landedOn: earth, altitude: 0,
+        fuel: MAX_FUEL, isScooping: false, hasCure: false, harvestProgress: 0
     };
 
     let camera = { x: 0, y: 0, zoom: 1.0, mapView: false, manualZoomOffset: 0 };
@@ -211,28 +241,14 @@
     const stars = [];
     for(let i=0; i<400; i++) {
         stars.push({
-            x: Math.random() * 10000,
-            y: Math.random() * 10000,
-            size: Math.random() * 1.5 + 0.5,
-            depth: Math.random() * 0.8 + 0.2 
+            x: Math.random() * 10000, y: Math.random() * 10000,
+            size: Math.random() * 1.5 + 0.5, depth: Math.random() * 0.8 + 0.2 
         });
     }
 
-    // UI Elements
-    const uiAltitude = document.getElementById('altitude');
-    const uiVelocity = document.getElementById('velocity');
-    const uiVelocityC = document.getElementById('velocity-c');
-    const uiFuelBar = document.getElementById('fuel-bar');
-    const uiScoopStatus = document.getElementById('scoop-status');
-    const uiCargoStatus = document.getElementById('cargo-status');
-    const uiLorentz = document.getElementById('lorentz');
-    const uiShipTime = document.getElementById('ship-time');
-    const uiEarthTime = document.getElementById('earth-time');
-    const harvestPrompt = document.getElementById('harvest-prompt');
-    const harvestBar = document.getElementById('harvest-bar');
-
     // --- Input Handling ---
     window.addEventListener('keydown', (e) => {
+        if (gameState !== 'playing') return;
         if (e.code === 'KeyA' || e.code === 'ArrowLeft') input.left = true;
         if (e.code === 'KeyD' || e.code === 'ArrowRight') input.right = true;
         if (e.code === 'KeyW' || e.code === 'ArrowUp') input.thrust = true;
@@ -247,8 +263,8 @@
         if (e.code === 'KeyH') input.harvest = false;
     });
 
-    // SCROLL TO ZOOM
     window.addEventListener('wheel', (e) => {
+        if (gameState !== 'playing') return;
         camera.manualZoomOffset -= e.deltaY * 0.002;
         camera.manualZoomOffset = Math.max(-2, Math.min(camera.manualZoomOffset, 3));
     });
@@ -262,11 +278,70 @@
     window.addEventListener('resize', resize);
     resize();
 
+    // --- Menu & Game Flow Logic ---
+    function renderLeaderboard() {
+        const list = document.getElementById('leaderboard-list');
+        list.innerHTML = '';
+        
+        // Sort by lowest time
+        localLeaderboard.sort((a, b) => a.time - b.time);
+        
+        localLeaderboard.slice(0, 5).forEach((entry, idx) => {
+            const li = document.createElement('li');
+            li.className = 'score-row flex justify-between p-2 rounded text-sm';
+            li.innerHTML = `
+                <span class="font-bold ${idx === 0 ? 'text-yellow-400' : 'text-gray-300'}">${idx + 1}. ${entry.name}</span>
+                <span class="text-blue-300 font-mono">${entry.time.toFixed(2)} YRS</span>
+            `;
+            list.appendChild(li);
+        });
+    }
+
+    document.getElementById('start-btn').addEventListener('click', () => {
+        document.getElementById('main-menu').classList.add('hidden');
+        document.getElementById('ui-layer').classList.remove('hidden');
+        document.getElementById('end-screen').classList.add('hidden');
+        resetPhysicsState();
+        gameState = 'playing';
+        lastTime = performance.now();
+        requestAnimationFrame(gameLoop);
+    });
+
+    function resetPhysicsState() {
+        ship = {
+            x: 0, y: -PLANET_RADIUS, vx: 0, vy: 0, angle: -Math.PI / 2,
+            width: 12, height: 24, thrustPower: 1200, throttle: 0, rotationSpeed: 3,
+            isThrusting: false, isGrounded: true, landedOn: earth, altitude: 0,
+            fuel: MAX_FUEL, isScooping: false, hasCure: false, harvestProgress: 0
+        };
+        timeState = { shipTime: 0, earthTime: 0, hasLaunched: false };
+        camera = { x: 0, y: 0, zoom: 1.0, mapView: false, manualZoomOffset: 0 };
+        input = { left: false, right: false, thrust: false, harvest: false };
+        cachedBaseTraj = null;
+        cachedBurnTraj = null;
+    }
+
+    function abortToMenu() {
+        gameState = 'menu';
+        document.getElementById('ui-layer').classList.add('hidden');
+        document.getElementById('main-menu').classList.remove('hidden');
+        renderLeaderboard();
+    }
+
     // --- Game Loop ---
     let lastTime = 0;
 
     function gameLoop(timestamp) {
-        if (gameState !== 'playing') return;
+        if (gameState !== 'playing') {
+            // If in menu, just draw the starfield rotating slowly in background
+            if (gameState === 'menu') {
+                camera.x += 1;
+                draw();
+                requestAnimationFrame(gameLoop);
+            }
+            return;
+        }
+
         const dt = (timestamp - lastTime) / 1000 || 0;
         lastTime = timestamp;
 
@@ -287,7 +362,6 @@
 
         ship.isThrusting = input.thrust && ship.fuel > 0;
 
-        // Exponential Throttle Logic
         if (ship.isThrusting) {
             ship.throttle = Math.min(1.0, ship.throttle + dt * 2.0);
         } else {
@@ -342,7 +416,6 @@
                     let crashEngineBeta = impactVelocity / C_SPEED;
                     let crashTrueBeta = Math.pow(crashEngineBeta, 3);
                     let crashVelDisplay = crashTrueBeta * REAL_C;
-                    
                     let safeEngineBeta = SAFE_LANDING_SPEED / C_SPEED;
                     let safeTrueBeta = Math.pow(safeEngineBeta, 3);
                     let safeVelDisplay = safeTrueBeta * REAL_C;
@@ -378,23 +451,22 @@
         }
 
         if (ship.isGrounded && ship.landedOn === alienPlanet && !ship.hasCure) {
-            harvestPrompt.classList.remove('hidden');
+            document.getElementById('harvest-prompt').classList.remove('hidden');
             if (input.harvest) {
                 ship.harvestProgress += dt;
                 if (ship.harvestProgress >= HARVEST_TIME_REQUIRED) {
                     ship.hasCure = true;
-                    harvestPrompt.classList.add('hidden');
+                    document.getElementById('harvest-prompt').classList.add('hidden');
                 }
             }
         } else {
-            harvestPrompt.classList.add('hidden');
+            document.getElementById('harvest-prompt').classList.add('hidden');
         }
 
         // --- RELATIVITY CALCULATIONS ---
         const velocity = Math.hypot(ship.vx, ship.vy);
         let engineBeta = velocity / C_SPEED;
         engineBeta = Math.min(engineBeta, 0.9999);
-        
         let trueBeta = Math.pow(engineBeta, 3); 
         const gamma = 1 / Math.sqrt(1 - trueBeta * trueBeta);
         
@@ -406,11 +478,39 @@
 
         if (timeState.earthTime >= MAX_EARTH_TIME && gameState === 'playing') {
             gameState = 'lost';
-            showEndScreen("HUMANITY EXPIRED", `50 Earth Years have passed.<br>The planet has succumbed to the threat while you were in transit.<br><br><b>Hint:</b> You must maintain speeds above 0.50c for the majority of the journey to survive the Earth clock.`);
+            showEndScreen("HUMANITY EXPIRED", `50 Earth Years have passed.<br>The planet has succumbed to the threat while you were in transit.`);
         } else if (ship.landedOn === earth && ship.isGrounded && ship.hasCure && gameState === 'playing') {
             gameState = 'won';
-            showEndScreen("MISSION ACCOMPLISHED", `You returned to Earth with the cure!<br><br><b>Ship Time Passed:</b> ${timeState.shipTime.toFixed(2)} Years<br><b>Earth Time Passed:</b> ${timeState.earthTime.toFixed(2)} Years<br><br>Humanity will survive because of you.`);
+            showEndScreen("MISSION ACCOMPLISHED", `You returned to Earth with the cure!<br><br><b>Ship Time Passed:</b> ${timeState.shipTime.toFixed(2)} Years<br><b>Earth Time Passed:</b> ${timeState.earthTime.toFixed(2)} Years<br><br>Humanity will survive because of you.`, true);
         }
+    }
+
+    // --- End Screen & Leaderboard Submission ---
+    function showEndScreen(title, desc, isWin = false) {
+        document.getElementById('harvest-prompt').classList.add('hidden');
+        const titleEl = document.getElementById('end-title');
+        titleEl.innerText = title;
+        titleEl.className = `text-3xl font-bold mb-4 tracking-wider ${isWin ? 'text-green-400' : 'text-red-500'}`;
+        document.getElementById('end-desc').innerHTML = desc;
+        
+        const scoreEntry = document.getElementById('score-entry');
+        const endBtn = document.getElementById('end-btn');
+
+        if (isWin) {
+            scoreEntry.classList.remove('hidden');
+            endBtn.innerText = "SUBMIT SCORE & RETURN";
+            endBtn.onclick = () => {
+                const name = document.getElementById('player-name').value || "ANON";
+                localLeaderboard.push({ name: name.toUpperCase(), time: timeState.earthTime });
+                abortToMenu();
+            };
+        } else {
+            scoreEntry.classList.add('hidden');
+            endBtn.innerText = "RETURN TO MENU";
+            endBtn.onclick = abortToMenu;
+        }
+
+        document.getElementById('end-screen').classList.remove('hidden');
     }
 
     // --- POP: Anti-Lag Optimization Logic ---
@@ -430,7 +530,6 @@
         const path = [];
         let state = 'orbit';
 
-        // BOUNDARY MATH FIX: Stop calculating if the line goes far off the visible screen.
         const maxVisibleDist = (width / camera.zoom) * 1.5; 
         const maxDistSq = maxVisibleDist * maxVisibleDist;
 
@@ -474,22 +573,13 @@
             simX += simVx * simDt;
             simY += simVy * simDt;
 
-            // GPU SAVER: Halt prediction if it leaves the screen area
             const distFromShipSq = (simX - ship.x)**2 + (simY - ship.y)**2;
             if (distFromShipSq > maxDistSq) {
-                path.push({x: simX, y: simY}); // Push the final edge point
+                path.push({x: simX, y: simY});
                 break; 
             }
         }
         return { path, state };
-    }
-
-    function showEndScreen(title, desc) {
-        const titleEl = document.getElementById('end-title');
-        titleEl.innerText = title;
-        titleEl.className = `text-3xl font-bold mb-4 tracking-wider ${gameState === 'won' ? 'text-green-400' : 'text-red-500'}`;
-        document.getElementById('end-desc').innerHTML = desc;
-        document.getElementById('end-screen').classList.remove('hidden');
     }
 
     function updateCamera() {
@@ -526,9 +616,7 @@
         ctx.fillStyle = '#050510';
         ctx.fillRect(0, 0, width, height);
 
-        // Infinite Parallax Stars Fixed - Decoupled from camera zoom for smooth motion!
         stars.forEach(star => {
-            // Apply a very gentle multiplier (0.02) to the camera.x position, completely ignoring zoom scale
             let sx = (star.x - camera.x * star.depth * 0.02) % width;
             if (sx < 0) sx += width;
             let sy = (star.y - camera.y * star.depth * 0.02) % height;
@@ -545,7 +633,6 @@
             const pScreenY = toScreenY(p.y);
             const pScreenRadius = toScreenSize(p.radius);
 
-            // Atmosphere
             if (p.hasOcean || p === alienPlanet || p === ares) {
                 const gradient = ctx.createRadialGradient(pScreenX, pScreenY, pScreenRadius * 0.9, pScreenX, pScreenY, pScreenRadius * 1.5);
                 let rgb = p.hasOcean ? '59, 130, 246' : (p === ares ? '248, 113, 113' : '168, 85, 247');
@@ -555,7 +642,6 @@
                 ctx.beginPath(); ctx.arc(pScreenX, pScreenY, pScreenRadius * 1.5, 0, Math.PI*2); ctx.fill();
             }
 
-            // Body
             const bodyGrad = ctx.createRadialGradient(pScreenX, pScreenY, 0, pScreenX, pScreenY, pScreenRadius);
             bodyGrad.addColorStop(0, p.color); 
             let edgeColor = p.hasOcean ? '#2563eb' : (p === ares ? '#ef4444' : (p === luna ? '#d1d5db' : '#9333ea'));
@@ -572,7 +658,6 @@
             }
         });
 
-        // Target Star System
         const tScreenX = toScreenX(targetStar.x);
         const tScreenY = toScreenY(targetStar.y);
         const tScreenRadius = toScreenSize(targetStar.radius);
@@ -586,16 +671,13 @@
         ctx.fillStyle = targetStar.color;
         ctx.beginPath(); ctx.arc(tScreenX, tScreenY, tScreenRadius, 0, Math.PI*2); ctx.fill();
 
-        // Draw POP (Projected Orbital Paths)
-        if (!ship.isGrounded && !camera.mapView) {
-            
+        if (gameState !== 'menu' && !ship.isGrounded && !camera.mapView) {
             baseFrameCounter++;
             if (!cachedBaseTraj || baseFrameCounter > 5 || input.thrust) {
                 cachedBaseTraj = simulateTrajectory(false);
                 baseFrameCounter = 0;
             }
 
-            // Solid Orbit Line
             ctx.strokeStyle = getPOPColor(cachedBaseTraj.state);
             ctx.lineWidth = 2;
             ctx.globalAlpha = ship.isThrusting ? 0.3 : 0.8; 
@@ -605,7 +687,6 @@
             ctx.stroke();
             ctx.globalAlpha = 1.0;
 
-            // Dashed Burn Prediction Line
             if (ship.isThrusting) {
                 burnFrameCounter++;
                 if (!cachedBurnTraj || burnFrameCounter > 3) {
@@ -625,10 +706,9 @@
             }
         }
 
-        drawShip();
+        if (gameState !== 'menu') drawShip();
 
-        // TACTICAL MAP OVERLAYS
-        if (camera.mapView) {
+        if (camera.mapView && gameState !== 'menu') {
             planets.forEach(p => {
                 ctx.fillStyle = p.hasOcean ? '#3b82f6' : (p === ares ? '#ef4444' : '#a855f7');
                 if (p === luna) ctx.fillStyle = '#d1d5db';
@@ -667,7 +747,6 @@
         ctx.translate(sScreenX, sScreenY);
         ctx.rotate(ship.angle + Math.PI/2); 
 
-        // Scoop Graphic
         if (ship.isScooping) {
             ctx.fillStyle = 'rgba(56, 189, 248, 0.3)';
             ctx.beginPath();
@@ -685,7 +764,6 @@
             }
         }
 
-        // Engine Flame (Scales with Throttle)
         if (ship.isThrusting) {
             ctx.fillStyle = '#f97316'; 
             ctx.beginPath();
@@ -705,7 +783,6 @@
             ctx.fill();
         }
 
-        // Auto-Deploying Landing Legs
         if (ship.altitude < 2000) {
             const deployRatio = Math.max(0, Math.min(1, (2000 - ship.altitude) / 500));
             const legExt = sWidth * 0.9 * deployRatio;
@@ -727,7 +804,6 @@
             ctx.stroke();
         }
 
-        // Ship Body
         ctx.fillStyle = '#e2e8f0';
         ctx.beginPath();
         ctx.moveTo(0, -sHeight/2);
@@ -768,27 +844,27 @@
 
         if (ship.isScooping) {
             if (velocity <= MAX_SCOOP_SPEED) {
-                uiScoopStatus.innerText = "GATHERING";
-                uiScoopStatus.className = "text-sm sm:text-md font-bold text-green-400 text-glow-green";
+                document.getElementById('scoop-status').innerText = "GATHERING";
+                document.getElementById('scoop-status').className = "text-sm sm:text-md font-bold text-green-400 text-glow-green";
             } else {
-                uiScoopStatus.innerText = "TOO FAST!";
-                uiScoopStatus.className = "text-sm sm:text-md font-bold text-red-500";
+                document.getElementById('scoop-status').innerText = "TOO FAST!";
+                document.getElementById('scoop-status').className = "text-sm sm:text-md font-bold text-red-500";
             }
         } else {
-            uiScoopStatus.innerText = "INACTIVE";
-            uiScoopStatus.className = "text-sm sm:text-md font-bold text-gray-500";
+            document.getElementById('scoop-status').innerText = "INACTIVE";
+            document.getElementById('scoop-status').className = "text-sm sm:text-md font-bold text-gray-500";
         }
 
         if (ship.hasCure) {
-            uiCargoStatus.innerText = "SECURED (RETURN HOME)";
-            uiCargoStatus.className = "text-sm sm:text-md font-bold text-green-400 text-glow-green";
+            document.getElementById('cargo-status').innerText = "SECURED (RETURN HOME)";
+            document.getElementById('cargo-status').className = "text-sm sm:text-md font-bold text-green-400 text-glow-green";
         } else {
-            uiCargoStatus.innerText = "EMPTY";
-            uiCargoStatus.className = "text-sm sm:text-md font-bold text-red-500";
+            document.getElementById('cargo-status').innerText = "EMPTY";
+            document.getElementById('cargo-status').className = "text-sm sm:text-md font-bold text-red-500";
         }
 
         if (ship.isGrounded && ship.landedOn === alienPlanet && !ship.hasCure) {
-            harvestBar.style.width = (ship.harvestProgress / HARVEST_TIME_REQUIRED) * 100 + '%';
+            document.getElementById('harvest-bar').style.width = (ship.harvestProgress / HARVEST_TIME_REQUIRED) * 100 + '%';
         }
 
         uiLorentz.innerText = gamma.toFixed(3);
@@ -796,6 +872,8 @@
         uiEarthTime.innerText = timeState.earthTime.toFixed(2);
     }
 
+    // Init Leaderboard & Loop
+    renderLeaderboard();
     requestAnimationFrame(gameLoop);
 
 </script>
