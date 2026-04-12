@@ -48,7 +48,46 @@
         
         #main-menu { z-index: 100; pointer-events: auto; }
         
-        .score-row:nth-child(odd) { background-color: rgba(255, 255, 255, 0.05); }
+        /* --- LEADERBOARD CSS COMPONENT --- */
+        .leaderboard-container {
+            background: linear-gradient(180deg, rgba(15, 23, 42, 0.95) 0%, rgba(5, 5, 16, 0.98) 100%);
+            border: 1px solid #8b5cf6;
+            box-shadow: 0 0 20px rgba(139, 92, 246, 0.3), inset 0 0 30px rgba(139, 92, 246, 0.1);
+            border-radius: 12px;
+        }
+        .leaderboard-header {
+            color: #c084fc;
+            text-shadow: 0 0 10px rgba(192, 132, 252, 0.8);
+            border-bottom: 2px solid rgba(139, 92, 246, 0.4);
+            letter-spacing: 0.1em;
+        }
+        .leaderboard-list::-webkit-scrollbar {
+            width: 6px;
+        }
+        .leaderboard-list::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 4px;
+        }
+        .leaderboard-list::-webkit-scrollbar-thumb {
+            background: #8b5cf6;
+            border-radius: 4px;
+        }
+        .score-row {
+            transition: all 0.2s ease;
+            border-left: 3px solid transparent;
+            background-color: rgba(255, 255, 255, 0.02);
+            margin-bottom: 4px;
+        }
+        .score-row:nth-child(even) { 
+            background-color: rgba(255, 255, 255, 0.05); 
+        }
+        .score-row:hover {
+            background-color: rgba(139, 92, 246, 0.15);
+            border-left: 3px solid #c084fc;
+            transform: translateX(4px);
+        }
+        /* --------------------------------- */
+
     </style>
 </head>
 <body>
@@ -65,13 +104,13 @@
         
         <button id="start-btn" class="px-10 py-4 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded shadow-[0_0_20px_rgba(37,99,235,0.6)] transition-all transform hover:scale-105 tracking-widest mb-10">START MISSION</button>
 
-        <div class="hud-panel p-6 rounded-lg w-full max-w-md">
-            <h2 class="text-xl font-bold text-purple-400 mb-4 text-center border-b border-gray-600 pb-2">LOCAL LEADERBOARD</h2>
+        <div class="leaderboard-container p-6 rounded-lg w-full max-w-md">
+            <h2 class="text-xl font-bold leaderboard-header mb-4 text-center pb-2">LOCAL LEADERBOARD</h2>
             <div class="flex justify-between text-xs text-gray-400 mb-2 px-2 font-bold tracking-widest">
                 <span>PILOT</span>
                 <span>EARTH TIME USED</span>
             </div>
-            <ul id="leaderboard-list" class="space-y-1 max-h-48 overflow-y-auto pr-2">
+            <ul id="leaderboard-list" class="leaderboard-list space-y-1 max-h-48 overflow-y-auto pr-2">
                 <!-- Populated via JS -->
             </ul>
         </div>
@@ -180,7 +219,7 @@
     const ctx = canvas.getContext('2d');
     let width, height;
 
-    // --- UI Elements (Restored) ---
+    // --- UI Elements ---
     const uiAltitude = document.getElementById('altitude');
     const uiVelocity = document.getElementById('velocity');
     const uiVelocityC = document.getElementById('velocity-c');
@@ -197,14 +236,17 @@
     ];
 
     // --- Game Constants & State ---
-    const GRAVITY_CONSTANT = 4000000; 
-    const PLANET_RADIUS = 800;
-    const C_SPEED = 5000; 
+    // MASSIVE GRAVITY REWORK: Gravity is now an extreme force. 
+    // Thrust is lowered to compensate, making orbits and slingshots a primary mechanic.
+    const GRAVITY_CONSTANT = 200000000; 
+    const PLANET_RADIUS = 2400; // Planets are 3x larger!
+    const C_SPEED = 8000; // Scaled up slightly for the larger universe gap
     const REAL_C = 299792458; 
-    const TARGET_DISTANCE = 500000; 
+    const TARGET_DISTANCE = 800000; 
     const MAX_EARTH_TIME = 50; 
     
-    const SAFE_LANDING_SPEED = 60; 
+    // Landing speed tolerance bumped slightly for the immense gravity drop
+    const SAFE_LANDING_SPEED = 80; 
     const EARTH_TIME_RATE = 0.03; 
 
     // Fuel & Harvest
@@ -214,22 +256,23 @@
     const MAX_SCOOP_SPEED = C_SPEED * 0.5; 
     const HARVEST_TIME_REQUIRED = 5; 
     
-    // --- Celestial Bodies ---
+    // --- Celestial Bodies (Massively Scaled) ---
     let earth = { name: "EARTH", x: 0, y: 0, radius: PLANET_RADIUS, color: '#1e3a8a', hasOcean: true };
-    let luna = { name: "LUNA", x: 6000, y: 0, radius: 200, color: '#9ca3af', hasOcean: false };
-    let ares = { name: "ARES", x: 25000, y: 15000, radius: 500, color: '#b91c1c', hasOcean: false };
-    
-    let alienPlanet = { name: "PROXIMA PRIME", x: TARGET_DISTANCE - 40000, y: 0, radius: 600, color: '#7e22ce', hasOcean: false };
+    let luna = { name: "LUNA", x: 18000, y: 0, radius: 600, color: '#9ca3af', hasOcean: false };
+    let ares = { name: "ARES", x: 60000, y: 40000, radius: 1500, color: '#b91c1c', hasOcean: false };
+    let alienPlanet = { name: "PROXIMA PRIME", x: TARGET_DISTANCE - 60000, y: 0, radius: 1800, color: '#7e22ce', hasOcean: false };
     
     const planets = [earth, luna, ares, alienPlanet];
-    let targetStar = { x: TARGET_DISTANCE, y: 0, radius: 6000, color: '#ef4444' };
+    let targetStar = { x: TARGET_DISTANCE, y: 0, radius: 15000, color: '#ef4444' };
 
     let timeState = { shipTime: 0, earthTime: 0, hasLaunched: false };
     let gameState = 'menu'; // 'menu', 'playing', 'won', 'lost', 'crashed'
 
     let ship = {
         x: 0, y: -PLANET_RADIUS, vx: 0, vy: 0, angle: -Math.PI / 2,
-        width: 12, height: 24, thrustPower: 1200, throttle: 0, rotationSpeed: 3,
+        width: 16, height: 32, // Ship size slightly increased to match scale
+        thrustPower: 180, // DRASTICALLY REDUCED. You must fight gravity now.
+        throttle: 0, rotationSpeed: 3,
         isThrusting: false, isGrounded: true, landedOn: earth, altitude: 0,
         fuel: MAX_FUEL, isScooping: false, hasCure: false, harvestProgress: 0
     };
@@ -266,7 +309,7 @@
     window.addEventListener('wheel', (e) => {
         if (gameState !== 'playing') return;
         camera.manualZoomOffset -= e.deltaY * 0.002;
-        camera.manualZoomOffset = Math.max(-2, Math.min(camera.manualZoomOffset, 3));
+        camera.manualZoomOffset = Math.max(-3, Math.min(camera.manualZoomOffset, 4)); // Expanded zoom bounds for bigger planets
     });
 
     function resize() {
@@ -283,12 +326,11 @@
         const list = document.getElementById('leaderboard-list');
         list.innerHTML = '';
         
-        // Sort by lowest time
         localLeaderboard.sort((a, b) => a.time - b.time);
         
         localLeaderboard.slice(0, 5).forEach((entry, idx) => {
             const li = document.createElement('li');
-            li.className = 'score-row flex justify-between p-2 rounded text-sm';
+            li.className = 'score-row flex justify-between p-3 rounded text-sm';
             li.innerHTML = `
                 <span class="font-bold ${idx === 0 ? 'text-yellow-400' : 'text-gray-300'}">${idx + 1}. ${entry.name}</span>
                 <span class="text-blue-300 font-mono">${entry.time.toFixed(2)} YRS</span>
@@ -310,7 +352,7 @@
     function resetPhysicsState() {
         ship = {
             x: 0, y: -PLANET_RADIUS, vx: 0, vy: 0, angle: -Math.PI / 2,
-            width: 12, height: 24, thrustPower: 1200, throttle: 0, rotationSpeed: 3,
+            width: 16, height: 32, thrustPower: 180, throttle: 0, rotationSpeed: 3,
             isThrusting: false, isGrounded: true, landedOn: earth, altitude: 0,
             fuel: MAX_FUEL, isScooping: false, hasCure: false, harvestProgress: 0
         };
@@ -333,7 +375,6 @@
 
     function gameLoop(timestamp) {
         if (gameState !== 'playing') {
-            // If in menu, just draw the starfield rotating slowly in background
             if (gameState === 'menu') {
                 camera.x += 1;
                 draw();
@@ -519,13 +560,14 @@
     let baseFrameCounter = 0;
     let burnFrameCounter = 0;
 
-    function simulateTrajectory(useThrust, maxSteps = 120) {
+    function simulateTrajectory(useThrust, maxSteps = 150) {
         let simX = ship.x, simY = ship.y;
         let simVx = ship.vx, simVy = ship.vy;
         let simFuel = ship.fuel;
         
         const currentSpeed = Math.hypot(simVx, simVy);
-        const simDt = Math.max(3.0, currentSpeed / 20); 
+        // Slightly smoother step calculation for the massive new gravity
+        const simDt = Math.max(1.5, currentSpeed / 30); 
         
         const path = [];
         let state = 'orbit';
@@ -548,7 +590,7 @@
                 const rSq = p.radius * p.radius;
 
                 if (distSq <= rSq) isColliding = true;
-                if (distSq <= rSq * 16) inSoi = true; 
+                if (distSq <= rSq * 25) inSoi = true; // Expanded SOI visual detection
 
                 if (distSq > 0) {
                     const dist = Math.sqrt(distSq);
@@ -595,7 +637,8 @@
             targetZoom = (width / (TARGET_DISTANCE * 1.2)) * scrollZoomFactor; 
         } else {
             const speed = Math.hypot(ship.vx, ship.vy);
-            targetZoom = Math.max(0.1, 1.0 - (speed / 3000)) * scrollZoomFactor;
+            // Re-tuned zoom out curve to handle the massive new planet sizes nicely
+            targetZoom = Math.max(0.05, 1.0 - (speed / 3500)) * scrollZoomFactor;
         }
 
         camera.x += (targetCamX - camera.x) * 0.1;
@@ -783,8 +826,8 @@
             ctx.fill();
         }
 
-        if (ship.altitude < 2000) {
-            const deployRatio = Math.max(0, Math.min(1, (2000 - ship.altitude) / 500));
+        if (ship.altitude < 4000) {
+            const deployRatio = Math.max(0, Math.min(1, (4000 - ship.altitude) / 1000));
             const legExt = sWidth * 0.9 * deployRatio;
             const legDrop = sHeight * 0.4 * deployRatio;
             
