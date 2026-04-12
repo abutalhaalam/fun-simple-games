@@ -3,125 +3,46 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Chronos Shift - Full Mission Loop</title>
+    <title>Chronos Shift - Custom Assets</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
     <style>
-        body {
-            margin: 0;
-            overflow: hidden;
-            background-color: #050510;
-            font-family: 'Space Mono', monospace;
-            color: #e2e8f0;
-            user-select: none;
-            touch-action: none; 
-        }
-        canvas {
-            display: block;
-            position: absolute;
-            top: 0;
-            left: 0;
-            z-index: 1;
-        }
-        #ui-layer {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            z-index: 10;
-            pointer-events: none; 
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
-        }
+        body { margin: 0; overflow: hidden; background-color: #050510; font-family: 'Space Mono', monospace; color: #e2e8f0; user-select: none; touch-action: none; }
+        canvas { display: block; position: absolute; top: 0; left: 0; z-index: 1; }
         
-        /* --- GENERAL HUD CSS --- */
-        .hud-panel {
-            background: rgba(10, 15, 30, 0.85);
-            border: 1px solid #3b82f6;
-            box-shadow: 0 0 10px rgba(59, 130, 246, 0.2);
-            backdrop-filter: blur(4px);
-            pointer-events: auto;
-        }
+        .layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; flex-direction: column; }
+        .pointer-through { pointer-events: none; }
+        .pointer-auto { pointer-events: auto; }
+        
+        .hud-panel { background: rgba(10, 15, 30, 0.85); border: 1px solid #3b82f6; box-shadow: 0 0 10px rgba(59, 130, 246, 0.2); backdrop-filter: blur(4px); pointer-events: auto; }
         .text-glow { text-shadow: 0 0 8px rgba(96, 165, 250, 0.8); }
         .text-glow-purple { text-shadow: 0 0 8px rgba(168, 85, 247, 0.8); }
         .text-glow-green { text-shadow: 0 0 8px rgba(74, 222, 128, 0.8); }
         .text-glow-red { text-shadow: 0 0 8px rgba(239, 68, 68, 0.8); }
-        
-        #main-menu { z-index: 100; pointer-events: auto; }
-        
-        /* --- LEADERBOARD CSS COMPONENT --- */
-        .leaderboard-container {
-            background: linear-gradient(180deg, rgba(15, 23, 42, 0.95) 0%, rgba(5, 5, 16, 0.98) 100%);
-            border: 1px solid #8b5cf6;
-            box-shadow: 0 0 20px rgba(139, 92, 246, 0.3), inset 0 0 30px rgba(139, 92, 246, 0.1);
-            border-radius: 12px;
-        }
-        .leaderboard-header {
-            color: #c084fc;
-            text-shadow: 0 0 10px rgba(192, 132, 252, 0.8);
-            border-bottom: 2px solid rgba(139, 92, 246, 0.4);
-            letter-spacing: 0.1em;
-        }
-        .leaderboard-list::-webkit-scrollbar {
-            width: 6px;
-        }
-        .leaderboard-list::-webkit-scrollbar-track {
-            background: rgba(255, 255, 255, 0.05);
-            border-radius: 4px;
-        }
-        .leaderboard-list::-webkit-scrollbar-thumb {
-            background: #8b5cf6;
-            border-radius: 4px;
-        }
-        .score-row {
-            transition: all 0.2s ease;
-            border-left: 3px solid transparent;
-            background-color: rgba(255, 255, 255, 0.02);
-            margin-bottom: 4px;
-        }
-        .score-row:nth-child(even) { 
-            background-color: rgba(255, 255, 255, 0.05); 
-        }
-        .score-row:hover {
-            background-color: rgba(139, 92, 246, 0.15);
-            border-left: 3px solid #c084fc;
-            transform: translateX(4px);
-        }
 
-        /* --- POST-MISSION STATS CSS --- */
-        .stats-grid {
-            background: rgba(0, 0, 0, 0.5);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 8px;
-            padding: 1rem;
-            margin-bottom: 1.5rem;
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 1rem;
-            text-align: left;
-            box-shadow: inset 0 0 20px rgba(0,0,0,0.8);
-        }
-        .stat-box {
-            background: rgba(255, 255, 255, 0.03);
-            padding: 0.5rem 0.75rem;
-            border-radius: 6px;
-            border-left: 2px solid #3b82f6;
-        }
-        .stat-label {
-            font-size: 0.65rem;
-            text-transform: uppercase;
-            color: #9ca3af;
-            letter-spacing: 0.05em;
-            margin-bottom: 0.25rem;
-            display: block;
-        }
-        .stat-value {
-            font-size: 1.1rem;
-            font-weight: 700;
-            font-family: monospace;
-        }
+        .fade-screen { transition: opacity 0.5s ease-in-out; opacity: 1; }
+        .fade-out { opacity: 0; pointer-events: none; }
+        
+        .leaderboard-container { background: linear-gradient(180deg, rgba(15, 23, 42, 0.95) 0%, rgba(5, 5, 16, 0.98) 100%); border: 1px solid #8b5cf6; box-shadow: 0 0 20px rgba(139, 92, 246, 0.3), inset 0 0 30px rgba(139, 92, 246, 0.1); border-radius: 12px; }
+        .leaderboard-header { color: #c084fc; text-shadow: 0 0 10px rgba(192, 132, 252, 0.8); border-bottom: 2px solid rgba(139, 92, 246, 0.4); letter-spacing: 0.1em; }
+        .leaderboard-list::-webkit-scrollbar { width: 6px; }
+        .leaderboard-list::-webkit-scrollbar-track { background: rgba(255, 255, 255, 0.05); border-radius: 4px; }
+        .leaderboard-list::-webkit-scrollbar-thumb { background: #8b5cf6; border-radius: 4px; }
+        .score-row { transition: all 0.2s ease; border-left: 3px solid transparent; background-color: rgba(255, 255, 255, 0.02); margin-bottom: 4px; }
+        .score-row:nth-child(even) { background-color: rgba(255, 255, 255, 0.05); }
+        .score-row:hover { background-color: rgba(139, 92, 246, 0.15); border-left: 3px solid #c084fc; transform: translateX(4px); }
+
+        .grid-board { display: grid; grid-template-columns: repeat(5, 40px); grid-template-rows: repeat(7, 40px); gap: 2px; background: rgba(255,255,255,0.05); padding: 10px; border-radius: 8px; border: 1px solid #4b5563; }
+        .grid-cell { width: 40px; height: 40px; background: rgba(0,0,0,0.5); border: 1px dashed rgba(255,255,255,0.1); cursor: pointer; transition: background 0.1s; position: relative; overflow: hidden; }
+        .grid-cell:hover { background-color: rgba(255,255,255,0.1); }
+        
+        .part-btn { transition: all 0.1s; border: 2px solid transparent; }
+        .part-btn.selected { border-color: #fff; transform: scale(1.05); box-shadow: 0 0 15px rgba(255,255,255,0.3); }
+        
+        .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .stat-box { background: rgba(255, 255, 255, 0.03); padding: 8px; border-radius: 6px; border-left: 2px solid #3b82f6; }
+        .stat-label { font-size: 0.65rem; text-transform: uppercase; color: #9ca3af; letter-spacing: 0.05em; margin-bottom: 0.25rem; display: block; }
+        .stat-value { font-size: 1.1rem; font-weight: 700; font-family: monospace; }
     </style>
 </head>
 <body>
@@ -129,14 +50,14 @@
     <canvas id="gameCanvas"></canvas>
 
     <!-- MAIN MENU -->
-    <div id="main-menu" class="absolute top-0 left-0 w-full h-full bg-[#050510] flex flex-col items-center justify-center p-6">
+    <div id="screen-menu" class="layer justify-center items-center p-6 bg-[#050510] fade-screen z-50 pointer-auto">
         <h1 class="text-4xl md:text-6xl font-bold text-blue-400 text-glow mb-4 text-center tracking-wider">CHRONOS SHIFT</h1>
         <p class="text-gray-300 mb-8 max-w-2xl text-center text-sm md:text-base leading-relaxed">
-            Humanity is facing extinction. You have <span class="text-red-400 font-bold">50 Earth-Years</span> to travel to Proxima Prime, extract the cure, and return. <br><br>
-            Master Newtonian gravity and manage the devastating effects of Time Dilation. The faster you travel, the slower time passes for your ship, but Earth's clock ticks relentlessly on.
+            Phase 4: Asteroids & Custom Sprites Expansion.<br><br>
+            Design your spacecraft. Master gravity. Navigate the debris fields.
         </p>
         
-        <button id="start-btn" class="px-10 py-4 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded shadow-[0_0_20px_rgba(37,99,235,0.6)] transition-all transform hover:scale-105 tracking-widest mb-10">START MISSION</button>
+        <button onclick="transitionTo('screen-shipyard')" class="px-10 py-4 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded shadow-[0_0_20px_rgba(37,99,235,0.6)] transition-all transform hover:scale-105 tracking-widest mb-10">ENTER SHIPYARD</button>
 
         <div class="leaderboard-container p-6 w-full max-w-md">
             <h2 class="text-xl font-bold leaderboard-header mb-4 text-center pb-2">LOCAL LEADERBOARD</h2>
@@ -144,211 +65,256 @@
                 <span>PILOT</span>
                 <span>EARTH TIME USED</span>
             </div>
-            <ul id="leaderboard-list" class="leaderboard-list space-y-1 max-h-48 overflow-y-auto pr-2">
-                <!-- Populated via JS -->
-            </ul>
+            <ul id="leaderboard-list" class="leaderboard-list space-y-1 max-h-48 overflow-y-auto pr-2"></ul>
         </div>
     </div>
 
-    <!-- UI Layer -->
-    <div id="ui-layer" class="p-4 sm:p-6 hidden">
+    <!-- SHIPYARD (BUILDER) -->
+    <div id="screen-shipyard" class="layer justify-center items-center p-6 bg-black/80 backdrop-blur-md fade-screen fade-out z-40 pointer-auto hidden">
+        <h1 class="text-3xl font-bold text-blue-400 text-glow mb-6 tracking-wider">ENGINEERING BAY</h1>
         
-        <!-- Top HUD -->
-        <div class="flex justify-between items-start">
-            <div class="hud-panel p-3 sm:p-4 rounded-lg min-w-[220px]">
-                <h2 class="text-[10px] sm:text-xs uppercase tracking-widest text-gray-400 mb-1 border-b border-gray-600 pb-1">Flight Telemetry</h2>
-                
-                <div class="flex justify-between items-end mb-1">
-                    <span class="text-xs sm:text-sm">Altitude:</span>
-                    <span class="text-sm sm:text-lg font-bold text-glow"><span id="altitude">0</span> m</span>
+        <div class="flex flex-col md:flex-row gap-8 items-start">
+            <div class="hud-panel p-4 rounded-xl flex flex-col gap-2 w-64">
+                <h3 class="text-xs text-gray-400 uppercase tracking-widest border-b border-gray-600 pb-1 mb-2">Modules</h3>
+                <div id="palette" class="space-y-2"></div>
+                <p class="text-xs text-gray-500 mt-4 italic">L-Click to place.<br>R-Click to remove.</p>
+            </div>
+
+            <div class="hud-panel p-4 rounded-xl flex flex-col items-center">
+                <h3 class="text-xs text-gray-400 uppercase tracking-widest border-b border-gray-600 pb-1 mb-4 w-full text-center">Hull Configuration</h3>
+                <div id="builder-grid" class="grid-board" oncontextmenu="return false;"></div>
+            </div>
+
+            <div class="hud-panel p-4 rounded-xl w-64 flex flex-col justify-between h-full">
+                <div>
+                    <h3 class="text-xs text-gray-400 uppercase tracking-widest border-b border-gray-600 pb-1 mb-3">Vessel Specs</h3>
+                    <div class="space-y-3">
+                        <div><span class="text-xs text-gray-400 block">Total Mass</span><span id="sy-mass" class="font-bold text-lg">0</span></div>
+                        <div><span class="text-xs text-gray-400 block">Thrust Output</span><span id="sy-thrust" class="font-bold text-blue-400 text-lg">0</span></div>
+                        <div><span class="text-xs text-gray-400 block">Fuel Capacity</span><span id="sy-fuel" class="font-bold text-orange-400 text-lg">0</span></div>
+                        <div><span class="text-xs text-gray-400 block">Landing Tolerance</span><span id="sy-landing" class="font-bold text-green-400 text-lg">0 m/s</span></div>
+                        <div><span class="text-xs text-gray-400 block">Status</span><span id="sy-status" class="font-bold text-red-500 text-sm">MISSING COMMAND POD</span></div>
+                    </div>
                 </div>
-                
+                <button id="btn-launch" onclick="launchMission()" class="mt-6 w-full py-3 bg-green-600 hover:bg-green-500 disabled:bg-gray-700 disabled:text-gray-500 text-white font-bold rounded tracking-widest transition-colors" disabled>LAUNCH</button>
+            </div>
+        </div>
+        <button onclick="transitionTo('screen-menu')" class="mt-8 text-sm text-gray-400 hover:text-white transition-colors border border-gray-600 px-4 py-2 rounded">BACK TO MENU</button>
+    </div>
+
+    <!-- GAME UI (HUD) -->
+    <div id="screen-game" class="layer p-4 sm:p-6 fade-screen fade-out z-20 pointer-through hidden">
+        <div class="flex justify-between items-start pointer-through">
+            <div class="hud-panel p-3 rounded-lg min-w-[220px]">
+                <h2 class="text-[10px] uppercase tracking-widest text-gray-400 mb-1 border-b border-gray-600 pb-1">Telemetry</h2>
+                <div class="flex justify-between items-end mb-1"><span class="text-xs">Altitude:</span><span class="text-sm font-bold text-glow"><span id="altitude">0</span> m</span></div>
                 <div class="flex justify-between items-end mb-1">
-                    <span class="text-xs sm:text-sm">Velocity:</span>
-                    <span class="text-sm sm:text-lg font-bold text-glow text-right">
+                    <span class="text-xs">Velocity:</span>
+                    <span class="text-sm font-bold text-glow text-right">
                         <span id="velocity">0</span> <span class="text-xs text-gray-400 font-normal">m/s</span>
                         <span class="block text-[10px] text-blue-300 leading-none mt-1"><span id="velocity-c">0.000</span>c</span>
                     </span>
                 </div>
-
+                <div class="flex justify-between items-end mb-1"><span class="text-xs">Assist:</span><span class="text-sm font-bold text-gray-500" id="orbit-assist">STANDBY</span></div>
                 <div class="flex justify-between items-end mb-1">
-                    <span class="text-xs sm:text-sm">Orbit Assist:</span>
-                    <span class="text-sm sm:text-lg font-bold text-gray-500" id="orbit-assist">STANDBY</span>
+                    <span class="text-xs">Fuel:</span>
+                    <div class="w-24 h-3 bg-gray-700 rounded overflow-hidden ml-2 border border-gray-500"><div id="fuel-bar" class="h-full bg-orange-500" style="width: 100%;"></div></div>
                 </div>
-
-                <div class="flex justify-between items-end mb-1">
-                    <span class="text-xs sm:text-sm">Fuel:</span>
-                    <div class="w-24 h-3 bg-gray-700 rounded overflow-hidden ml-2 flex-grow mt-1 border border-gray-500">
-                        <div id="fuel-bar" class="h-full bg-orange-500 transition-all duration-100" style="width: 100%;"></div>
-                    </div>
-                </div>
-
-                <div class="flex justify-between items-end mb-1">
-                    <span class="text-xs sm:text-sm">Scoop:</span>
-                    <span class="text-sm sm:text-md font-bold text-gray-400" id="scoop-status">INACTIVE</span>
-                </div>
-
-                <div class="flex justify-between items-end border-t border-gray-600 mt-2 pt-1">
-                    <span class="text-xs sm:text-sm text-gray-400">Cargo:</span>
-                    <span class="text-sm sm:text-md font-bold text-red-500" id="cargo-status">EMPTY</span>
-                </div>
+                <div class="flex justify-between items-end mb-1"><span class="text-xs">Scoop:</span><span class="text-sm font-bold text-gray-400" id="scoop-status">INACTIVE</span></div>
+                <div class="flex justify-between items-end border-t border-gray-600 mt-2 pt-1"><span class="text-xs text-gray-400">Cargo:</span><span class="text-sm font-bold text-red-500" id="cargo-status">EMPTY</span></div>
             </div>
 
-            <!-- Relativity Engine HUD -->
-            <div class="hud-panel p-3 sm:p-4 rounded-lg min-w-[220px] mx-4 hidden sm:block">
-                <h2 class="text-[10px] sm:text-xs uppercase tracking-widest text-gray-400 mb-1 border-b border-gray-600 pb-1">Relativity Engine</h2>
-                <div class="flex justify-between items-end mb-1">
-                    <span class="text-xs sm:text-sm">Lorentz (&gamma;):</span>
-                    <span class="text-sm sm:text-lg font-bold text-blue-400" id="lorentz">1.000</span>
-                </div>
-                <div class="flex justify-between items-end mb-1">
-                    <span class="text-xs sm:text-sm">Ship Time:</span>
-                    <span class="text-sm sm:text-lg font-bold text-green-400"><span id="ship-time">0.00</span> Yr</span>
-                </div>
-                <div class="flex justify-between items-end">
-                    <span class="text-xs sm:text-sm">Earth Time:</span>
-                    <span class="text-sm sm:text-lg font-bold text-red-400"><span id="earth-time">0.00</span> / 50 Yr</span>
-                </div>
+            <div class="hud-panel p-3 rounded-lg min-w-[220px] hidden sm:block">
+                <h2 class="text-[10px] uppercase tracking-widest text-gray-400 mb-1 border-b border-gray-600 pb-1">Relativity Engine</h2>
+                <div class="flex justify-between items-end mb-1"><span class="text-xs">Lorentz (&gamma;):</span><span class="text-sm font-bold text-blue-400" id="lorentz">1.000</span></div>
+                <div class="flex justify-between items-end mb-1"><span class="text-xs">Ship Time:</span><span class="text-sm font-bold text-green-400"><span id="ship-time">0.00</span> Yr</span></div>
+                <div class="flex justify-between items-end"><span class="text-xs">Earth Time:</span><span class="text-sm font-bold text-red-400"><span id="earth-time">0.00</span> / 50 Yr</span></div>
             </div>
 
-            <div class="hud-panel p-3 sm:p-4 rounded-lg text-right hidden sm:block">
-                <p class="text-xs text-gray-400">Controls:</p>
-                <p class="text-sm font-bold">W <span class="text-gray-400 font-normal">to Thrust</span></p>
-                <p class="text-sm font-bold">A / D <span class="text-gray-400 font-normal">to Rotate</span></p>
-                <p class="text-sm font-bold text-orange-400">F <span class="text-gray-400 font-normal">to Toggle Scoop</span></p>
-                <p class="text-sm font-bold text-purple-400">H <span class="text-gray-400 font-normal">to Harvest (Landed)</span></p>
-                <p class="text-sm font-bold mt-1 text-yellow-400">M <span class="text-gray-400 font-normal">to Toggle Map View</span></p>
-                <p class="text-sm font-bold mt-1 text-gray-300">SCROLL <span class="text-gray-400 font-normal">to Zoom</span></p>
-                <button onclick="abortToMenu()" class="mt-4 px-4 py-1 text-xs border border-red-500 text-red-500 hover:bg-red-500 hover:text-white rounded transition-colors">ABORT MISSION</button>
+            <div class="hud-panel p-3 rounded-lg text-right hidden sm:block">
+                <p class="text-[10px] text-gray-400 uppercase border-b border-gray-600 pb-1 mb-1">Controls</p>
+                <p class="text-xs font-bold">W <span class="text-gray-400 font-normal">Thrust</span></p>
+                <p class="text-xs font-bold">A/D <span class="text-gray-400 font-normal">Rotate</span></p>
+                <p class="text-xs font-bold text-orange-400">F <span class="text-gray-400 font-normal">Scoop</span></p>
+                <p class="text-xs font-bold text-purple-400">H <span class="text-gray-400 font-normal">Harvest</span></p>
+                <p class="text-xs font-bold text-yellow-400">M <span class="text-gray-400 font-normal">Map</span></p>
+                <p class="text-xs font-bold text-gray-300 mt-1">ESC <span class="text-gray-400 font-normal">Pause</span></p>
             </div>
         </div>
 
-        <!-- POP Legend (Projected Orbital Path) -->
-        <div class="absolute bottom-4 left-4 hud-panel p-3 rounded-lg hidden sm:block">
-            <h2 class="text-[10px] uppercase tracking-widest text-gray-400 mb-1 border-b border-gray-600 pb-1">Predictive Trajectory</h2>
-            <div class="text-xs flex items-center gap-2 mb-1"><div class="w-3 h-1 bg-cyan-400"></div> Stable Orbit</div>
-            <div class="text-xs flex items-center gap-2 mb-1"><div class="w-3 h-1 bg-yellow-400"></div> SOI Encounter</div>
-            <div class="text-xs flex items-center gap-2"><div class="w-3 h-1 bg-red-400"></div> Collision Course</div>
+        <div class="absolute bottom-4 left-4 hud-panel p-2 rounded-lg hidden sm:block">
+            <div class="text-[10px] flex items-center gap-2"><div class="w-2 h-1 bg-cyan-400"></div> Orbit <div class="w-2 h-1 bg-yellow-400 ml-2"></div> Encounter <div class="w-2 h-1 bg-red-400 ml-2"></div> Crash</div>
         </div>
-
-        <!-- Harvest Prompt -->
+        
         <div id="harvest-prompt" class="hidden absolute top-3/4 left-1/2 transform -translate-x-1/2 -translate-y-1/2 hud-panel p-4 rounded-xl text-center">
-            <p class="text-lg font-bold text-purple-400 text-glow-purple mb-2">HOLD 'H' TO DEPLOY ASTRONAUTS</p>
-            <div class="w-64 h-4 bg-gray-700 rounded-full overflow-hidden border border-gray-500 mx-auto">
-                <div id="harvest-bar" class="h-full bg-purple-500 w-0"></div>
-            </div>
+            <p class="text-lg font-bold text-purple-400 text-glow-purple mb-2">HOLD 'H' TO HARVEST</p>
+            <div class="w-64 h-4 bg-gray-700 rounded-full overflow-hidden border border-gray-500"><div id="harvest-bar" class="h-full bg-purple-500 w-0"></div></div>
         </div>
+    </div>
 
-        <!-- End Screen Overlay (Post-Mission Analytics) -->
-        <div id="end-screen" class="hidden absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 hud-panel p-6 rounded-xl text-center z-50 shadow-2xl backdrop-blur-md border-gray-500 w-11/12 max-w-lg">
+    <!-- PAUSE & END SCREENS -->
+    <div id="screen-pause" class="layer justify-center items-center bg-black/60 backdrop-blur-sm fade-screen fade-out z-50 pointer-auto hidden">
+        <div class="hud-panel p-8 rounded-xl text-center">
+            <h1 class="text-4xl font-bold tracking-widest text-white mb-6">PAUSED</h1>
+            <button onclick="togglePause()" class="block w-full px-8 py-3 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded mb-4 tracking-widest">RESUME</button>
+            <button onclick="abortToMenu()" class="block w-full px-8 py-3 bg-red-600 hover:bg-red-500 text-white font-bold rounded tracking-widest">ABORT TO MENU</button>
+        </div>
+    </div>
+
+    <div id="screen-end" class="layer justify-center items-center bg-black/80 backdrop-blur-md fade-screen fade-out z-50 pointer-auto hidden">
+        <div class="hud-panel p-6 rounded-xl text-center max-w-lg w-full">
             <h1 id="end-title" class="text-3xl font-bold mb-2 tracking-wider">MISSION STATUS</h1>
-            <p id="end-desc" class="text-gray-300 mb-4 text-sm leading-relaxed">Details go here.</p>
-            
-            <!-- Dynamic Stats Grid -->
-            <div id="stats-grid" class="stats-grid">
-                <!-- Populated via JS -->
-            </div>
-            
+            <p id="end-desc" class="text-gray-300 mb-4 text-sm leading-relaxed">Details</p>
+            <div id="stats-grid" class="stats-grid"></div>
             <div id="score-entry" class="hidden mb-6">
-                <p class="text-sm text-green-400 mb-2">Enter your name for the Leaderboard:</p>
                 <input type="text" id="player-name" maxlength="10" placeholder="PILOT NAME" class="w-full bg-gray-900 border border-blue-500 text-white p-2 rounded text-center uppercase focus:outline-none focus:ring-2 focus:ring-blue-500">
             </div>
-
-            <button id="end-btn" class="px-8 py-3 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded transition-colors w-full tracking-widest">RETURN TO MENU</button>
+            <button id="end-btn" class="px-8 py-3 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded w-full tracking-widest">CONTINUE</button>
         </div>
     </div>
 
 <script>
-    const canvas = document.getElementById('gameCanvas');
-    const ctx = canvas.getContext('2d');
-    let width, height;
-
-    // --- UI Elements ---
-    const uiAltitude = document.getElementById('altitude');
-    const uiVelocity = document.getElementById('velocity');
-    const uiVelocityC = document.getElementById('velocity-c');
-    const uiFuelBar = document.getElementById('fuel-bar');
-    const uiScoopStatus = document.getElementById('scoop-status');
-    const uiCargoStatus = document.getElementById('cargo-status');
-    const uiLorentz = document.getElementById('lorentz');
-    const uiShipTime = document.getElementById('ship-time');
-    const uiEarthTime = document.getElementById('earth-time');
-    const uiOrbitAssist = document.getElementById('orbit-assist');
-
-    // --- Leaderboard State ---
-    let localLeaderboard = [
-        { name: 'RYLAND', time: 42.15 },
-        { name: 'GRACE', time: 44.30 },
-        { name: 'STRATT', time: 49.99 }
-    ];
-
-    // --- Post-Mission Analytics State ---
-    let runStats = {
-        topSpeed: 0,
-        fuelBurned: 0,
-        fuelScooped: 0,
-        distance: 0,
-        maxHeat: 0
+    // ==========================================
+    // 🚀 ASSET CONFIGURATION 
+    // ==========================================
+    const USER_ASSETS = {
+        shipSpriteSheet: 'sheet.png',                 // Your ship parts
+        asteroidSpriteSheet: 'spaceShooter2_spritesheet.jpg', // Your asteroids
     };
 
-    // --- Game Constants & State ---
+    const spriteImg = new Image(); spriteImg.src = USER_ASSETS.shipSpriteSheet;
+    const astImg = new Image(); astImg.src = USER_ASSETS.asteroidSpriteSheet;
+
+    // --- SHIPYARD MODULE DEFS ---
+    // Modify `sx, sy, sw, sh` to match the exact pixel coordinates of the parts on 'sheet.png'
+    const MODULES = {
+        POD:    { id: 'POD',    name: 'Command Pod',   sx: 0,   sy: 0,   sw: 100, sh: 100, mass: 20, desc: 'Required core.' },
+        FUEL:   { id: 'FUEL',   name: 'Fuel Cell',     sx: 100, sy: 0,   sw: 100, sh: 100, mass: 15, fuel: 100, desc: 'Increases tank capacity.' },
+        THRUST: { id: 'THRUST', name: 'Plasma Engine', sx: 200, sy: 0,   sw: 100, sh: 100, mass: 10, thrust: 2500, desc: 'Provides propulsion.' },
+        SCOOP:  { id: 'SCOOP',  name: 'Ramjet Scoop',  sx: 0,   sy: 100, sw: 100, sh: 100, mass: 10, special: 'scoop', desc: 'Harvests interstellar fuel.' },
+        LEG:    { id: 'LEG',    name: 'Landing Strut', sx: 100, sy: 100, sw: 100, sh: 100, mass: 5, armor: 10, desc: 'Increases landing survival speed.' },
+        SHIELD: { id: 'SHIELD', name: 'Blast Shield',  sx: 200, sy: 100, sw: 100, sh: 100, mass: 25, armor: 40, desc: 'Extreme armor & asteroid resistance.' }
+    };
+
+    // --- Celestial Bodies (Expanded Universe w/ Uploaded Assets) ---
     const GRAVITY_CONSTANT = 200000000; 
     const PLANET_RADIUS = 2400; 
     const C_SPEED = 8000; 
     const REAL_C = 299792458; 
     const TARGET_DISTANCE = 800000; 
-    const MAX_EARTH_TIME = 50; 
     
-    const SAFE_LANDING_SPEED = 80; 
-    const EARTH_TIME_RATE = 0.03; 
+    let earth = { name: "EARTH", x: 0, y: 0, radius: PLANET_RADIUS, color: '#1e3a8a', hasAtmosphere: true, atmHeight: 1200, imgUrl: 'planet00.jpg' };
+    let luna = { name: "LUNA", x: 18000, y: 0, radius: 600, color: '#9ca3af', hasAtmosphere: false, atmHeight: 0, imgUrl: 'planet04.jpg' };
+    let ares = { name: "ARES", x: 60000, y: 40000, radius: 1500, color: '#b91c1c', hasAtmosphere: true, atmHeight: 800, imgUrl: 'planet02.png' };
+    let jupiter = { name: "JUPITER", x: 200000, y: -20000, radius: 8000, color: '#d97706', hasAtmosphere: true, atmHeight: 4000, imgUrl: 'planet05.jpg' };
+    let alienPlanet = { name: "PROXIMA PRIME", x: TARGET_DISTANCE - 60000, y: 0, radius: 1800, color: '#7e22ce', hasAtmosphere: true, atmHeight: 1500, imgUrl: 'planet09.png' };
+    
+    const planets = [earth, luna, ares, jupiter, alienPlanet];
+    
+    planets.forEach(p => {
+        p.img = new Image();
+        p.img.src = p.imgUrl;
+    });
 
-    // Fuel & Harvest
-    const MAX_FUEL = 100;
-    const FUEL_DRAIN_RATE = 3.0;
-    const FUEL_SCOOP_RATE = 8.0;
+    let targetStar = { x: TARGET_DISTANCE, y: 0, radius: 25000, color: '#ef4444', isStar: true, massMult: 100 };
+
+    // Procedural Asteroid Belt 
+    const asteroids = [];
+    const beltCenterX = 100000, beltCenterY = 0;
+    for(let i=0; i<400; i++) {
+        asteroids.push({
+            cx: beltCenterX, cy: beltCenterY,
+            dist: 80000 + Math.random() * 50000, angle: Math.random() * Math.PI * 2,
+            speed: (Math.random() - 0.5) * 0.05, size: Math.random() * 150 + 50,
+            x: 0, y: 0,
+            // Random source coordinates for asteroid sprite rendering
+            sx: Math.floor(Math.random() * 4) * 100, sy: Math.floor(Math.random() * 4) * 100
+        });
+    }
+
+    // --- UI/Transition Manager ---
+    let currentScreen = 'screen-menu';
+    
+    function transitionTo(targetId) {
+        document.getElementById(currentScreen).classList.add('fade-out');
+        setTimeout(() => {
+            document.getElementById(currentScreen).classList.add('hidden');
+            document.getElementById(targetId).classList.remove('hidden');
+            setTimeout(() => {
+                document.getElementById(targetId).classList.remove('fade-out');
+                currentScreen = targetId;
+                if (targetId === 'screen-shipyard') initShipyard();
+                if (targetId === 'screen-menu') { gameState = 'menu'; renderLeaderboard(); }
+            }, 50);
+        }, 300);
+    }
+
+    function abortToMenu() {
+        document.getElementById('screen-pause').classList.add('hidden');
+        document.getElementById('screen-end').classList.add('hidden');
+        transitionTo('screen-menu');
+    }
+
+    // --- Core Canvas & Setup ---
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    let width, height;
+
+    const MAX_EARTH_TIME = 50; 
+    const EARTH_TIME_RATE = 0.03; 
+    const FUEL_DRAIN_RATE = 1.5; 
+    const FUEL_SCOOP_RATE = 15.0;
     const MAX_SCOOP_SPEED = C_SPEED * 0.5; 
     const HARVEST_TIME_REQUIRED = 5; 
-    
-    // --- Celestial Bodies ---
-    let earth = { name: "EARTH", x: 0, y: 0, radius: PLANET_RADIUS, color: '#1e3a8a', hasOcean: true, hasAtmosphere: true, atmHeight: 1200 };
-    let luna = { name: "LUNA", x: 18000, y: 0, radius: 600, color: '#9ca3af', hasOcean: false, hasAtmosphere: false, atmHeight: 0 };
-    let ares = { name: "ARES", x: 60000, y: 40000, radius: 1500, color: '#b91c1c', hasOcean: false, hasAtmosphere: true, atmHeight: 800 };
-    let alienPlanet = { name: "PROXIMA PRIME", x: TARGET_DISTANCE - 60000, y: 0, radius: 1800, color: '#7e22ce', hasOcean: false, hasAtmosphere: true, atmHeight: 1500 };
-    
-    const planets = [earth, luna, ares, alienPlanet];
-    let targetStar = { x: TARGET_DISTANCE, y: 0, radius: 15000, color: '#ef4444' };
+
+    let builderGrid = Array(7).fill().map(()=>Array(5).fill(null));
+    let selectedModule = 'POD';
 
     let timeState = { shipTime: 0, earthTime: 0, hasLaunched: false };
     let gameState = 'menu'; 
+    let runStats = { topSpeed: 0, fuelBurned: 0, fuelScooped: 0, distance: 0, maxHeat: 0 };
+    let particles = [];
 
     let ship = {
         x: 0, y: -PLANET_RADIUS, vx: 0, vy: 0, angle: -Math.PI / 2,
-        width: 16, height: 32, thrustPower: 180, throttle: 0, rotationSpeed: 3,
+        mass: 1, thrustPower: 0, throttle: 0, rotationSpeed: 3, maxFuel: 100, fuel: 100,
+        safeLandingSpeed: 40, hasScoop: false, blocks: [],
         isThrusting: false, isGrounded: true, landedOn: earth, altitude: 0,
-        fuel: MAX_FUEL, isScooping: false, hasCure: false, harvestProgress: 0,
-        orbitAssistActive: false, heat: 0
+        isScooping: false, hasCure: false, harvestProgress: 0, orbitAssistActive: false, heat: 0
     };
 
     let camera = { x: 0, y: 0, zoom: 1.0, mapView: false, manualZoomOffset: 0 };
     let input = { left: false, right: false, thrust: false, harvest: false };
 
-    const stars = [];
+    const bgStars = [];
     for(let i=0; i<400; i++) {
-        stars.push({
-            x: Math.random() * 10000, y: Math.random() * 10000,
-            size: Math.random() * 1.5 + 0.5, depth: Math.random() * 0.8 + 0.2 
+        bgStars.push({ x: Math.random() * 10000, y: Math.random() * 10000, size: Math.random() * 1.5 + 0.5, depth: Math.random() * 0.8 + 0.2 });
+    }
+
+    let localLeaderboard = [ { name: 'RYLAND', time: 42.15 }, { name: 'GRACE', time: 44.30 }, { name: 'STRATT', time: 49.99 } ];
+
+    function renderLeaderboard() {
+        const list = document.getElementById('leaderboard-list');
+        if (!list) return;
+        list.innerHTML = '';
+        localLeaderboard.sort((a, b) => a.time - b.time);
+        localLeaderboard.slice(0, 5).forEach((entry, idx) => {
+            const li = document.createElement('li');
+            li.className = 'score-row flex justify-between p-3 rounded text-sm';
+            li.innerHTML = `<span class="font-bold ${idx === 0 ? 'text-yellow-400' : 'text-gray-300'}">${idx + 1}. ${entry.name}</span><span class="text-blue-300 font-mono">${entry.time.toFixed(2)} YRS</span>`;
+            list.appendChild(li);
         });
     }
 
-    // --- Input Handling ---
     window.addEventListener('keydown', (e) => {
+        if (e.code === 'Escape' && (gameState === 'playing' || gameState === 'paused')) togglePause();
         if (gameState !== 'playing') return;
         if (e.code === 'KeyA' || e.code === 'ArrowLeft') input.left = true;
         if (e.code === 'KeyD' || e.code === 'ArrowRight') input.right = true;
         if (e.code === 'KeyW' || e.code === 'ArrowUp') input.thrust = true;
         if (e.code === 'KeyH') input.harvest = true;
         if (e.code === 'KeyM') camera.mapView = !camera.mapView; 
-        if (e.code === 'KeyF' && !e.repeat) ship.isScooping = !ship.isScooping; 
+        if (e.code === 'KeyF' && !e.repeat && ship.hasScoop) ship.isScooping = !ship.isScooping; 
     });
     window.addEventListener('keyup', (e) => {
         if (e.code === 'KeyA' || e.code === 'ArrowLeft') input.left = false;
@@ -356,95 +322,203 @@
         if (e.code === 'KeyW' || e.code === 'ArrowUp') input.thrust = false;
         if (e.code === 'KeyH') input.harvest = false;
     });
-
     window.addEventListener('wheel', (e) => {
         if (gameState !== 'playing') return;
         camera.manualZoomOffset -= e.deltaY * 0.002;
         camera.manualZoomOffset = Math.max(-4, Math.min(camera.manualZoomOffset, 6)); 
     });
 
-    function resize() {
-        width = window.innerWidth;
-        height = window.innerHeight;
-        canvas.width = width;
-        canvas.height = height;
-    }
-    window.addEventListener('resize', resize);
-    resize();
+    function resize() { width = window.innerWidth; height = window.innerHeight; canvas.width = width; canvas.height = height; }
+    window.addEventListener('resize', resize); resize();
 
-    // --- Menu & Game Flow Logic ---
-    function renderLeaderboard() {
-        const list = document.getElementById('leaderboard-list');
-        list.innerHTML = '';
-        localLeaderboard.sort((a, b) => a.time - b.time);
-        
-        localLeaderboard.slice(0, 5).forEach((entry, idx) => {
-            const li = document.createElement('li');
-            li.className = 'score-row flex justify-between p-3 rounded text-sm';
-            li.innerHTML = `
-                <span class="font-bold ${idx === 0 ? 'text-yellow-400' : 'text-gray-300'}">${idx + 1}. ${entry.name}</span>
-                <span class="text-blue-300 font-mono">${entry.time.toFixed(2)} YRS</span>
+    // --- SHIPYARD LOGIC ---
+    function initShipyard() {
+        const pal = document.getElementById('palette');
+        if(!pal) return;
+        pal.innerHTML = '';
+        Object.values(MODULES).forEach(mod => {
+            const btn = document.createElement('div');
+            btn.className = `part-btn flex items-center p-2 bg-gray-800 rounded cursor-pointer ${selectedModule===mod.id ? 'selected' : ''}`;
+            
+            // Dynamic scale for arbitrary sprite dimensions
+            const maxDim = Math.max(mod.sw, mod.sh);
+            const scale = 32 / maxDim;
+            
+            btn.innerHTML = `
+                <div class="mr-3" style="width: 32px; height: 32px; overflow: hidden; position: relative; display: flex; justify-content: center; align-items: center; border: 1px solid #4b5563; border-radius: 4px;">
+                    <div style="background-image: url('${USER_ASSETS.shipSpriteSheet}'); background-position: -${mod.sx}px -${mod.sy}px; width: ${mod.sw}px; height: ${mod.sh}px; transform: scale(${scale}); transform-origin: center;"></div>
+                </div>
+                <div><div class="text-sm font-bold">${mod.name}</div><div class="text-[10px] text-gray-400">${mod.desc}</div></div>
             `;
-            list.appendChild(li);
+            btn.onclick = () => { selectedModule = mod.id; initShipyard(); };
+            pal.appendChild(btn);
         });
+
+        let isEmpty = true;
+        for(let r=0; r<7; r++) for(let c=0; c<5; c++) if(builderGrid[r][c]) isEmpty = false;
+        if (isEmpty) { builderGrid[2][2] = 'POD'; builderGrid[3][2] = 'FUEL'; builderGrid[4][2] = 'THRUST'; }
+        renderGrid();
     }
 
-    document.getElementById('start-btn').addEventListener('click', () => {
-        document.getElementById('main-menu').classList.add('hidden');
-        document.getElementById('ui-layer').classList.remove('hidden');
-        document.getElementById('end-screen').classList.add('hidden');
-        resetPhysicsState();
-        gameState = 'playing';
-        lastTime = performance.now();
-        requestAnimationFrame(gameLoop);
-    });
+    function renderGrid() {
+        const board = document.getElementById('builder-grid');
+        if(!board) return;
+        board.innerHTML = '';
+        
+        for(let r=0; r<7; r++) {
+            for(let c=0; c<5; c++) {
+                const cell = document.createElement('div');
+                cell.className = 'grid-cell';
+                const modId = builderGrid[r][c];
+                
+                if (modId) {
+                    const mod = MODULES[modId];
+                    const scale = 40 / Math.max(mod.sw, mod.sh);
+                    
+                    const inner = document.createElement('div');
+                    inner.style.backgroundImage = `url('${USER_ASSETS.shipSpriteSheet}')`;
+                    inner.style.backgroundPosition = `-${mod.sx}px -${mod.sy}px`;
+                    inner.style.width = `${mod.sw}px`;
+                    inner.style.height = `${mod.sh}px`;
+                    inner.style.transform = `scale(${scale})`;
+                    inner.style.transformOrigin = 'center';
+                    
+                    const wrapper = document.createElement('div');
+                    wrapper.style.width = '100%'; wrapper.style.height = '100%';
+                    wrapper.style.display = 'flex'; wrapper.style.justifyContent = 'center'; wrapper.style.alignItems = 'center';
+                    wrapper.appendChild(inner);
+                    cell.appendChild(wrapper);
+                }
+                
+                cell.onmousedown = (e) => {
+                    if (e.button === 2) builderGrid[r][c] = null; 
+                    else builderGrid[r][c] = selectedModule;      
+                    renderGrid();
+                };
+                board.appendChild(cell);
+            }
+        }
+        updateShipyardStats();
+    }
 
-    function resetPhysicsState() {
-        ship = {
-            x: 0, y: -PLANET_RADIUS, vx: 0, vy: 0, angle: -Math.PI / 2,
-            width: 16, height: 32, thrustPower: 180, throttle: 0, rotationSpeed: 3,
-            isThrusting: false, isGrounded: true, landedOn: earth, altitude: 0,
-            fuel: MAX_FUEL, isScooping: false, hasCure: false, harvestProgress: 0,
-            orbitAssistActive: false, heat: 0
-        };
+    function updateShipyardStats() {
+        let m = 0, t = 0, f = 0, a = 40, pods = 0;
+        for(let r=0; r<7; r++) {
+            for(let c=0; c<5; c++) {
+                const id = builderGrid[r][c];
+                if(id) {
+                    const mod = MODULES[id];
+                    m += mod.mass;
+                    if(mod.thrust) t += mod.thrust;
+                    if(mod.fuel) f += mod.fuel;
+                    if(mod.armor) a += mod.armor;
+                    if(id === 'POD') pods++;
+                }
+            }
+        }
+        
+        const elMass = document.getElementById('sy-mass'); if(elMass) elMass.innerText = m + ' kg';
+        const elThrust = document.getElementById('sy-thrust'); if(elThrust) elThrust.innerText = t + ' kN';
+        const elFuel = document.getElementById('sy-fuel'); if(elFuel) elFuel.innerText = f + ' L';
+        const elLand = document.getElementById('sy-landing'); if(elLand) elLand.innerText = a + ' m/s';
+
+        const btn = document.getElementById('btn-launch');
+        const stat = document.getElementById('sy-status');
+        if(stat && btn) {
+            if (pods !== 1) { stat.innerText = "MUST HAVE EXACTLY 1 POD"; stat.className="font-bold text-red-500 text-sm"; btn.disabled = true; }
+            else if (t === 0) { stat.innerText = "NO THRUSTERS EQUIPPED"; stat.className="font-bold text-red-500 text-sm"; btn.disabled = true; }
+            else if (f === 0) { stat.innerText = "NO FUEL TANKS EQUIPPED"; stat.className="font-bold text-red-500 text-sm"; btn.disabled = true; }
+            else { stat.innerText = "ALL SYSTEMS NOMINAL"; stat.className="font-bold text-green-400 text-sm text-glow-green"; btn.disabled = false; }
+        }
+    }
+
+    function launchMission() {
+        compileShip();
         timeState = { shipTime: 0, earthTime: 0, hasLaunched: false };
         runStats = { topSpeed: 0, fuelBurned: 0, fuelScooped: 0, distance: 0, maxHeat: 0 };
         camera = { x: 0, y: 0, zoom: 1.0, mapView: false, manualZoomOffset: 0 };
         input = { left: false, right: false, thrust: false, harvest: false };
-        cachedBaseTraj = null;
-        cachedBurnTraj = null;
+        particles = [];
+        cachedBaseTraj = null; cachedBurnTraj = null;
+        
+        transitionTo('screen-game');
+        gameState = 'playing';
+        lastTime = performance.now();
     }
 
-    function abortToMenu() {
-        gameState = 'menu';
-        document.getElementById('ui-layer').classList.add('hidden');
-        document.getElementById('main-menu').classList.remove('hidden');
-        renderLeaderboard();
+    function compileShip() {
+        ship.blocks = [];
+        let m = 0, t = 0, f = 0, a = 40;
+        ship.hasScoop = false;
+        
+        for(let r=0; r<7; r++) {
+            for(let c=0; c<5; c++) {
+                const id = builderGrid[r][c];
+                if(id) {
+                    const mod = MODULES[id];
+                    m += mod.mass;
+                    if(mod.thrust) t += mod.thrust;
+                    if(mod.fuel) f += mod.fuel;
+                    if(mod.armor) a += mod.armor;
+                    if(id === 'SCOOP') ship.hasScoop = true;
+                    
+                    // Physical scale size based on 4 engine units
+                    ship.blocks.push({ id: id, lx: (c - 2) * 4, ly: (r - 3) * 4, sx: mod.sx, sy: mod.sy, sw: mod.sw, sh: mod.sh });
+                }
+            }
+        }
+        
+        ship.mass = m; ship.thrustPower = t; ship.maxFuel = f; ship.fuel = f; ship.safeLandingSpeed = a;
+        ship.x = 0; ship.y = -(earth.radius + 2); ship.vx = 0; ship.vy = 0; ship.angle = -Math.PI / 2;
+        ship.isGrounded = true; ship.landedOn = earth; ship.heat = 0; ship.throttle = 0;
+        ship.hasCure = false; ship.harvestProgress = 0; ship.isScooping = false;
     }
 
-    // --- Game Loop ---
+    // --- GAME LOOP & PHYSICS ---
+    function togglePause() {
+        if (gameState === 'playing') {
+            gameState = 'paused';
+            document.getElementById('screen-pause').classList.remove('hidden');
+            setTimeout(()=>document.getElementById('screen-pause').classList.remove('fade-out'), 50);
+        } else if (gameState === 'paused') {
+            document.getElementById('screen-pause').classList.add('fade-out');
+            setTimeout(()=>{
+                document.getElementById('screen-pause').classList.add('hidden');
+                gameState = 'playing';
+                lastTime = performance.now();
+            }, 300);
+        }
+    }
+
     let lastTime = 0;
 
     function gameLoop(timestamp) {
-        if (gameState !== 'playing') {
-            if (gameState === 'menu') {
-                camera.x += 1;
-                draw();
-                requestAnimationFrame(gameLoop);
-            }
-            return;
-        }
+        requestAnimationFrame(gameLoop);
+        if (gameState !== 'playing' && gameState !== 'crashed' && gameState !== 'menu') return;
 
         const dt = (timestamp - lastTime) / 1000 || 0;
         lastTime = timestamp;
 
-        if (dt > 0 && dt < 0.1) updatePhysics(dt);
+        if (gameState === 'menu') {
+            camera.x += 1;
+            draw();
+            return;
+        }
+
+        if (dt > 0 && dt < 0.1) {
+            if (gameState === 'playing') updatePhysics(dt);
+            updateParticles(dt);
+            
+            asteroids.forEach(a => {
+                a.angle += a.speed * dt;
+                a.x = a.cx + Math.cos(a.angle) * a.dist;
+                a.y = a.cy + Math.sin(a.angle) * a.dist;
+            });
+        }
         
         updateCamera();
         draw();
-        updateUI();
-
-        requestAnimationFrame(gameLoop);
+        if (gameState === 'playing') updateUI();
     }
 
     function updatePhysics(dt) {
@@ -454,29 +528,22 @@
         if (ship.angle < 0) ship.angle += Math.PI * 2;
 
         ship.isThrusting = input.thrust && ship.fuel > 0;
-
-        if (ship.isThrusting) {
-            ship.throttle = Math.min(1.0, ship.throttle + dt * 2.0);
-        } else {
-            ship.throttle = 0;
-        }
+        if (ship.isThrusting) ship.throttle = Math.min(1.0, ship.throttle + dt * 2.0);
+        else ship.throttle = 0;
 
         let accelX = 0, accelY = 0;
         if (ship.isThrusting) {
-            const effectiveThrust = ship.thrustPower * (0.1 + 0.9 * Math.pow(ship.throttle, 2));
+            const effectiveThrust = (ship.thrustPower / ship.mass) * (0.1 + 0.9 * Math.pow(ship.throttle, 2));
             accelX = Math.cos(ship.angle) * effectiveThrust;
             accelY = Math.sin(ship.angle) * effectiveThrust;
             
             const fuelUsed = FUEL_DRAIN_RATE * dt * ship.throttle;
             ship.fuel -= fuelUsed;
             runStats.fuelBurned += fuelUsed; 
-            
             if (ship.fuel < 0) ship.fuel = 0;
         }
 
         const currentVelocity = Math.hypot(ship.vx, ship.vy);
-        
-        // Track Top Display Speed
         let engineBeta = currentVelocity / C_SPEED;
         engineBeta = Math.min(engineBeta, 0.9999);
         let trueBeta = Math.pow(engineBeta, 3); 
@@ -487,22 +554,20 @@
                 const fuelGained = FUEL_SCOOP_RATE * dt;
                 ship.fuel += fuelGained;
                 runStats.fuelScooped += fuelGained;
-                if (ship.fuel > MAX_FUEL) ship.fuel = MAX_FUEL;
+                if (ship.fuel > ship.maxFuel) ship.fuel = ship.maxFuel;
             }
-            const scoopDrag = 20;
+            const scoopDrag = 30 * (ship.blocks.filter(b=>b.id==='SCOOP').length); 
             if (currentVelocity > 0) {
                 accelX += -(ship.vx / currentVelocity) * scoopDrag;
                 accelY += -(ship.vy / currentVelocity) * scoopDrag;
             }
         }
 
-        let gravX = 0, gravY = 0;
-        let isColliding = false;
+        let gravX = 0, gravY = 0, isColliding = false;
         ship.landedOn = null;
-        let nearestDist = Infinity;
-        let domPlanet = null;
-        let maxG = 0;
+        let nearestDist = Infinity, domPlanet = null, maxG = 0;
 
+        // Apply Planet Gravity & Collision
         planets.forEach(p => {
             const dist = Math.hypot(p.x - ship.x, p.y - ship.y);
             if (dist - p.radius < nearestDist) nearestDist = dist - p.radius;
@@ -511,54 +576,97 @@
                 const gravityMag = GRAVITY_CONSTANT / (dist * dist);
                 gravX += ((p.x - ship.x) / dist) * gravityMag;
                 gravY += ((p.y - ship.y) / dist) * gravityMag;
-                if (gravityMag > maxG) {
-                    maxG = gravityMag;
-                    domPlanet = p;
-                }
+                if (gravityMag > maxG) { maxG = gravityMag; domPlanet = p; }
             }
 
-            // Atmosphere physics (Aerobraking Drag & Plasma Heat)
             if (p.hasAtmosphere && dist < p.radius + p.atmHeight && !ship.isGrounded) {
                 const atmDensityLocal = 1 - ((dist - p.radius) / p.atmHeight);
                 const speedSq = ship.vx * ship.vx + ship.vy * ship.vy;
-                const localVelocity = Math.sqrt(speedSq);
+                const localVel = Math.sqrt(speedSq);
                 
-                if (localVelocity > 0) {
-                    const dragMag = atmDensityLocal * speedSq * 0.00003; 
-                    accelX += -(ship.vx / localVelocity) * dragMag;
-                    accelY += -(ship.vy / localVelocity) * dragMag;
+                if (localVel > 0) {
+                    const dragMag = (atmDensityLocal * speedSq * 0.0005) / ship.mass; 
+                    accelX += -(ship.vx / localVel) * dragMag;
+                    accelY += -(ship.vy / localVel) * dragMag;
                 }
                 
-                // Ramp heat based on velocity inside atmosphere
-                const heatTarget = Math.min(1, (localVelocity * atmDensityLocal) / 600);
+                const heatResist = 1 + (ship.blocks.filter(b=>b.id==='SHIELD').length * 0.5);
+                const heatTarget = Math.min(1, ((localVel * atmDensityLocal) / 400) / heatResist);
                 ship.heat += (heatTarget - ship.heat) * (dt * 5); 
                 runStats.maxHeat = Math.max(runStats.maxHeat, ship.heat);
             }
 
-            if (dist <= p.radius + 1) { 
+            // Ground Floor Logic
+            if (dist <= p.radius + 2) { 
                 isColliding = true;
                 ship.landedOn = p;
                 const impactVelocity = Math.hypot(ship.vx, ship.vy);
                 
-                if (impactVelocity > SAFE_LANDING_SPEED && !ship.isGrounded) {
+                if (impactVelocity > ship.safeLandingSpeed && !ship.isGrounded) {
                     gameState = 'crashed';
-                    let crashEngineBeta = impactVelocity / C_SPEED;
-                    let crashTrueBeta = Math.pow(crashEngineBeta, 3);
-                    let crashVelDisplay = crashTrueBeta * REAL_C;
-                    showEndScreen("HULL COMPROMISED", `You crashed into ${p.name} at ${crashVelDisplay.toLocaleString('en-US', {maximumFractionDigits: 0})} m/s.`);
+                    spawnExplosion(ship.x, ship.y, ship.vx, ship.vy);
+                    let crashVelDisplay = Math.pow(impactVelocity / C_SPEED, 3) * REAL_C;
+                    triggerEndScreen("HULL SHATTERED", `You crashed into ${p.name} at ${crashVelDisplay.toLocaleString('en-US',{maximumFractionDigits:0})} m/s.<br>Your struts were rated for ${ship.safeLandingSpeed} m/s.`, false);
+                } else if (ship.heat >= 0.99) {
+                    gameState = 'crashed';
+                    spawnExplosion(ship.x, ship.y, ship.vx, ship.vy);
+                    triggerEndScreen("INCINERATED", `Your vessel burned up in the atmosphere of ${p.name}. Build more heat shields or enter at a shallower angle.`, false);
                 } else {
                     ship.isGrounded = true;
+                    
+                    const angleToShip = Math.atan2(ship.y - p.y, ship.x - p.x);
+                    ship.x = p.x + Math.cos(angleToShip) * p.radius;
+                    ship.y = p.y + Math.sin(angleToShip) * p.radius;
+
                     if(!ship.isThrusting) {
-                        const angleToShip = Math.atan2(ship.y - p.y, ship.x - p.x);
-                        ship.x = p.x + Math.cos(angleToShip) * p.radius;
-                        ship.y = p.y + Math.sin(angleToShip) * p.radius;
-                        ship.vx = 0;
-                        ship.vy = 0;
-                        ship.angle = angleToShip; 
-                        const gravityMag = GRAVITY_CONSTANT / (dist * dist);
-                        gravX -= ((p.x - ship.x) / dist) * gravityMag;
-                        gravY -= ((p.y - ship.y) / dist) * gravityMag;
+                        ship.vx = 0; ship.vy = 0; ship.angle = angleToShip; 
+                        const gravityMag = GRAVITY_CONSTANT / (p.radius * p.radius);
+                        gravX -= ((p.x - ship.x) / p.radius) * gravityMag;
+                        gravY -= ((p.y - ship.y) / p.radius) * gravityMag;
+                    } else {
+                        const nx = Math.cos(angleToShip); const ny = Math.sin(angleToShip);
+                        const dot = ship.vx * nx + ship.vy * ny;
+                        if (dot < 0) { ship.vx -= dot * nx; ship.vy -= dot * ny; }
                     }
+                    ship.heat = 0;
+                }
+            }
+        });
+
+        const starDist = Math.hypot(targetStar.x - ship.x, targetStar.y - ship.y);
+        if (starDist > 0) {
+            const starGMag = (GRAVITY_CONSTANT * targetStar.massMult) / (starDist * starDist);
+            gravX += ((targetStar.x - ship.x) / starDist) * starGMag;
+            gravY += ((targetStar.y - ship.y) / starDist) * starGMag;
+            
+            if (starDist < targetStar.radius * 2) {
+                const heatResist = 1 + (ship.blocks.filter(b=>b.id==='SHIELD').length * 0.5);
+                const starHeat = Math.min(1, (targetStar.radius * 2 / starDist) / heatResist);
+                ship.heat += (starHeat - ship.heat) * (dt * 2);
+                if (ship.heat >= 0.99 && !ship.isGrounded) {
+                    gameState = 'crashed';
+                    spawnExplosion(ship.x, ship.y, ship.vx, ship.vy);
+                    triggerEndScreen("VAPORIZED", `You flew too close to Tau Ceti and were incinerated by coronal heat.`, false);
+                }
+            }
+        }
+
+        // Asteroid Collisions
+        asteroids.forEach(a => {
+            const dist = Math.hypot(a.x - ship.x, a.y - ship.y);
+            if (dist < a.size + ship.width) {
+                const impactVelocity = Math.hypot(ship.vx, ship.vy);
+                const shieldCount = ship.blocks.filter(b=>b.id==='SHIELD').length;
+                const impactResistance = 100 + (shieldCount * 150); 
+
+                if (impactVelocity > impactResistance) {
+                    gameState = 'crashed';
+                    spawnExplosion(ship.x, ship.y, ship.vx, ship.vy);
+                    triggerEndScreen("CATASTROPHIC IMPACT", `Your ship was destroyed by an asteroid. Blast Shields can help you survive debris impacts.`, false);
+                } else {
+                    const nx = (ship.x - a.x) / dist; const ny = (ship.y - a.y) / dist;
+                    const bounceStr = impactVelocity * 0.8;
+                    ship.vx = nx * bounceStr; ship.vy = ny * bounceStr;
                 }
             }
         });
@@ -566,18 +674,14 @@
         ship.altitude = Math.max(0, nearestDist);
         if (!isColliding) ship.isGrounded = false;
 
-        // Cool ship off rapidly if flying in the vacuum of space
-        if (!planets.some(p => p.hasAtmosphere && Math.hypot(p.x - ship.x, p.y - ship.y) < p.radius + p.atmHeight)) {
-            ship.heat += (0 - ship.heat) * (dt * 2);
+        if (!planets.some(p => p.hasAtmosphere && Math.hypot(p.x - ship.x, p.y - ship.y) < p.radius + p.atmHeight) && starDist > targetStar.radius * 2) {
+            ship.heat += (0 - ship.heat) * (dt * 1.5); 
         }
 
         ship.vx += (accelX + gravX) * dt;
         ship.vy += (accelY + gravY) * dt;
+        runStats.distance += Math.hypot(ship.vx * dt, ship.vy * dt) / 1000; 
 
-        // Track actual distance traveled this frame
-        runStats.distance += Math.hypot(ship.vx * dt, ship.vy * dt);
-
-        // --- ORBIT AUTO-LOCK ASSIST (FLIGHT COMPUTER) ---
         ship.orbitAssistActive = false;
         if (domPlanet && !ship.isGrounded && !ship.isThrusting) {
             const dist = Math.hypot(domPlanet.x - ship.x, domPlanet.y - ship.y);
@@ -594,7 +698,6 @@
                     const dir = Math.sign(vt);
                     const targetVx = tx * dir * v_circ;
                     const targetVy = ty * dir * v_circ;
-                    
                     const assistStrength = Math.min(1.0, 1.5 * dt); 
                     ship.vx += (targetVx - ship.vx) * assistStrength;
                     ship.vy += (targetVy - ship.vy) * assistStrength;
@@ -605,26 +708,23 @@
         ship.x += ship.vx * dt;
         ship.y += ship.vy * dt;
 
-        if (ship.isThrusting && ship.landedOn === earth && !timeState.hasLaunched) {
-            timeState.hasLaunched = true;
-        }
+        if (ship.isThrusting && ship.landedOn === earth && !timeState.hasLaunched) timeState.hasLaunched = true;
 
+        const hp = document.getElementById('harvest-prompt');
         if (ship.isGrounded && ship.landedOn === alienPlanet && !ship.hasCure) {
-            document.getElementById('harvest-prompt').classList.remove('hidden');
+            if(hp) hp.classList.remove('hidden');
             if (input.harvest) {
                 ship.harvestProgress += dt;
                 if (ship.harvestProgress >= HARVEST_TIME_REQUIRED) {
                     ship.hasCure = true;
-                    document.getElementById('harvest-prompt').classList.add('hidden');
+                    if(hp) hp.classList.add('hidden');
                 }
             }
         } else {
-            document.getElementById('harvest-prompt').classList.add('hidden');
+            if(hp) hp.classList.add('hidden');
         }
 
-        // --- RELATIVITY CALCULATIONS ---
         const gamma = 1 / Math.sqrt(1 - trueBeta * trueBeta);
-        
         if (timeState.hasLaunched) {
             const earthDt = dt * EARTH_TIME_RATE; 
             timeState.earthTime += earthDt;
@@ -633,504 +733,406 @@
 
         if (timeState.earthTime >= MAX_EARTH_TIME && gameState === 'playing') {
             gameState = 'lost';
-            showEndScreen("HUMANITY EXPIRED", `50 Earth Years have passed. The planet has succumbed to the threat.`);
+            triggerEndScreen("HUMANITY EXPIRED", `50 Earth Years have passed. The planet has succumbed to the threat.`, false);
         } else if (ship.landedOn === earth && ship.isGrounded && ship.hasCure && gameState === 'playing') {
             gameState = 'won';
-            showEndScreen("MISSION ACCOMPLISHED", `You returned to Earth with the cure! Humanity will survive because of you.`, true);
+            triggerEndScreen("MISSION ACCOMPLISHED", `You returned to Earth with the cure! Humanity will survive because of you.`, true);
         }
     }
 
-    // --- End Screen & Analytics Injection ---
-    function showEndScreen(title, desc, isWin = false) {
-        document.getElementById('harvest-prompt').classList.add('hidden');
-        const titleEl = document.getElementById('end-title');
-        titleEl.innerText = title;
-        titleEl.className = `text-3xl font-bold mb-2 tracking-wider ${isWin ? 'text-green-400' : 'text-red-500'}`;
-        document.getElementById('end-desc').innerHTML = desc;
-        
-        // Inject Post-Mission Stats
-        const dilationDiff = timeState.earthTime - timeState.shipTime;
-        const heatColor = runStats.maxHeat > 0.8 ? 'text-red-500' : (runStats.maxHeat > 0.4 ? 'text-yellow-400' : 'text-green-400');
-        
-        document.getElementById('stats-grid').innerHTML = `
-            <div class="stat-box" style="border-color: #3b82f6;"><span class="stat-label">Top Velocity</span><span class="stat-value text-blue-400">${(runStats.topSpeed).toLocaleString('en-US', {maximumFractionDigits:0})} m/s</span></div>
-            <div class="stat-box" style="border-color: #10b981;"><span class="stat-label">Distance Logged</span><span class="stat-value text-green-400">${Math.floor(runStats.distance).toLocaleString()} km</span></div>
-            <div class="stat-box" style="border-color: #a855f7;"><span class="stat-label">Time Dilation Shift</span><span class="stat-value text-purple-400">+${dilationDiff.toFixed(2)} Yrs</span></div>
-            <div class="stat-box" style="border-color: ${runStats.maxHeat > 0.8 ? '#ef4444' : '#f59e0b'};"><span class="stat-label">Peak Hull Heat</span><span class="stat-value ${heatColor}">${(runStats.maxHeat * 100).toFixed(1)}%</span></div>
-            <div class="stat-box" style="border-color: #f97316;"><span class="stat-label">Fuel Combusted</span><span class="stat-value text-orange-400">${runStats.fuelBurned.toFixed(1)} L</span></div>
-            <div class="stat-box" style="border-color: #22d3ee;"><span class="stat-label">Ramjet Harvest</span><span class="stat-value text-cyan-400">${runStats.fuelScooped.toFixed(1)} L</span></div>
-        `;
-
-        const scoreEntry = document.getElementById('score-entry');
-        const endBtn = document.getElementById('end-btn');
-
-        if (isWin) {
-            scoreEntry.classList.remove('hidden');
-            endBtn.innerText = "SUBMIT SCORE & RETURN";
-            endBtn.onclick = () => {
-                const name = document.getElementById('player-name').value || "ANON";
-                localLeaderboard.push({ name: name.toUpperCase(), time: timeState.earthTime });
-                abortToMenu();
-            };
-        } else {
-            scoreEntry.classList.add('hidden');
-            endBtn.innerText = "RETURN TO MENU";
-            endBtn.onclick = abortToMenu;
+    // --- EXPLOSIONS (Particles) ---
+    function spawnExplosion(x, y, vx, vy) {
+        ship.blocks.forEach(b => {
+            particles.push({
+                x: x, y: y,
+                vx: vx * 0.5 + (Math.random()-0.5)*100, vy: vy * 0.5 + (Math.random()-0.5)*100,
+                life: 3.0 + Math.random()*2, maxLife: 5.0,
+                sx: b.sx, sy: b.sy, sw: b.sw, sh: b.sh, size: 12, type: 'sprite_block'
+            });
+        });
+        for(let i=0; i<60; i++) {
+            particles.push({
+                x: x, y: y,
+                vx: vx * 0.2 + (Math.random()-0.5)*300, vy: vy * 0.2 + (Math.random()-0.5)*300,
+                life: 0.5 + Math.random()*1.5, maxLife: 2.0,
+                color: Math.random()>0.5 ? '#ef4444' : '#facc15', size: Math.random()*15 + 5, type: 'fire'
+            });
         }
-
-        document.getElementById('end-screen').classList.remove('hidden');
     }
 
-    // --- POP: Anti-Lag Optimization Logic with Auto-Lock Predictor ---
-    let cachedBaseTraj = null;
-    let cachedBurnTraj = null;
-    let baseFrameCounter = 0;
-    let burnFrameCounter = 0;
+    function updateParticles(dt) {
+        for (let i = particles.length - 1; i >= 0; i--) {
+            let p = particles[i];
+            p.life -= dt;
+            if (p.life <= 0) { particles.splice(i, 1); continue; }
+            
+            if (p.type === 'sprite_block') {
+                planets.forEach(pl => {
+                    const distSq = (pl.x - p.x)**2 + (pl.y - p.y)**2;
+                    if (distSq > pl.radius**2) {
+                        const dist = Math.sqrt(distSq);
+                        const gMag = GRAVITY_CONSTANT / distSq;
+                        p.vx += ((pl.x - p.x) / dist) * gMag * dt;
+                        p.vy += ((pl.y - p.y) / dist) * gMag * dt;
+                    }
+                });
+            }
+            p.x += p.vx * dt; p.y += p.vy * dt;
+            if (p.type === 'fire') { p.vx *= 0.95; p.vy *= 0.95; p.size *= 0.95; } 
+        }
+    }
 
+    function drawParticles() {
+        particles.forEach(p => {
+            const px = toScreenX(p.x); const py = toScreenY(p.y); const pSize = toScreenSize(p.size);
+            ctx.globalAlpha = Math.max(0, p.life / p.maxLife);
+            
+            if (p.type === 'fire') {
+                ctx.fillStyle = p.color; ctx.beginPath(); ctx.arc(px, py, pSize, 0, Math.PI*2); ctx.fill();
+            } else if (p.type === 'sprite_block') {
+                if (spriteImg.complete && spriteImg.naturalWidth !== 0) {
+                    ctx.drawImage(spriteImg, p.sx, p.sy, p.sw, p.sh, px - pSize/2, py - pSize/2, pSize, pSize);
+                }
+            }
+        });
+        ctx.globalAlpha = 1.0;
+    }
+
+    // --- End Screen & Stats ---
+    function triggerEndScreen(title, desc, isWin) {
+        const hPrompt = document.getElementById('harvest-prompt');
+        if(hPrompt) hPrompt.classList.add('hidden');
+        
+        document.getElementById('screen-game').classList.add('fade-out');
+        document.getElementById('screen-game').classList.add('pointer-through');
+        
+        setTimeout(() => {
+            const dilationDiff = timeState.earthTime - timeState.shipTime;
+            const heatColor = runStats.maxHeat > 0.8 ? 'text-red-500' : (runStats.maxHeat > 0.4 ? 'text-yellow-400' : 'text-green-400');
+            
+            document.getElementById('stats-grid').innerHTML = `
+                <div class="stat-box" style="border-color: #3b82f6;"><span class="stat-label">Top Velocity</span><span class="stat-value text-blue-400">${(runStats.topSpeed).toLocaleString('en-US', {maximumFractionDigits:0})} m/s</span></div>
+                <div class="stat-box" style="border-color: #10b981;"><span class="stat-label">Distance Logged</span><span class="stat-value text-green-400">${Math.floor(runStats.distance).toLocaleString()} km</span></div>
+                <div class="stat-box" style="border-color: #a855f7;"><span class="stat-label">Time Dilation Shift</span><span class="stat-value text-purple-400">+${dilationDiff.toFixed(2)} Yrs</span></div>
+                <div class="stat-box" style="border-color: ${runStats.maxHeat > 0.8 ? '#ef4444' : '#f59e0b'};"><span class="stat-label">Peak Hull Heat</span><span class="stat-value ${heatColor}">${(runStats.maxHeat * 100).toFixed(1)}%</span></div>
+                <div class="stat-box" style="border-color: #f97316;"><span class="stat-label">Fuel Combusted</span><span class="stat-value text-orange-400">${runStats.fuelBurned.toFixed(1)} L</span></div>
+                <div class="stat-box" style="border-color: #22d3ee;"><span class="stat-label">Ramjet Harvest</span><span class="stat-value text-cyan-400">${runStats.fuelScooped.toFixed(1)} L</span></div>
+            `;
+
+            document.getElementById('end-title').innerText = title;
+            document.getElementById('end-title').className = `text-3xl font-bold mb-2 tracking-wider ${isWin ? 'text-green-400' : 'text-red-500'}`;
+            document.getElementById('end-desc').innerHTML = desc;
+            
+            const se = document.getElementById('score-entry'); const eb = document.getElementById('end-btn');
+            if (isWin) {
+                se.classList.remove('hidden'); eb.innerText = "SUBMIT SCORE & RETURN";
+                eb.onclick = () => {
+                    const nm = document.getElementById('player-name').value || "ANON";
+                    localLeaderboard.push({ name: nm.toUpperCase(), time: timeState.earthTime });
+                    abortToMenu();
+                };
+            } else {
+                se.classList.add('hidden'); eb.innerText = "RETURN TO MENU"; eb.onclick = () => abortToMenu();
+            }
+
+            document.getElementById('screen-end').classList.remove('hidden');
+            setTimeout(()=>document.getElementById('screen-end').classList.remove('fade-out'), 50);
+        }, 1500); 
+    }
+
+    // --- POP LOGIC ---
+    let cachedBaseTraj = null, cachedBurnTraj = null, baseFrameCounter = 0, burnFrameCounter = 0;
     function simulateTrajectory(useThrust, maxSteps = 250) {
-        let simX = ship.x, simY = ship.y;
-        let simVx = ship.vx, simVy = ship.vy;
-        let simFuel = ship.fuel;
-        
-        const currentSpeed = Math.hypot(simVx, simVy);
-        const simDt = Math.max(0.8, currentSpeed / 60); 
-        
-        const path = [];
-        let state = 'orbit';
-
-        const maxVisibleDist = (width / camera.zoom) * 1.5; 
-        const maxDistSq = maxVisibleDist * maxVisibleDist;
+        let simX = ship.x, simY = ship.y, simVx = ship.vx, simVy = ship.vy, simFuel = ship.fuel;
+        const simDt = Math.max(0.8, Math.hypot(simVx, simVy) / 60); 
+        const path = []; let state = 'orbit';
+        const maxDistSq = ((width / camera.zoom) * 1.5)**2;
 
         for (let i = 0; i < maxSteps; i++) {
             if (i % 2 === 0) path.push({x: simX, y: simY});
+            let gravX = 0, gravY = 0, isColliding = false, inSoi = false;
             
-            let gravX = 0, gravY = 0;
-            let isColliding = false;
-            let inSoi = false;
-            let domPlanet = null;
-            let maxG = 0;
-
             for (let j = 0; j < planets.length; j++) {
-                const p = planets[j];
-                const dx = p.x - simX;
-                const dy = p.y - simY;
-                const distSq = dx*dx + dy*dy;
-                const rSq = p.radius * p.radius;
-
+                const p = planets[j], dx = p.x - simX, dy = p.y - simY, distSq = dx*dx + dy*dy, rSq = p.radius**2;
                 if (distSq <= rSq) isColliding = true;
                 if (distSq <= rSq * 25) inSoi = true; 
-
                 if (distSq > 0) {
-                    const dist = Math.sqrt(distSq);
-                    const gMag = GRAVITY_CONSTANT / distSq;
-                    gravX += (dx / dist) * gMag;
-                    gravY += (dy / dist) * gMag;
-                    if (gMag > maxG) {
-                        maxG = gMag;
-                        domPlanet = p;
-                    }
+                    const dist = Math.sqrt(distSq), gMag = GRAVITY_CONSTANT / distSq;
+                    gravX += (dx / dist) * gMag; gravY += (dy / dist) * gMag;
                 }
             }
+            
+            const distToBeltCenterSq = (simX - beltCenterX)**2 + (simY - beltCenterY)**2;
+            if (distToBeltCenterSq > 70000**2 && distToBeltCenterSq < 140000**2) state = 'encounter';
 
             if (isColliding) { state = 'collision'; break; }
             if (inSoi && state !== 'collision') state = 'encounter';
 
             let accelX = 0, accelY = 0;
             if (useThrust && simFuel > 0) {
-                accelX = Math.cos(ship.angle) * ship.thrustPower;
-                accelY = Math.sin(ship.angle) * ship.thrustPower;
+                const effThrust = ship.thrustPower / ship.mass;
+                accelX = Math.cos(ship.angle) * effThrust; accelY = Math.sin(ship.angle) * effThrust;
                 simFuel -= FUEL_DRAIN_RATE * simDt;
             }
-
-            simVx += (accelX + gravX) * simDt;
-            simVy += (accelY + gravY) * simDt;
-
-            // Apply simulation of orbit assist
-            if (domPlanet && (!useThrust || simFuel <= 0)) {
-                const dist = Math.hypot(domPlanet.x - simX, domPlanet.y - simY);
-                const soi = domPlanet.radius * 12;
-                if (dist < soi && dist > domPlanet.radius * 1.05) {
-                    const v_circ = Math.sqrt(GRAVITY_CONSTANT / dist);
-                    const nx = (simX - domPlanet.x) / dist;
-                    const ny = (simY - domPlanet.y) / dist;
-                    const tx = -ny, ty = nx;
-                    const vt = simVx * tx + simVy * ty;
-                    
-                    if (Math.abs(vt) > v_circ * 0.15 && Math.hypot(simVx, simVy) < v_circ * 1.5) {
-                        const dir = Math.sign(vt);
-                        const targetVx = tx * dir * v_circ;
-                        const targetVy = ty * dir * v_circ;
-                        const assistStrength = Math.min(1.0, 1.5 * simDt); 
-                        simVx += (targetVx - simVx) * assistStrength;
-                        simVy += (targetVy - simVy) * assistStrength;
-                    }
-                }
-            }
-
-            simX += simVx * simDt;
-            simY += simVy * simDt;
-
-            const distFromShipSq = (simX - ship.x)**2 + (simY - ship.y)**2;
-            if (distFromShipSq > maxDistSq) {
-                path.push({x: simX, y: simY});
-                break; 
-            }
+            simVx += (accelX + gravX) * simDt; simVy += (accelY + gravY) * simDt;
+            simX += simVx * simDt; simY += simVy * simDt;
+            if ((simX - ship.x)**2 + (simY - ship.y)**2 > maxDistSq) { path.push({x: simX, y: simY}); break; }
         }
         return { path, state };
     }
 
+    // --- CAMERA & RENDERING ---
     function updateCamera() {
-        let targetCamX = ship.x;
-        let targetCamY = ship.y;
-        let targetZoom = 1.0;
-
+        let targetCamX = ship.x, targetCamY = ship.y, targetZoom = 1.0;
         const scrollZoomFactor = Math.pow(2, camera.manualZoomOffset);
 
         if (camera.mapView) {
-            const mapCenterX = TARGET_DISTANCE / 2;
-            const mapCenterY = 0;
+            const mapCenterX = TARGET_DISTANCE / 2, mapCenterY = 0;
             const shipWeight = Math.max(0, Math.min(1, (camera.manualZoomOffset + 2) / 4));
-            
             targetCamX = mapCenterX * (1 - shipWeight) + ship.x * shipWeight;
             targetCamY = mapCenterY * (1 - shipWeight) + ship.y * shipWeight;
-
             targetZoom = (width / (TARGET_DISTANCE * 1.2)) * scrollZoomFactor; 
         } else {
             const speed = Math.hypot(ship.vx, ship.vy);
             targetZoom = Math.max(0.05, 1.0 - (speed / 3500)) * scrollZoomFactor;
         }
-
-        camera.x += (targetCamX - camera.x) * 0.1;
-        camera.y += (targetCamY - camera.y) * 0.1;
+        let shakeX = 0, shakeY = 0;
+        if (gameState === 'crashed') { shakeX = (Math.random()-0.5)*20; shakeY = (Math.random()-0.5)*20; }
+        
+        camera.x += (targetCamX - camera.x) * 0.1 + shakeX;
+        camera.y += (targetCamY - camera.y) * 0.1 + shakeY;
         camera.zoom += (targetZoom - camera.zoom) * 0.1;
     }
 
-    function toScreenX(worldX) { return (worldX - camera.x) * camera.zoom + width / 2; }
-    function toScreenY(worldY) { return (worldY - camera.y) * camera.zoom + height / 2; }
-    function toScreenSize(size) { return size * camera.zoom; }
-    function getPOPColor(state) {
-        if (state === 'collision') return '#f87171';
-        if (state === 'encounter') return '#facc15';
-        return '#22d3ee';
-    }
+    function toScreenX(wX) { return (wX - camera.x) * camera.zoom + width / 2; }
+    function toScreenY(wY) { return (wY - camera.y) * camera.zoom + height / 2; }
+    function toScreenSize(s) { return s * camera.zoom; }
+    function getPOPColor(state) { return state === 'collision' ? '#f87171' : (state === 'encounter' ? '#facc15' : '#22d3ee'); }
 
     function draw() {
-        ctx.fillStyle = '#050510';
-        ctx.fillRect(0, 0, width, height);
+        ctx.fillStyle = '#050510'; ctx.fillRect(0, 0, width, height);
 
-        stars.forEach(star => {
-            let sx = (star.x - camera.x * star.depth * 0.02) % width;
-            if (sx < 0) sx += width;
-            let sy = (star.y - camera.y * star.depth * 0.02) % height;
-            if (sy < 0) sy += height;
-
+        bgStars.forEach(star => {
+            let sx = (star.x - camera.x * star.depth * 0.02) % width; if (sx < 0) sx += width;
+            let sy = (star.y - camera.y * star.depth * 0.02) % height; if (sy < 0) sy += height;
             ctx.fillStyle = `rgba(255, 255, 255, ${star.depth})`; 
-            ctx.beginPath();
-            ctx.arc(sx, sy, star.size, 0, Math.PI*2);
-            ctx.fill();
+            ctx.beginPath(); ctx.arc(sx, sy, star.size, 0, Math.PI*2); ctx.fill();
+        });
+
+        // Draw Asteroids with custom sprite sheet
+        ctx.fillStyle = '#6b7280';
+        asteroids.forEach(a => {
+            const aSX = toScreenX(a.x), aSY = toScreenY(a.y), aSR = toScreenSize(a.size);
+            if(aSX > -100 && aSX < width+100 && aSY > -100 && aSY < height+100) {
+                ctx.save();
+                ctx.beginPath(); ctx.moveTo(aSX + aSR, aSY);
+                for(let i=1; i<6; i++) {
+                    let ang = i * Math.PI / 3; let rad = aSR * (0.8 + Math.random()*0.2);
+                    ctx.lineTo(aSX + Math.cos(ang)*rad, aSY + Math.sin(ang)*rad);
+                }
+                ctx.closePath(); ctx.clip();
+                
+                if (astImg.complete && astImg.naturalWidth !== 0) {
+                    ctx.drawImage(astImg, a.sx, a.sy, 100, 100, aSX - aSR, aSY - aSR, aSR*2, aSR*2);
+                } else {
+                    ctx.fill();
+                }
+                ctx.restore();
+            }
         });
 
         planets.forEach(p => {
-            const pScreenX = toScreenX(p.x);
-            const pScreenY = toScreenY(p.y);
-            const pScreenRadius = toScreenSize(p.radius);
-
+            const pSX = toScreenX(p.x), pSY = toScreenY(p.y), pSR = toScreenSize(p.radius);
+            
             if (p.hasAtmosphere) {
-                const atmRad = pScreenRadius + toScreenSize(p.atmHeight);
-                const gradient = ctx.createRadialGradient(pScreenX, pScreenY, pScreenRadius * 0.9, pScreenX, pScreenY, atmRad);
-                let rgb = p.hasOcean ? '59, 130, 246' : (p === ares ? '248, 113, 113' : '168, 85, 247');
-                gradient.addColorStop(0, `rgba(${rgb}, 0.6)`);
-                gradient.addColorStop(1, `rgba(${rgb}, 0)`);
-                ctx.fillStyle = gradient;
-                ctx.beginPath(); ctx.arc(pScreenX, pScreenY, atmRad, 0, Math.PI*2); ctx.fill();
+                const atmRad = pSR + toScreenSize(p.atmHeight);
+                const gradient = ctx.createRadialGradient(pSX, pSY, pSR * 0.9, pSX, pSY, atmRad);
+                let rgb = p.hasOcean ? '59, 130, 246' : (p === ares ? '248, 113, 113' : (p.name === 'JUPITER' ? '217, 119, 6' : '168, 85, 247'));
+                gradient.addColorStop(0, `rgba(${rgb}, 0.6)`); gradient.addColorStop(1, `rgba(${rgb}, 0)`);
+                ctx.fillStyle = gradient; ctx.beginPath(); ctx.arc(pSX, pSY, atmRad, 0, Math.PI*2); ctx.fill();
             }
-
-            const bodyGrad = ctx.createRadialGradient(pScreenX, pScreenY, 0, pScreenX, pScreenY, pScreenRadius);
-            bodyGrad.addColorStop(0, p.color); 
-            let edgeColor = p.hasOcean ? '#2563eb' : (p === ares ? '#ef4444' : (p === luna ? '#d1d5db' : '#9333ea'));
-            bodyGrad.addColorStop(0.8, edgeColor);
-            ctx.fillStyle = bodyGrad;
-            ctx.beginPath(); ctx.arc(pScreenX, pScreenY, pScreenRadius, 0, Math.PI*2); ctx.fill();
-
-            if (p.hasOcean) {
-                ctx.fillStyle = '#10b981'; 
-                ctx.beginPath();
-                ctx.arc(pScreenX - pScreenRadius*0.3, pScreenY - pScreenRadius*0.2, pScreenRadius*0.5, 0, Math.PI*2);
-                ctx.arc(pScreenX + pScreenRadius*0.4, pScreenY + pScreenRadius*0.3, pScreenRadius*0.4, 0, Math.PI*2);
-                ctx.fill();
+            
+            if (p.img && p.img.complete && p.img.naturalWidth !== 0) {
+                ctx.save();
+                ctx.beginPath(); ctx.arc(pSX, pSY, pSR, 0, Math.PI * 2); ctx.clip();
+                ctx.drawImage(p.img, pSX - pSR, pSY - pSR, pSR * 2, pSR * 2);
+                ctx.restore();
+                
+                const innerShadow = ctx.createRadialGradient(pSX - pSR*0.3, pSY - pSR*0.3, pSR*0.1, pSX, pSY, pSR);
+                innerShadow.addColorStop(0, 'rgba(255,255,255,0.2)');
+                innerShadow.addColorStop(0.8, 'rgba(0,0,0,0)');
+                innerShadow.addColorStop(1, 'rgba(0,0,0,0.8)');
+                ctx.fillStyle = innerShadow; ctx.beginPath(); ctx.arc(pSX, pSY, pSR, 0, Math.PI*2); ctx.fill();
+            } else {
+                const bodyGrad = ctx.createRadialGradient(pSX, pSY, 0, pSX, pSY, pSR);
+                bodyGrad.addColorStop(0, p.color); 
+                let edgeColor = p.hasOcean ? '#2563eb' : (p === ares ? '#ef4444' : (p.name === 'JUPITER' ? '#b45309' : (p === luna ? '#d1d5db' : '#9333ea')));
+                bodyGrad.addColorStop(0.8, edgeColor);
+                ctx.fillStyle = bodyGrad; ctx.beginPath(); ctx.arc(pSX, pSY, pSR, 0, Math.PI*2); ctx.fill();
             }
         });
 
-        const tScreenX = toScreenX(targetStar.x);
-        const tScreenY = toScreenY(targetStar.y);
-        const tScreenRadius = toScreenSize(targetStar.radius);
-        
-        const starGlow = ctx.createRadialGradient(tScreenX, tScreenY, tScreenRadius * 0.5, tScreenX, tScreenY, tScreenRadius * 3);
-        starGlow.addColorStop(0, 'rgba(239, 68, 68, 0.8)');
-        starGlow.addColorStop(1, 'rgba(239, 68, 68, 0)');
-        ctx.fillStyle = starGlow;
-        ctx.beginPath(); ctx.arc(tScreenX, tScreenY, tScreenRadius * 3, 0, Math.PI*2); ctx.fill();
+        const tSX = toScreenX(targetStar.x), tSY = toScreenY(targetStar.y), tSR = toScreenSize(targetStar.radius);
+        const starGlow = ctx.createRadialGradient(tSX, tSY, tSR * 0.5, tSX, tSY, tSR * 3);
+        starGlow.addColorStop(0, 'rgba(239, 68, 68, 0.8)'); starGlow.addColorStop(1, 'rgba(239, 68, 68, 0)');
+        ctx.fillStyle = starGlow; ctx.beginPath(); ctx.arc(tSX, tSY, tSR * 3, 0, Math.PI*2); ctx.fill();
+        ctx.fillStyle = targetStar.color; ctx.beginPath(); ctx.arc(tSX, tSY, tSR, 0, Math.PI*2); ctx.fill();
 
-        ctx.fillStyle = targetStar.color;
-        ctx.beginPath(); ctx.arc(tScreenX, tScreenY, tScreenRadius, 0, Math.PI*2); ctx.fill();
-
-        if (gameState !== 'menu' && !ship.isGrounded && !camera.mapView) {
+        if (gameState === 'playing' && !ship.isGrounded && !camera.mapView) {
             baseFrameCounter++;
-            if (!cachedBaseTraj || baseFrameCounter > 5 || input.thrust) {
-                cachedBaseTraj = simulateTrajectory(false);
-                baseFrameCounter = 0;
-            }
-
-            ctx.strokeStyle = getPOPColor(cachedBaseTraj.state);
-            ctx.lineWidth = 2;
-            ctx.globalAlpha = ship.isThrusting ? 0.3 : 0.8; 
-            if (cachedBaseTraj.path.length > 1) {
-                ctx.beginPath();
-                ctx.moveTo(toScreenX(cachedBaseTraj.path[0].x), toScreenY(cachedBaseTraj.path[0].y));
-                for(let i = 1; i < cachedBaseTraj.path.length - 1; i++) {
-                    let xc = (cachedBaseTraj.path[i].x + cachedBaseTraj.path[i+1].x) / 2;
-                    let yc = (cachedBaseTraj.path[i].y + cachedBaseTraj.path[i+1].y) / 2;
-                    ctx.quadraticCurveTo(toScreenX(cachedBaseTraj.path[i].x), toScreenY(cachedBaseTraj.path[i].y), toScreenX(xc), toScreenY(yc));
-                }
-                ctx.lineTo(toScreenX(cachedBaseTraj.path[cachedBaseTraj.path.length-1].x), toScreenY(cachedBaseTraj.path[cachedBaseTraj.path.length-1].y));
-                ctx.stroke();
-            }
-            ctx.globalAlpha = 1.0;
+            if (!cachedBaseTraj || baseFrameCounter > 5 || input.thrust) { cachedBaseTraj = simulateTrajectory(false); baseFrameCounter = 0; }
+            drawTrajectory(cachedBaseTraj, false);
 
             if (ship.isThrusting) {
                 burnFrameCounter++;
-                if (!cachedBurnTraj || burnFrameCounter > 3) {
-                    cachedBurnTraj = simulateTrajectory(true);
-                    burnFrameCounter = 0;
-                }
-                
-                ctx.strokeStyle = getPOPColor(cachedBurnTraj.state);
-                ctx.lineWidth = 2;
-                ctx.setLineDash([10, 10]);
-                ctx.lineDashOffset = -performance.now() / 20; 
-                if (cachedBurnTraj.path.length > 1) {
-                    ctx.beginPath();
-                    ctx.moveTo(toScreenX(cachedBurnTraj.path[0].x), toScreenY(cachedBurnTraj.path[0].y));
-                    for(let i = 1; i < cachedBurnTraj.path.length - 1; i++) {
-                        let xc = (cachedBurnTraj.path[i].x + cachedBurnTraj.path[i+1].x) / 2;
-                        let yc = (cachedBurnTraj.path[i].y + cachedBurnTraj.path[i+1].y) / 2;
-                        ctx.quadraticCurveTo(toScreenX(cachedBurnTraj.path[i].x), toScreenY(cachedBurnTraj.path[i].y), toScreenX(xc), toScreenY(yc));
-                    }
-                    ctx.lineTo(toScreenX(cachedBurnTraj.path[cachedBurnTraj.path.length-1].x), toScreenY(cachedBurnTraj.path[cachedBurnTraj.path.length-1].y));
-                    ctx.stroke();
-                }
-                ctx.setLineDash([]);
+                if (!cachedBurnTraj || burnFrameCounter > 3) { cachedBurnTraj = simulateTrajectory(true); burnFrameCounter = 0; }
+                drawTrajectory(cachedBurnTraj, true);
             }
         }
 
-        if (gameState !== 'menu') drawShip();
+        if (gameState === 'playing' || gameState === 'paused') drawShipModular();
+        drawParticles();
 
         if (camera.mapView && gameState !== 'menu') {
             planets.forEach(p => {
-                ctx.fillStyle = p.hasOcean ? '#3b82f6' : (p === ares ? '#ef4444' : '#a855f7');
-                if (p === luna) ctx.fillStyle = '#d1d5db';
+                ctx.fillStyle = p.hasOcean ? '#3b82f6' : (p === ares ? '#ef4444' : (p.name === 'JUPITER' ? '#d97706' : (p === luna ? '#d1d5db' : '#a855f7')));
                 ctx.beginPath(); ctx.arc(toScreenX(p.x), toScreenY(p.y), 6, 0, Math.PI*2); ctx.fill();
                 ctx.fillStyle = 'rgba(255, 255, 255, 0.9)'; ctx.font = '12px "Space Mono"'; ctx.textAlign = 'center';
                 ctx.fillText(p.name, toScreenX(p.x), toScreenY(p.y) - 15);
             });
-
-            ctx.fillStyle = '#ef4444'; 
-            ctx.beginPath(); ctx.arc(tScreenX, tScreenY, 8, 0, Math.PI*2); ctx.fill();
-            ctx.font = 'bold 12px "Space Mono"';
-            ctx.fillText("TAU CETI", tScreenX, tScreenY - 15);
-
-            const sScreenX = toScreenX(ship.x);
-            const sScreenY = toScreenY(ship.y);
-            ctx.save();
-            ctx.translate(sScreenX, sScreenY);
-            ctx.rotate(ship.angle + Math.PI/2);
-            ctx.fillStyle = '#22d3ee'; ctx.shadowBlur = 10; ctx.shadowColor = '#22d3ee';
-            ctx.beginPath(); ctx.moveTo(0, -8); ctx.lineTo(6, 6); ctx.lineTo(-6, 6); ctx.closePath(); ctx.fill();
-            ctx.restore();
-            ctx.font = '12px "Space Mono"';
-            ctx.fillText("SHIP", sScreenX, sScreenY - 15);
+            ctx.fillStyle = '#ef4444'; ctx.beginPath(); ctx.arc(tSX, tSY, 8, 0, Math.PI*2); ctx.fill();
+            ctx.font = 'bold 12px "Space Mono"'; ctx.fillText("TAU CETI", tSX, tSY - 15);
+            
+            if (gameState !== 'crashed') {
+                const sSX = toScreenX(ship.x), sSY = toScreenY(ship.y);
+                ctx.save(); ctx.translate(sSX, sSY); ctx.rotate(ship.angle + Math.PI/2);
+                ctx.fillStyle = '#22d3ee'; ctx.shadowBlur = 10; ctx.shadowColor = '#22d3ee';
+                ctx.beginPath(); ctx.moveTo(0, -8); ctx.lineTo(6, 6); ctx.lineTo(-6, 6); ctx.closePath(); ctx.fill();
+                ctx.restore(); ctx.font = '12px "Space Mono"'; ctx.fillText("SHIP", sSX, sSY - 15);
+            }
         }
     }
 
-    function drawShip() {
-        if (camera.mapView) return; 
+    function drawTrajectory(traj, isDashed) {
+        if (traj.path.length < 2) return;
+        ctx.strokeStyle = getPOPColor(traj.state);
+        ctx.lineWidth = 2;
+        ctx.globalAlpha = ship.isThrusting && !isDashed ? 0.3 : 0.8; 
+        if(isDashed) { ctx.setLineDash([10, 10]); ctx.lineDashOffset = -performance.now() / 20; }
+        
+        ctx.beginPath(); ctx.moveTo(toScreenX(traj.path[0].x), toScreenY(traj.path[0].y));
+        for(let i = 1; i < traj.path.length - 1; i++) {
+            let xc = (traj.path[i].x + traj.path[i+1].x) / 2, yc = (traj.path[i].y + traj.path[i+1].y) / 2;
+            ctx.quadraticCurveTo(toScreenX(traj.path[i].x), toScreenY(traj.path[i].y), toScreenX(xc), toScreenY(yc));
+        }
+        ctx.lineTo(toScreenX(traj.path[traj.path.length-1].x), toScreenY(traj.path[traj.path.length-1].y));
+        ctx.stroke(); ctx.globalAlpha = 1.0; ctx.setLineDash([]);
+    }
 
-        const sScreenX = toScreenX(ship.x);
-        const sScreenY = toScreenY(ship.y);
-        const sWidth = toScreenSize(ship.width);
-        const sHeight = toScreenSize(ship.height);
+    function drawShipModular() {
+        if (camera.mapView || !ship.blocks) return; 
 
-        ctx.save();
-        ctx.translate(sScreenX, sScreenY);
-        ctx.rotate(ship.angle + Math.PI/2); 
+        const sSX = toScreenX(ship.x), sSY = toScreenY(ship.y);
+        ctx.save(); ctx.translate(sSX, sSY); ctx.rotate(ship.angle + Math.PI/2); 
 
-        // Atmospheric Re-entry Plasma Visuals
+        const bSizeLocal = 4; 
+        const bSizeScreen = toScreenSize(bSizeLocal);
+
         if (ship.heat > 0.05) {
             ctx.save();
-            const velAngle = Math.atan2(ship.vy, ship.vx);
             ctx.rotate(-ship.angle - Math.PI/2); 
-            ctx.rotate(velAngle + Math.PI/2); 
-            
+            ctx.rotate(Math.atan2(ship.vy, ship.vx) + Math.PI/2); 
             ctx.globalAlpha = Math.min(1, ship.heat);
-            const heatLength = sHeight * (1 + ship.heat * 2.0);
-            const heatWidth = sWidth * (1 + ship.heat * 1.5);
-            
-            ctx.fillStyle = '#f97316';
-            ctx.shadowBlur = toScreenSize(15);
-            ctx.shadowColor = '#ef4444';
-            
-            ctx.beginPath();
-            ctx.moveTo(0, -heatLength * 0.7); 
-            ctx.quadraticCurveTo(heatWidth, 0, 0, heatLength * 0.8); 
-            ctx.quadraticCurveTo(-heatWidth, 0, 0, -heatLength * 0.7); 
-            ctx.fill();
-            
-            ctx.fillStyle = '#fef08a';
-            ctx.shadowBlur = toScreenSize(5);
-            ctx.beginPath();
-            ctx.moveTo(0, -heatLength * 0.5); 
-            ctx.quadraticCurveTo(heatWidth * 0.6, 0, 0, heatLength * 0.6); 
-            ctx.quadraticCurveTo(-heatWidth * 0.6, 0, 0, -heatLength * 0.5); 
-            ctx.fill();
-
+            const hw = bSizeScreen * 4 * (1 + ship.heat); const hl = bSizeScreen * 6 * (1 + ship.heat);
+            ctx.fillStyle = '#f97316'; ctx.shadowBlur = toScreenSize(15); ctx.shadowColor = '#ef4444';
+            ctx.beginPath(); ctx.moveTo(0, -hl); ctx.quadraticCurveTo(hw, 0, 0, hl); ctx.quadraticCurveTo(-hw, 0, 0, -hl); ctx.fill();
             ctx.restore();
         }
 
-        if (ship.isScooping) {
-            ctx.fillStyle = 'rgba(56, 189, 248, 0.3)';
-            ctx.beginPath();
-            ctx.moveTo(0, -sHeight); 
-            ctx.lineTo(sWidth * 1.5, -sHeight * 2); 
-            ctx.lineTo(-sWidth * 1.5, -sHeight * 2);
-            ctx.closePath();
-            ctx.fill();
+        ship.blocks.forEach(b => {
+            const bx = toScreenSize(b.lx); const by = toScreenSize(b.ly);
+            ctx.save(); ctx.translate(bx, by);
             
-            ctx.fillStyle = '#fff';
-            for (let i = 0; i < 3; i++) {
-                ctx.beginPath();
-                ctx.arc((Math.random() - 0.5) * sWidth * 2, -sHeight - Math.random() * sHeight, toScreenSize(0.5), 0, Math.PI*2);
-                ctx.fill();
+            if (b.id === 'THRUST' && ship.isThrusting) {
+                const fl = (bSizeScreen * 2 + Math.random() * bSizeScreen * 2) * ship.throttle;
+                ctx.fillStyle = '#f97316'; ctx.beginPath(); ctx.moveTo(-bSizeScreen/2.5, bSizeScreen/2); ctx.lineTo(bSizeScreen/2.5, bSizeScreen/2); ctx.lineTo(0, bSizeScreen/2 + fl); ctx.fill();
             }
-        }
-
-        if (ship.isThrusting) {
-            ctx.fillStyle = '#f97316'; 
-            ctx.beginPath();
-            const flameLength = (sHeight + Math.random() * sHeight) * ship.throttle; 
-            ctx.moveTo(-sWidth*0.4, sHeight/2);
-            ctx.lineTo(sWidth*0.4, sHeight/2);
-            ctx.lineTo(0, sHeight/2 + flameLength);
-            ctx.closePath();
-            ctx.fill();
             
-            ctx.fillStyle = '#fef08a';
-            ctx.beginPath();
-            ctx.moveTo(-sWidth*0.2, sHeight/2);
-            ctx.lineTo(sWidth*0.2, sHeight/2);
-            ctx.lineTo(0, sHeight/2 + flameLength*0.6);
-            ctx.closePath();
-            ctx.fill();
-        }
+            if (b.id === 'SCOOP' && ship.isScooping) {
+                ctx.fillStyle = 'rgba(56, 189, 248, 0.3)'; ctx.beginPath(); ctx.moveTo(0, -bSizeScreen/2); ctx.lineTo(bSizeScreen*2, -bSizeScreen*3); ctx.lineTo(-bSizeScreen*2, -bSizeScreen*3); ctx.fill();
+            }
 
-        if (ship.altitude < 4000) {
-            const deployRatio = Math.max(0, Math.min(1, (4000 - ship.altitude) / 1000));
-            const legExt = sWidth * 0.9 * deployRatio;
-            const legDrop = sHeight * 0.4 * deployRatio;
-            
-            ctx.strokeStyle = '#9ca3af';
-            ctx.lineWidth = toScreenSize(2);
-            
-            ctx.beginPath();
-            ctx.moveTo(-sWidth/2, sHeight/2 - toScreenSize(2));
-            ctx.lineTo(-sWidth/2 - legExt, sHeight/2 + legDrop);
-            ctx.lineTo(-sWidth/2 - legExt - toScreenSize(3), sHeight/2 + legDrop);
-            ctx.stroke();
-
-            ctx.beginPath();
-            ctx.moveTo(sWidth/2, sHeight/2 - toScreenSize(2));
-            ctx.lineTo(sWidth/2 + legExt, sHeight/2 + legDrop);
-            ctx.lineTo(sWidth/2 + legExt + toScreenSize(3), sHeight/2 + legDrop); 
-            ctx.stroke();
-        }
-
-        ctx.fillStyle = '#e2e8f0';
-        ctx.beginPath();
-        ctx.moveTo(0, -sHeight/2);
-        ctx.lineTo(sWidth/2, sHeight/2); 
-        ctx.lineTo(-sWidth/2, sHeight/2); 
-        ctx.closePath();
-        ctx.fill();
-        
-        ctx.fillStyle = '#94a3b8';
-        ctx.fillRect(-sWidth/4, 0, sWidth/2, sHeight/2);
-
-        ctx.fillStyle = '#38bdf8';
-        ctx.beginPath();
-        ctx.arc(0, 0, sWidth*0.25, 0, Math.PI*2);
-        ctx.fill();
-
+            if (spriteImg.complete && spriteImg.naturalWidth !== 0) {
+                ctx.drawImage(
+                    spriteImg, 
+                    b.sx, b.sy, b.sw, b.sh,               
+                    -bSizeScreen/2, -bSizeScreen/2,                                       
+                    bSizeScreen, bSizeScreen                                              
+                );
+            }
+            ctx.restore();
+        });
         ctx.restore();
     }
 
     function updateUI() {
-        const velocity = Math.hypot(ship.vx, ship.vy);
-        
-        let engineBeta = velocity / C_SPEED;
-        engineBeta = Math.min(engineBeta, 0.9999);
-        let trueBeta = Math.pow(engineBeta, 3); 
-        
+        const vel = Math.hypot(ship.vx, ship.vy);
+        const trueBeta = Math.pow(Math.min(vel / C_SPEED, 0.9999), 3); 
         const gamma = 1 / Math.sqrt(1 - trueBeta * trueBeta);
         const displayVelocity = trueBeta * REAL_C;
 
-        uiAltitude.innerText = Math.max(0, ship.altitude).toFixed(0);
-        uiVelocity.innerText = displayVelocity.toLocaleString('en-US', {maximumFractionDigits: 0});
-        uiVelocityC.innerText = trueBeta.toFixed(4);
+        const elAlt = document.getElementById('altitude');
+        if(elAlt) elAlt.innerText = Math.max(0, ship.altitude).toFixed(0);
+
+        const elVel = document.getElementById('velocity');
+        if(elVel) elVel.innerText = displayVelocity.toLocaleString('en-US', {maximumFractionDigits: 0});
+
+        const elVelC = document.getElementById('velocity-c');
+        if(elVelC) elVelC.innerText = trueBeta.toFixed(4);
         
-        const fuelPercent = (ship.fuel / MAX_FUEL) * 100;
-        uiFuelBar.style.width = fuelPercent + '%';
-        if (fuelPercent < 20) uiFuelBar.classList.replace('bg-orange-500', 'bg-red-600');
-        else uiFuelBar.classList.replace('bg-red-600', 'bg-orange-500');
-
-        if (ship.orbitAssistActive) {
-            uiOrbitAssist.innerText = "LOCKED";
-            uiOrbitAssist.className = "text-sm sm:text-lg font-bold text-cyan-400 text-glow";
-        } else {
-            uiOrbitAssist.innerText = "STANDBY";
-            uiOrbitAssist.className = "text-sm sm:text-lg font-bold text-gray-500";
+        const fPct = (ship.fuel / ship.maxFuel) * 100;
+        const fb = document.getElementById('fuel-bar');
+        if(fb) {
+            fb.style.width = fPct + '%';
+            fb.className = `h-full ${fPct < 20 ? 'bg-red-600' : 'bg-orange-500'} transition-all`;
         }
 
-        if (ship.isScooping) {
-            if (velocity <= MAX_SCOOP_SPEED) {
-                uiScoopStatus.innerText = "GATHERING";
-                uiScoopStatus.className = "text-sm sm:text-md font-bold text-green-400 text-glow-green";
+        const oa = document.getElementById('orbit-assist');
+        if(oa) {
+            if (ship.orbitAssistActive) { oa.innerText = "LOCKED"; oa.className = "text-sm font-bold text-cyan-400 text-glow"; } 
+            else { oa.innerText = "STANDBY"; oa.className = "text-sm font-bold text-gray-500"; }
+        }
+
+        const ss = document.getElementById('scoop-status');
+        if(ss) {
+            if (ship.isScooping) { ss.innerText = vel<=MAX_SCOOP_SPEED ? "GATHERING" : "TOO FAST!"; ss.className = `text-sm font-bold ${vel<=MAX_SCOOP_SPEED ? 'text-green-400 text-glow-green' : 'text-red-500'}`; } 
+            else { ss.innerText = "INACTIVE"; ss.className = "text-sm font-bold text-gray-500"; }
+        }
+
+        const cs = document.getElementById('cargo-status');
+        if(cs) {
+            if (ship.hasCure) { cs.innerText = "SECURED"; cs.className = "text-sm font-bold text-green-400 text-glow-green"; } 
+            else { cs.innerText = "EMPTY"; cs.className = "text-sm font-bold text-red-500"; }
+        }
+
+        const hb = document.getElementById('harvest-bar');
+        if(hb) {
+            if (ship.isGrounded && ship.landedOn === alienPlanet && !ship.hasCure) {
+                hb.style.width = (ship.harvestProgress / HARVEST_TIME_REQUIRED) * 100 + '%';
             } else {
-                uiScoopStatus.innerText = "TOO FAST!";
-                uiScoopStatus.className = "text-sm sm:text-md font-bold text-red-500";
+                hb.style.width = '0%';
             }
-        } else {
-            uiScoopStatus.innerText = "INACTIVE";
-            uiScoopStatus.className = "text-sm sm:text-md font-bold text-gray-500";
         }
 
-        if (ship.hasCure) {
-            uiCargoStatus.innerText = "SECURED (RETURN HOME)";
-            uiCargoStatus.className = "text-sm sm:text-md font-bold text-green-400 text-glow-green";
-        } else {
-            uiCargoStatus.innerText = "EMPTY";
-            uiCargoStatus.className = "text-sm sm:text-md font-bold text-red-500";
-        }
-
-        if (ship.isGrounded && ship.landedOn === alienPlanet && !ship.hasCure) {
-            document.getElementById('harvest-bar').style.width = (ship.harvestProgress / HARVEST_TIME_REQUIRED) * 100 + '%';
-        }
-
-        uiLorentz.innerText = gamma.toFixed(3);
-        uiShipTime.innerText = timeState.shipTime.toFixed(2);
-        uiEarthTime.innerText = timeState.earthTime.toFixed(2);
+        const elLor = document.getElementById('lorentz');
+        if(elLor) elLor.innerText = gamma.toFixed(3);
+        const elST = document.getElementById('ship-time');
+        if(elST) elST.innerText = timeState.shipTime.toFixed(2);
+        const elET = document.getElementById('earth-time');
+        if(elET) elET.innerText = timeState.earthTime.toFixed(2);
     }
 
-    // Init Leaderboard & Loop
-    renderLeaderboard();
+    renderLeaderboard(); 
     requestAnimationFrame(gameLoop);
 
 </script>
