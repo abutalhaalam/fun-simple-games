@@ -86,8 +86,6 @@
             border-left: 3px solid #c084fc;
             transform: translateX(4px);
         }
-        /* --------------------------------- */
-
     </style>
 </head>
 <body>
@@ -135,6 +133,11 @@
                         <span id="velocity">0</span> <span class="text-xs text-gray-400 font-normal">m/s</span>
                         <span class="block text-[10px] text-blue-300 leading-none mt-1"><span id="velocity-c">0.000</span>c</span>
                     </span>
+                </div>
+
+                <div class="flex justify-between items-end mb-1">
+                    <span class="text-xs sm:text-sm">Orbit Assist:</span>
+                    <span class="text-sm sm:text-lg font-bold text-gray-500" id="orbit-assist">STANDBY</span>
                 </div>
 
                 <div class="flex justify-between items-end mb-1">
@@ -224,11 +227,14 @@
     const uiVelocity = document.getElementById('velocity');
     const uiVelocityC = document.getElementById('velocity-c');
     const uiFuelBar = document.getElementById('fuel-bar');
+    const uiScoopStatus = document.getElementById('scoop-status');
+    const uiCargoStatus = document.getElementById('cargo-status');
     const uiLorentz = document.getElementById('lorentz');
     const uiShipTime = document.getElementById('ship-time');
     const uiEarthTime = document.getElementById('earth-time');
+    const uiOrbitAssist = document.getElementById('orbit-assist');
 
-    // --- Leaderboard State (In-Memory) ---
+    // --- Leaderboard State ---
     let localLeaderboard = [
         { name: 'RYLAND', time: 42.15 },
         { name: 'GRACE', time: 44.30 },
@@ -236,16 +242,13 @@
     ];
 
     // --- Game Constants & State ---
-    // MASSIVE GRAVITY REWORK: Gravity is now an extreme force. 
-    // Thrust is lowered to compensate, making orbits and slingshots a primary mechanic.
     const GRAVITY_CONSTANT = 200000000; 
-    const PLANET_RADIUS = 2400; // Planets are 3x larger!
-    const C_SPEED = 8000; // Scaled up slightly for the larger universe gap
+    const PLANET_RADIUS = 2400; 
+    const C_SPEED = 8000; 
     const REAL_C = 299792458; 
     const TARGET_DISTANCE = 800000; 
     const MAX_EARTH_TIME = 50; 
     
-    // Landing speed tolerance bumped slightly for the immense gravity drop
     const SAFE_LANDING_SPEED = 80; 
     const EARTH_TIME_RATE = 0.03; 
 
@@ -256,31 +259,29 @@
     const MAX_SCOOP_SPEED = C_SPEED * 0.5; 
     const HARVEST_TIME_REQUIRED = 5; 
     
-    // --- Celestial Bodies (Massively Scaled) ---
-    let earth = { name: "EARTH", x: 0, y: 0, radius: PLANET_RADIUS, color: '#1e3a8a', hasOcean: true };
-    let luna = { name: "LUNA", x: 18000, y: 0, radius: 600, color: '#9ca3af', hasOcean: false };
-    let ares = { name: "ARES", x: 60000, y: 40000, radius: 1500, color: '#b91c1c', hasOcean: false };
-    let alienPlanet = { name: "PROXIMA PRIME", x: TARGET_DISTANCE - 60000, y: 0, radius: 1800, color: '#7e22ce', hasOcean: false };
+    // --- Celestial Bodies ---
+    let earth = { name: "EARTH", x: 0, y: 0, radius: PLANET_RADIUS, color: '#1e3a8a', hasOcean: true, hasAtmosphere: true, atmHeight: 1200 };
+    let luna = { name: "LUNA", x: 18000, y: 0, radius: 600, color: '#9ca3af', hasOcean: false, hasAtmosphere: false, atmHeight: 0 };
+    let ares = { name: "ARES", x: 60000, y: 40000, radius: 1500, color: '#b91c1c', hasOcean: false, hasAtmosphere: true, atmHeight: 800 };
+    let alienPlanet = { name: "PROXIMA PRIME", x: TARGET_DISTANCE - 60000, y: 0, radius: 1800, color: '#7e22ce', hasOcean: false, hasAtmosphere: true, atmHeight: 1500 };
     
     const planets = [earth, luna, ares, alienPlanet];
     let targetStar = { x: TARGET_DISTANCE, y: 0, radius: 15000, color: '#ef4444' };
 
     let timeState = { shipTime: 0, earthTime: 0, hasLaunched: false };
-    let gameState = 'menu'; // 'menu', 'playing', 'won', 'lost', 'crashed'
+    let gameState = 'menu'; 
 
     let ship = {
         x: 0, y: -PLANET_RADIUS, vx: 0, vy: 0, angle: -Math.PI / 2,
-        width: 16, height: 32, // Ship size slightly increased to match scale
-        thrustPower: 180, // DRASTICALLY REDUCED. You must fight gravity now.
-        throttle: 0, rotationSpeed: 3,
+        width: 16, height: 32, thrustPower: 180, throttle: 0, rotationSpeed: 3,
         isThrusting: false, isGrounded: true, landedOn: earth, altitude: 0,
-        fuel: MAX_FUEL, isScooping: false, hasCure: false, harvestProgress: 0
+        fuel: MAX_FUEL, isScooping: false, hasCure: false, harvestProgress: 0,
+        orbitAssistActive: false, heat: 0
     };
 
     let camera = { x: 0, y: 0, zoom: 1.0, mapView: false, manualZoomOffset: 0 };
     let input = { left: false, right: false, thrust: false, harvest: false };
 
-    // Infinite Parallax Stars
     const stars = [];
     for(let i=0; i<400; i++) {
         stars.push({
@@ -309,7 +310,7 @@
     window.addEventListener('wheel', (e) => {
         if (gameState !== 'playing') return;
         camera.manualZoomOffset -= e.deltaY * 0.002;
-        camera.manualZoomOffset = Math.max(-3, Math.min(camera.manualZoomOffset, 4)); // Expanded zoom bounds for bigger planets
+        camera.manualZoomOffset = Math.max(-4, Math.min(camera.manualZoomOffset, 6)); // Massively expanded zoom bounds
     });
 
     function resize() {
@@ -325,7 +326,6 @@
     function renderLeaderboard() {
         const list = document.getElementById('leaderboard-list');
         list.innerHTML = '';
-        
         localLeaderboard.sort((a, b) => a.time - b.time);
         
         localLeaderboard.slice(0, 5).forEach((entry, idx) => {
@@ -354,7 +354,8 @@
             x: 0, y: -PLANET_RADIUS, vx: 0, vy: 0, angle: -Math.PI / 2,
             width: 16, height: 32, thrustPower: 180, throttle: 0, rotationSpeed: 3,
             isThrusting: false, isGrounded: true, landedOn: earth, altitude: 0,
-            fuel: MAX_FUEL, isScooping: false, hasCure: false, harvestProgress: 0
+            fuel: MAX_FUEL, isScooping: false, hasCure: false, harvestProgress: 0,
+            orbitAssistActive: false, heat: 0
         };
         timeState = { shipTime: 0, earthTime: 0, hasLaunched: false };
         camera = { x: 0, y: 0, zoom: 1.0, mapView: false, manualZoomOffset: 0 };
@@ -436,6 +437,8 @@
         let isColliding = false;
         ship.landedOn = null;
         let nearestDist = Infinity;
+        let domPlanet = null;
+        let maxG = 0;
 
         planets.forEach(p => {
             const dist = Math.hypot(p.x - ship.x, p.y - ship.y);
@@ -445,6 +448,27 @@
                 const gravityMag = GRAVITY_CONSTANT / (dist * dist);
                 gravX += ((p.x - ship.x) / dist) * gravityMag;
                 gravY += ((p.y - ship.y) / dist) * gravityMag;
+                if (gravityMag > maxG) {
+                    maxG = gravityMag;
+                    domPlanet = p;
+                }
+            }
+
+            // Atmosphere physics (Aerobraking Drag & Plasma Heat)
+            if (p.hasAtmosphere && dist < p.radius + p.atmHeight && !ship.isGrounded) {
+                const atmDensityLocal = 1 - ((dist - p.radius) / p.atmHeight);
+                const speedSq = ship.vx * ship.vx + ship.vy * ship.vy;
+                const currentVelocity = Math.sqrt(speedSq);
+                
+                if (currentVelocity > 0) {
+                    const dragMag = atmDensityLocal * speedSq * 0.00003; 
+                    accelX += -(ship.vx / currentVelocity) * dragMag;
+                    accelY += -(ship.vy / currentVelocity) * dragMag;
+                }
+                
+                // Ramp heat based on velocity inside atmosphere
+                const heatTarget = Math.min(1, (currentVelocity * atmDensityLocal) / 600);
+                ship.heat += (heatTarget - ship.heat) * (dt * 5); 
             }
 
             if (dist <= p.radius + 1) { 
@@ -482,8 +506,40 @@
         ship.altitude = Math.max(0, nearestDist);
         if (!isColliding) ship.isGrounded = false;
 
+        // Cool ship off rapidly if flying in the vacuum of space
+        if (!planets.some(p => p.hasAtmosphere && Math.hypot(p.x - ship.x, p.y - ship.y) < p.radius + p.atmHeight)) {
+            ship.heat += (0 - ship.heat) * (dt * 2);
+        }
+
         ship.vx += (accelX + gravX) * dt;
         ship.vy += (accelY + gravY) * dt;
+
+        // --- ORBIT AUTO-LOCK ASSIST (FLIGHT COMPUTER) ---
+        ship.orbitAssistActive = false;
+        if (domPlanet && !ship.isGrounded && !ship.isThrusting) {
+            const dist = Math.hypot(domPlanet.x - ship.x, domPlanet.y - ship.y);
+            const soi = domPlanet.radius * 12; // Capture radius
+            if (dist < soi && dist > domPlanet.radius * 1.05) {
+                const v_circ = Math.sqrt(GRAVITY_CONSTANT / dist);
+                const nx = (ship.x - domPlanet.x) / dist;
+                const ny = (ship.y - domPlanet.y) / dist;
+                const tx = -ny, ty = nx;
+                const vt = ship.vx * tx + ship.vy * ty;
+                
+                // Only assist if they are moving roughly the speed of an orbit
+                if (Math.abs(vt) > v_circ * 0.15 && currentVelocity < v_circ * 1.5) {
+                    ship.orbitAssistActive = true;
+                    const dir = Math.sign(vt);
+                    const targetVx = tx * dir * v_circ;
+                    const targetVy = ty * dir * v_circ;
+                    
+                    const assistStrength = Math.min(1.0, 1.5 * dt); 
+                    ship.vx += (targetVx - ship.vx) * assistStrength;
+                    ship.vy += (targetVy - ship.vy) * assistStrength;
+                }
+            }
+        }
+
         ship.x += ship.vx * dt;
         ship.y += ship.vy * dt;
 
@@ -505,8 +561,7 @@
         }
 
         // --- RELATIVITY CALCULATIONS ---
-        const velocity = Math.hypot(ship.vx, ship.vy);
-        let engineBeta = velocity / C_SPEED;
+        let engineBeta = currentVelocity / C_SPEED;
         engineBeta = Math.min(engineBeta, 0.9999);
         let trueBeta = Math.pow(engineBeta, 3); 
         const gamma = 1 / Math.sqrt(1 - trueBeta * trueBeta);
@@ -526,7 +581,6 @@
         }
     }
 
-    // --- End Screen & Leaderboard Submission ---
     function showEndScreen(title, desc, isWin = false) {
         document.getElementById('harvest-prompt').classList.add('hidden');
         const titleEl = document.getElementById('end-title');
@@ -554,20 +608,20 @@
         document.getElementById('end-screen').classList.remove('hidden');
     }
 
-    // --- POP: Anti-Lag Optimization Logic ---
+    // --- POP: Anti-Lag Optimization Logic with Auto-Lock Predictor ---
     let cachedBaseTraj = null;
     let cachedBurnTraj = null;
     let baseFrameCounter = 0;
     let burnFrameCounter = 0;
 
-    function simulateTrajectory(useThrust, maxSteps = 150) {
+    function simulateTrajectory(useThrust, maxSteps = 250) {
         let simX = ship.x, simY = ship.y;
         let simVx = ship.vx, simVy = ship.vy;
         let simFuel = ship.fuel;
         
         const currentSpeed = Math.hypot(simVx, simVy);
-        // Slightly smoother step calculation for the massive new gravity
-        const simDt = Math.max(1.5, currentSpeed / 30); 
+        // Smaller step ratio creates higher resolution rendering curves
+        const simDt = Math.max(0.8, currentSpeed / 60); 
         
         const path = [];
         let state = 'orbit';
@@ -581,6 +635,8 @@
             let gravX = 0, gravY = 0;
             let isColliding = false;
             let inSoi = false;
+            let domPlanet = null;
+            let maxG = 0;
 
             for (let j = 0; j < planets.length; j++) {
                 const p = planets[j];
@@ -590,13 +646,17 @@
                 const rSq = p.radius * p.radius;
 
                 if (distSq <= rSq) isColliding = true;
-                if (distSq <= rSq * 25) inSoi = true; // Expanded SOI visual detection
+                if (distSq <= rSq * 25) inSoi = true; 
 
                 if (distSq > 0) {
                     const dist = Math.sqrt(distSq);
                     const gMag = GRAVITY_CONSTANT / distSq;
                     gravX += (dx / dist) * gMag;
                     gravY += (dy / dist) * gMag;
+                    if (gMag > maxG) {
+                        maxG = gMag;
+                        domPlanet = p;
+                    }
                 }
             }
 
@@ -612,6 +672,29 @@
 
             simVx += (accelX + gravX) * simDt;
             simVy += (accelY + gravY) * simDt;
+
+            // Apply simulation of orbit assist
+            if (domPlanet && (!useThrust || simFuel <= 0)) {
+                const dist = Math.hypot(domPlanet.x - simX, domPlanet.y - simY);
+                const soi = domPlanet.radius * 12;
+                if (dist < soi && dist > domPlanet.radius * 1.05) {
+                    const v_circ = Math.sqrt(GRAVITY_CONSTANT / dist);
+                    const nx = (simX - domPlanet.x) / dist;
+                    const ny = (simY - domPlanet.y) / dist;
+                    const tx = -ny, ty = nx;
+                    const vt = simVx * tx + simVy * ty;
+                    
+                    if (Math.abs(vt) > v_circ * 0.15 && Math.hypot(simVx, simVy) < v_circ * 1.5) {
+                        const dir = Math.sign(vt);
+                        const targetVx = tx * dir * v_circ;
+                        const targetVy = ty * dir * v_circ;
+                        const assistStrength = Math.min(1.0, 1.5 * simDt); 
+                        simVx += (targetVx - simVx) * assistStrength;
+                        simVy += (targetVy - simVy) * assistStrength;
+                    }
+                }
+            }
+
             simX += simVx * simDt;
             simY += simVy * simDt;
 
@@ -632,12 +715,17 @@
         const scrollZoomFactor = Math.pow(2, camera.manualZoomOffset);
 
         if (camera.mapView) {
-            targetCamX = TARGET_DISTANCE / 2;
-            targetCamY = 0;
+            // Dynamic Map Camera: Smoothly pan from system-wide to ship-focused as you zoom in
+            const mapCenterX = TARGET_DISTANCE / 2;
+            const mapCenterY = 0;
+            const shipWeight = Math.max(0, Math.min(1, (camera.manualZoomOffset + 2) / 4));
+            
+            targetCamX = mapCenterX * (1 - shipWeight) + ship.x * shipWeight;
+            targetCamY = mapCenterY * (1 - shipWeight) + ship.y * shipWeight;
+
             targetZoom = (width / (TARGET_DISTANCE * 1.2)) * scrollZoomFactor; 
         } else {
             const speed = Math.hypot(ship.vx, ship.vy);
-            // Re-tuned zoom out curve to handle the massive new planet sizes nicely
             targetZoom = Math.max(0.05, 1.0 - (speed / 3500)) * scrollZoomFactor;
         }
 
@@ -676,13 +764,14 @@
             const pScreenY = toScreenY(p.y);
             const pScreenRadius = toScreenSize(p.radius);
 
-            if (p.hasOcean || p === alienPlanet || p === ares) {
-                const gradient = ctx.createRadialGradient(pScreenX, pScreenY, pScreenRadius * 0.9, pScreenX, pScreenY, pScreenRadius * 1.5);
+            if (p.hasAtmosphere) {
+                const atmRad = pScreenRadius + toScreenSize(p.atmHeight);
+                const gradient = ctx.createRadialGradient(pScreenX, pScreenY, pScreenRadius * 0.9, pScreenX, pScreenY, atmRad);
                 let rgb = p.hasOcean ? '59, 130, 246' : (p === ares ? '248, 113, 113' : '168, 85, 247');
                 gradient.addColorStop(0, `rgba(${rgb}, 0.6)`);
                 gradient.addColorStop(1, `rgba(${rgb}, 0)`);
                 ctx.fillStyle = gradient;
-                ctx.beginPath(); ctx.arc(pScreenX, pScreenY, pScreenRadius * 1.5, 0, Math.PI*2); ctx.fill();
+                ctx.beginPath(); ctx.arc(pScreenX, pScreenY, atmRad, 0, Math.PI*2); ctx.fill();
             }
 
             const bodyGrad = ctx.createRadialGradient(pScreenX, pScreenY, 0, pScreenX, pScreenY, pScreenRadius);
@@ -721,13 +810,21 @@
                 baseFrameCounter = 0;
             }
 
+            // Smooth Quadratic Curve Rendering for Stable Orbit
             ctx.strokeStyle = getPOPColor(cachedBaseTraj.state);
             ctx.lineWidth = 2;
             ctx.globalAlpha = ship.isThrusting ? 0.3 : 0.8; 
-            ctx.beginPath();
-            ctx.moveTo(toScreenX(ship.x), toScreenY(ship.y));
-            cachedBaseTraj.path.forEach(pt => ctx.lineTo(toScreenX(pt.x), toScreenY(pt.y)));
-            ctx.stroke();
+            if (cachedBaseTraj.path.length > 1) {
+                ctx.beginPath();
+                ctx.moveTo(toScreenX(cachedBaseTraj.path[0].x), toScreenY(cachedBaseTraj.path[0].y));
+                for(let i = 1; i < cachedBaseTraj.path.length - 1; i++) {
+                    let xc = (cachedBaseTraj.path[i].x + cachedBaseTraj.path[i+1].x) / 2;
+                    let yc = (cachedBaseTraj.path[i].y + cachedBaseTraj.path[i+1].y) / 2;
+                    ctx.quadraticCurveTo(toScreenX(cachedBaseTraj.path[i].x), toScreenY(cachedBaseTraj.path[i].y), toScreenX(xc), toScreenY(yc));
+                }
+                ctx.lineTo(toScreenX(cachedBaseTraj.path[cachedBaseTraj.path.length-1].x), toScreenY(cachedBaseTraj.path[cachedBaseTraj.path.length-1].y));
+                ctx.stroke();
+            }
             ctx.globalAlpha = 1.0;
 
             if (ship.isThrusting) {
@@ -737,14 +834,22 @@
                     burnFrameCounter = 0;
                 }
                 
+                // Smooth Quadratic Curve Rendering for Hypothetical Burn
                 ctx.strokeStyle = getPOPColor(cachedBurnTraj.state);
                 ctx.lineWidth = 2;
                 ctx.setLineDash([10, 10]);
                 ctx.lineDashOffset = -performance.now() / 20; 
-                ctx.beginPath();
-                ctx.moveTo(toScreenX(ship.x), toScreenY(ship.y));
-                cachedBurnTraj.path.forEach(pt => ctx.lineTo(toScreenX(pt.x), toScreenY(pt.y)));
-                ctx.stroke();
+                if (cachedBurnTraj.path.length > 1) {
+                    ctx.beginPath();
+                    ctx.moveTo(toScreenX(cachedBurnTraj.path[0].x), toScreenY(cachedBurnTraj.path[0].y));
+                    for(let i = 1; i < cachedBurnTraj.path.length - 1; i++) {
+                        let xc = (cachedBurnTraj.path[i].x + cachedBurnTraj.path[i+1].x) / 2;
+                        let yc = (cachedBurnTraj.path[i].y + cachedBurnTraj.path[i+1].y) / 2;
+                        ctx.quadraticCurveTo(toScreenX(cachedBurnTraj.path[i].x), toScreenY(cachedBurnTraj.path[i].y), toScreenX(xc), toScreenY(yc));
+                    }
+                    ctx.lineTo(toScreenX(cachedBurnTraj.path[cachedBurnTraj.path.length-1].x), toScreenY(cachedBurnTraj.path[cachedBurnTraj.path.length-1].y));
+                    ctx.stroke();
+                }
                 ctx.setLineDash([]);
             }
         }
@@ -790,6 +895,40 @@
         ctx.translate(sScreenX, sScreenY);
         ctx.rotate(ship.angle + Math.PI/2); 
 
+        // Atmospheric Re-entry Plasma Visuals
+        if (ship.heat > 0.05) {
+            ctx.save();
+            const velAngle = Math.atan2(ship.vy, ship.vx);
+            // Counter ship rotation, align strictly to velocity vector
+            ctx.rotate(-ship.angle - Math.PI/2); 
+            ctx.rotate(velAngle + Math.PI/2); 
+            
+            ctx.globalAlpha = Math.min(1, ship.heat);
+            const heatLength = sHeight * (1 + ship.heat * 2.0);
+            const heatWidth = sWidth * (1 + ship.heat * 1.5);
+            
+            ctx.fillStyle = '#f97316';
+            ctx.shadowBlur = toScreenSize(15);
+            ctx.shadowColor = '#ef4444';
+            
+            ctx.beginPath();
+            ctx.moveTo(0, -heatLength * 0.7); // Nose shockwave
+            ctx.quadraticCurveTo(heatWidth, 0, 0, heatLength * 0.8); // Wrap to tail
+            ctx.quadraticCurveTo(-heatWidth, 0, 0, -heatLength * 0.7); 
+            ctx.fill();
+            
+            ctx.fillStyle = '#fef08a';
+            ctx.shadowBlur = toScreenSize(5);
+            ctx.beginPath();
+            ctx.moveTo(0, -heatLength * 0.5); 
+            ctx.quadraticCurveTo(heatWidth * 0.6, 0, 0, heatLength * 0.6); 
+            ctx.quadraticCurveTo(-heatWidth * 0.6, 0, 0, -heatLength * 0.5); 
+            ctx.fill();
+
+            ctx.restore();
+        }
+
+        // Scoop Graphic
         if (ship.isScooping) {
             ctx.fillStyle = 'rgba(56, 189, 248, 0.3)';
             ctx.beginPath();
@@ -807,6 +946,7 @@
             }
         }
 
+        // Engine Flame (Scales with Throttle)
         if (ship.isThrusting) {
             ctx.fillStyle = '#f97316'; 
             ctx.beginPath();
@@ -847,6 +987,7 @@
             ctx.stroke();
         }
 
+        // Ship Body
         ctx.fillStyle = '#e2e8f0';
         ctx.beginPath();
         ctx.moveTo(0, -sHeight/2);
@@ -885,25 +1026,33 @@
         if (fuelPercent < 20) uiFuelBar.classList.replace('bg-orange-500', 'bg-red-600');
         else uiFuelBar.classList.replace('bg-red-600', 'bg-orange-500');
 
+        if (ship.orbitAssistActive) {
+            uiOrbitAssist.innerText = "LOCKED";
+            uiOrbitAssist.className = "text-sm sm:text-lg font-bold text-cyan-400 text-glow";
+        } else {
+            uiOrbitAssist.innerText = "STANDBY";
+            uiOrbitAssist.className = "text-sm sm:text-lg font-bold text-gray-500";
+        }
+
         if (ship.isScooping) {
             if (velocity <= MAX_SCOOP_SPEED) {
-                document.getElementById('scoop-status').innerText = "GATHERING";
-                document.getElementById('scoop-status').className = "text-sm sm:text-md font-bold text-green-400 text-glow-green";
+                uiScoopStatus.innerText = "GATHERING";
+                uiScoopStatus.className = "text-sm sm:text-md font-bold text-green-400 text-glow-green";
             } else {
-                document.getElementById('scoop-status').innerText = "TOO FAST!";
-                document.getElementById('scoop-status').className = "text-sm sm:text-md font-bold text-red-500";
+                uiScoopStatus.innerText = "TOO FAST!";
+                uiScoopStatus.className = "text-sm sm:text-md font-bold text-red-500";
             }
         } else {
-            document.getElementById('scoop-status').innerText = "INACTIVE";
-            document.getElementById('scoop-status').className = "text-sm sm:text-md font-bold text-gray-500";
+            uiScoopStatus.innerText = "INACTIVE";
+            uiScoopStatus.className = "text-sm sm:text-md font-bold text-gray-500";
         }
 
         if (ship.hasCure) {
-            document.getElementById('cargo-status').innerText = "SECURED (RETURN HOME)";
-            document.getElementById('cargo-status').className = "text-sm sm:text-md font-bold text-green-400 text-glow-green";
+            uiCargoStatus.innerText = "SECURED (RETURN HOME)";
+            uiCargoStatus.className = "text-sm sm:text-md font-bold text-green-400 text-glow-green";
         } else {
-            document.getElementById('cargo-status').innerText = "EMPTY";
-            document.getElementById('cargo-status').className = "text-sm sm:text-md font-bold text-red-500";
+            uiCargoStatus.innerText = "EMPTY";
+            uiCargoStatus.className = "text-sm sm:text-md font-bold text-red-500";
         }
 
         if (ship.isGrounded && ship.landedOn === alienPlanet && !ship.hasCure) {
