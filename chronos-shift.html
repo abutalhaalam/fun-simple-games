@@ -113,7 +113,16 @@
                 <p class="text-sm font-bold text-orange-400">F <span class="text-gray-400 font-normal">to Toggle Scoop</span></p>
                 <p class="text-sm font-bold text-purple-400">H <span class="text-gray-400 font-normal">to Harvest (Landed)</span></p>
                 <p class="text-sm font-bold mt-1 text-yellow-400">M <span class="text-gray-400 font-normal">to Toggle Map View</span></p>
+                <p class="text-sm font-bold mt-1 text-gray-300">SCROLL <span class="text-gray-400 font-normal">to Zoom In/Out</span></p>
             </div>
+        </div>
+
+        <!-- POP Legend (Projected Orbital Path) -->
+        <div class="absolute bottom-4 left-4 hud-panel p-3 rounded-lg hidden sm:block">
+            <h2 class="text-[10px] uppercase tracking-widest text-gray-400 mb-1 border-b border-gray-600 pb-1">Predictive Trajectory</h2>
+            <div class="text-xs flex items-center gap-2 mb-1"><div class="w-3 h-1 bg-cyan-400"></div> Stable Orbit</div>
+            <div class="text-xs flex items-center gap-2 mb-1"><div class="w-3 h-1 bg-yellow-400"></div> SOI Encounter</div>
+            <div class="text-xs flex items-center gap-2"><div class="w-3 h-1 bg-red-400"></div> Collision Course</div>
         </div>
 
         <!-- Harvest Prompt -->
@@ -140,63 +149,36 @@
     // --- Game Constants & State ---
     const GRAVITY_CONSTANT = 1500000;
     const PLANET_RADIUS = 800;
-    const C_SPEED = 5000; // Engine physics speed of light
-    const REAL_C = 299792458; // Real world speed of light for UI mapping
-    const TARGET_DISTANCE = 500000; // Represents 12 Light Years
+    const C_SPEED = 5000; 
+    const REAL_C = 299792458; 
+    const TARGET_DISTANCE = 500000; 
     const MAX_EARTH_TIME = 50; 
-    const SAFE_LANDING_SPEED = 20; // Engine units
     
-    // Time Mapping: Crossing the 500,000 gap at 5000 m/s takes 100 seconds real-time.
-    // If that represents traveling 12 LY at 1.0c, then 100 real seconds = 12 Earth Years.
-    // Therefore, Earth time passes at a constant rate of 0.12 Years per Real Second.
+    // SAFE_LANDING_SPEED is in Engine Units.
+    // 40 Engine Units = roughly 153 m/s Display Velocity via the cubic scale.
+    const SAFE_LANDING_SPEED = 40; 
     const EARTH_TIME_RATE = 0.12; 
 
-    // Fuel Mechanics Constants
+    // Fuel & Harvest
     const MAX_FUEL = 100;
     const FUEL_DRAIN_RATE = 4.0;
     const FUEL_SCOOP_RATE = 8.0;
-    const MAX_SCOOP_SPEED = C_SPEED * 0.5; // Can only scoop at < 0.5c
+    const MAX_SCOOP_SPEED = C_SPEED * 0.5; 
+    const HARVEST_TIME_REQUIRED = 5; 
     
-    // Harvest Mechanics
-    const HARVEST_TIME_REQUIRED = 5; // Ship seconds required to hold 'H'
+    // --- Celestial Bodies ---
+    let earth = { name: "EARTH", x: 0, y: 0, radius: PLANET_RADIUS, color: '#1e3a8a', hasOcean: true };
+    let luna = { name: "LUNA", x: 6000, y: 0, radius: 200, color: '#9ca3af', hasOcean: false };
+    let ares = { name: "ARES", x: 25000, y: 15000, radius: 500, color: '#b91c1c', hasOcean: false };
     
-    // The "World" coordinates.
-    let earth = {
-        name: "EARTH",
-        x: 0,
-        y: 0,
-        radius: PLANET_RADIUS,
-        color: '#1e3a8a',
-        atmosphere: '#3b82f6',
-        hasOcean: true
-    };
+    let alienPlanet = { name: "PROXIMA PRIME", x: TARGET_DISTANCE - 40000, y: 0, radius: 600, color: '#7e22ce', hasOcean: false };
+    
+    const planets = [earth, luna, ares, alienPlanet];
 
-    let alienPlanet = {
-        name: "PROXIMA PRIME",
-        x: TARGET_DISTANCE - 40000, 
-        y: 0,
-        radius: 600,
-        color: '#7e22ce',
-        atmosphere: '#a855f7',
-        hasOcean: false
-    };
+    let targetStar = { x: TARGET_DISTANCE, y: 0, radius: 6000, color: '#ef4444' };
 
-    const planets = [earth, alienPlanet];
-
-    let targetStar = {
-        x: TARGET_DISTANCE,
-        y: 0,
-        radius: 6000,
-        color: '#ef4444'
-    };
-
-    let timeState = {
-        shipTime: 0,
-        earthTime: 0,
-        hasLaunched: false
-    };
-
-    let gameState = 'playing'; // 'playing', 'won', 'lost', 'crashed'
+    let timeState = { shipTime: 0, earthTime: 0, hasLaunched: false };
+    let gameState = 'playing';
 
     let ship = {
         x: 0,
@@ -204,40 +186,32 @@
         vx: 0,
         vy: 0,
         angle: -Math.PI / 2,
-        width: 10,
-        height: 20,
-        thrustPower: 350,
+        width: 12,
+        height: 24,
+        thrustPower: 450, 
+        throttle: 0,      
         rotationSpeed: 3,
         isThrusting: false,
         isGrounded: true,
         landedOn: earth, 
+        altitude: 0,
         fuel: MAX_FUEL,
         isScooping: false,
         hasCure: false,
         harvestProgress: 0
     };
 
-    let camera = {
-        x: 0,
-        y: 0,
-        zoom: 1.0,
-        mapView: false
-    };
+    let camera = { x: 0, y: 0, zoom: 1.0, mapView: false, manualZoomOffset: 0 };
+    let input = { left: false, right: false, thrust: false, harvest: false };
 
-    let input = {
-        left: false,
-        right: false,
-        thrust: false,
-        harvest: false
-    };
-
-    // Stars background
+    // Infinite Parallax Stars
     const stars = [];
-    for(let i=0; i<300; i++) {
+    for(let i=0; i<400; i++) {
         stars.push({
-            x: (Math.random() - 0.5) * 8000,
-            y: (Math.random() - 0.5) * 8000,
-            size: Math.random() * 2
+            x: Math.random() * 10000,
+            y: Math.random() * 10000,
+            size: Math.random() * 1.5 + 0.5,
+            depth: Math.random() * 0.8 + 0.2 
         });
     }
 
@@ -270,6 +244,12 @@
         if (e.code === 'KeyH') input.harvest = false;
     });
 
+    // SCROLL TO ZOOM
+    window.addEventListener('wheel', (e) => {
+        camera.manualZoomOffset -= e.deltaY * 0.002;
+        camera.manualZoomOffset = Math.max(-2, Math.min(camera.manualZoomOffset, 3));
+    });
+
     function resize() {
         width = window.innerWidth;
         height = window.innerHeight;
@@ -284,13 +264,10 @@
 
     function gameLoop(timestamp) {
         if (gameState !== 'playing') return;
-
         const dt = (timestamp - lastTime) / 1000 || 0;
         lastTime = timestamp;
 
-        if (dt > 0 && dt < 0.1) {
-            updatePhysics(dt);
-        }
+        if (dt > 0 && dt < 0.1) updatePhysics(dt);
         
         updateCamera();
         draw();
@@ -300,7 +277,6 @@
     }
 
     function updatePhysics(dt) {
-        // Rotation
         if (input.left) ship.angle -= ship.rotationSpeed * dt;
         if (input.right) ship.angle += ship.rotationSpeed * dt;
         ship.angle = ship.angle % (Math.PI * 2);
@@ -308,20 +284,24 @@
 
         ship.isThrusting = input.thrust && ship.fuel > 0;
 
-        // Thrust vector
-        let accelX = 0;
-        let accelY = 0;
-        
+        // Exponential Throttle Logic
         if (ship.isThrusting) {
-            accelX = Math.cos(ship.angle) * ship.thrustPower;
-            accelY = Math.sin(ship.angle) * ship.thrustPower;
-            ship.fuel -= FUEL_DRAIN_RATE * dt;
+            ship.throttle = Math.min(1.0, ship.throttle + dt * 2.0);
+        } else {
+            ship.throttle = 0;
+        }
+
+        let accelX = 0, accelY = 0;
+        if (ship.isThrusting) {
+            const effectiveThrust = ship.thrustPower * (0.1 + 0.9 * Math.pow(ship.throttle, 2));
+            accelX = Math.cos(ship.angle) * effectiveThrust;
+            accelY = Math.sin(ship.angle) * effectiveThrust;
+            ship.fuel -= FUEL_DRAIN_RATE * dt * ship.throttle;
             if (ship.fuel < 0) ship.fuel = 0;
         }
 
         const currentVelocity = Math.hypot(ship.vx, ship.vy);
 
-        // Scooping Logic
         if (ship.isScooping) {
             if (currentVelocity <= MAX_SCOOP_SPEED) {
                 ship.fuel += FUEL_SCOOP_RATE * dt;
@@ -334,14 +314,14 @@
             }
         }
 
-        // Gravity vector & Collision processing
-        let gravX = 0;
-        let gravY = 0;
+        let gravX = 0, gravY = 0;
         let isColliding = false;
         ship.landedOn = null;
+        let nearestDist = Infinity;
 
         planets.forEach(p => {
             const dist = Math.hypot(p.x - ship.x, p.y - ship.y);
+            if (dist - p.radius < nearestDist) nearestDist = dist - p.radius;
             
             if (dist > 0) {
                 const gravityMag = GRAVITY_CONSTANT / (dist * dist);
@@ -352,13 +332,18 @@
             if (dist <= p.radius + 1) { 
                 isColliding = true;
                 ship.landedOn = p;
-                
                 const impactVelocity = Math.hypot(ship.vx, ship.vy);
                 
                 if (impactVelocity > SAFE_LANDING_SPEED && !ship.isGrounded) {
                     gameState = 'crashed';
-                    const crashVelDisplay = (impactVelocity / C_SPEED) * REAL_C;
-                    const safeVelDisplay = (SAFE_LANDING_SPEED / C_SPEED) * REAL_C;
+                    let crashEngineBeta = impactVelocity / C_SPEED;
+                    let crashTrueBeta = Math.pow(crashEngineBeta, 3);
+                    let crashVelDisplay = crashTrueBeta * REAL_C;
+                    
+                    let safeEngineBeta = SAFE_LANDING_SPEED / C_SPEED;
+                    let safeTrueBeta = Math.pow(safeEngineBeta, 3);
+                    let safeVelDisplay = safeTrueBeta * REAL_C;
+
                     showEndScreen("HULL COMPROMISED", `You crashed into ${p.name} at ${crashVelDisplay.toLocaleString('en-US', {maximumFractionDigits: 0})} m/s.<br><br>Maximum safe landing velocity is ${safeVelDisplay.toLocaleString('en-US', {maximumFractionDigits: 0})} m/s.`);
                 } else {
                     ship.isGrounded = true;
@@ -369,7 +354,6 @@
                         ship.vx = 0;
                         ship.vy = 0;
                         ship.angle = angleToShip; 
-                        
                         const gravityMag = GRAVITY_CONSTANT / (dist * dist);
                         gravX -= ((p.x - ship.x) / dist) * gravityMag;
                         gravY -= ((p.y - ship.y) / dist) * gravityMag;
@@ -378,6 +362,7 @@
             }
         });
 
+        ship.altitude = Math.max(0, nearestDist);
         if (!isColliding) ship.isGrounded = false;
 
         ship.vx += (accelX + gravX) * dt;
@@ -385,12 +370,10 @@
         ship.x += ship.vx * dt;
         ship.y += ship.vy * dt;
 
-        // Launch trigger
         if (ship.isThrusting && ship.landedOn === earth && !timeState.hasLaunched) {
             timeState.hasLaunched = true;
         }
 
-        // Harvest Logic
         if (ship.isGrounded && ship.landedOn === alienPlanet && !ship.hasCure) {
             harvestPrompt.classList.remove('hidden');
             if (input.harvest) {
@@ -404,21 +387,20 @@
             harvestPrompt.classList.add('hidden');
         }
 
-        // --- RELATIVITY CALCULATIONS (FIXED) ---
+        // --- RELATIVITY CALCULATIONS ---
         const velocity = Math.hypot(ship.vx, ship.vy);
-        let beta = velocity / C_SPEED;
-        beta = Math.min(beta, 0.9999);
-        const gamma = 1 / Math.sqrt(1 - beta * beta);
+        let engineBeta = velocity / C_SPEED;
+        engineBeta = Math.min(engineBeta, 0.9999);
+        
+        let trueBeta = Math.pow(engineBeta, 3); 
+        const gamma = 1 / Math.sqrt(1 - trueBeta * trueBeta);
         
         if (timeState.hasLaunched) {
-            // Earth is the stationary frame. Time passes constantly for Earth.
             const earthDt = dt * EARTH_TIME_RATE; 
             timeState.earthTime += earthDt;
-            // Ship experiences time dilation based on its velocity relative to Earth
             timeState.shipTime += earthDt / gamma; 
         }
 
-        // Win / Loss Conditions
         if (timeState.earthTime >= MAX_EARTH_TIME && gameState === 'playing') {
             gameState = 'lost';
             showEndScreen("HUMANITY EXPIRED", `50 Earth Years have passed.<br>The planet has succumbed to the threat while you were in transit.<br><br><b>Hint:</b> You must maintain speeds above 0.50c for the majority of the journey to survive the Earth clock.`);
@@ -426,6 +408,78 @@
             gameState = 'won';
             showEndScreen("MISSION ACCOMPLISHED", `You returned to Earth with the cure!<br><br><b>Ship Time Passed:</b> ${timeState.shipTime.toFixed(2)} Years<br><b>Earth Time Passed:</b> ${timeState.earthTime.toFixed(2)} Years<br><br>Humanity will survive because of you.`);
         }
+    }
+
+    // --- POP: Anti-Lag Optimization Logic ---
+    let cachedBaseTraj = null;
+    let cachedBurnTraj = null;
+    let baseFrameCounter = 0;
+    let burnFrameCounter = 0;
+
+    function simulateTrajectory(useThrust, maxSteps = 120) {
+        let simX = ship.x, simY = ship.y;
+        let simVx = ship.vx, simVy = ship.vy;
+        let simFuel = ship.fuel;
+        
+        const currentSpeed = Math.hypot(simVx, simVy);
+        const simDt = Math.max(3.0, currentSpeed / 20); 
+        
+        const path = [];
+        let state = 'orbit';
+
+        // BOUNDARY MATH FIX: Stop calculating if the line goes far off the visible screen.
+        // This completely eliminates the GPU Canvas stroke lag!
+        const maxVisibleDist = (width / camera.zoom) * 1.5; 
+        const maxDistSq = maxVisibleDist * maxVisibleDist;
+
+        for (let i = 0; i < maxSteps; i++) {
+            if (i % 2 === 0) path.push({x: simX, y: simY});
+            
+            let gravX = 0, gravY = 0;
+            let isColliding = false;
+            let inSoi = false;
+
+            for (let j = 0; j < planets.length; j++) {
+                const p = planets[j];
+                const dx = p.x - simX;
+                const dy = p.y - simY;
+                const distSq = dx*dx + dy*dy;
+                const rSq = p.radius * p.radius;
+
+                if (distSq <= rSq) isColliding = true;
+                if (distSq <= rSq * 16) inSoi = true; 
+
+                if (distSq > 0) {
+                    const dist = Math.sqrt(distSq);
+                    const gMag = GRAVITY_CONSTANT / distSq;
+                    gravX += (dx / dist) * gMag;
+                    gravY += (dy / dist) * gMag;
+                }
+            }
+
+            if (isColliding) { state = 'collision'; break; }
+            if (inSoi && state !== 'collision') state = 'encounter';
+
+            let accelX = 0, accelY = 0;
+            if (useThrust && simFuel > 0) {
+                accelX = Math.cos(ship.angle) * ship.thrustPower;
+                accelY = Math.sin(ship.angle) * ship.thrustPower;
+                simFuel -= FUEL_DRAIN_RATE * simDt;
+            }
+
+            simVx += (accelX + gravX) * simDt;
+            simVy += (accelY + gravY) * simDt;
+            simX += simVx * simDt;
+            simY += simVy * simDt;
+
+            // GPU SAVER: Halt prediction if it leaves the screen area
+            const distFromShipSq = (simX - ship.x)**2 + (simY - ship.y)**2;
+            if (distFromShipSq > maxDistSq) {
+                path.push({x: simX, y: simY}); // Push the final edge point
+                break; 
+            }
+        }
+        return { path, state };
     }
 
     function showEndScreen(title, desc) {
@@ -441,37 +495,46 @@
         let targetCamY = ship.y;
         let targetZoom = 1.0;
 
+        const scrollZoomFactor = Math.pow(2, camera.manualZoomOffset);
+
         if (camera.mapView) {
             targetCamX = TARGET_DISTANCE / 2;
             targetCamY = 0;
-            targetZoom = width / (TARGET_DISTANCE * 1.2); 
+            targetZoom = (width / (TARGET_DISTANCE * 1.2)) * scrollZoomFactor; 
         } else {
             const speed = Math.hypot(ship.vx, ship.vy);
-            targetZoom = Math.max(0.15, 1.0 - (speed / 1000));
+            targetZoom = Math.max(0.1, 1.0 - (speed / 3000)) * scrollZoomFactor;
         }
 
         camera.x += (targetCamX - camera.x) * 0.1;
         camera.y += (targetCamY - camera.y) * 0.1;
-        camera.zoom += (targetZoom - camera.zoom) * 0.05;
+        camera.zoom += (targetZoom - camera.zoom) * 0.1;
     }
 
     function toScreenX(worldX) { return (worldX - camera.x) * camera.zoom + width / 2; }
     function toScreenY(worldY) { return (worldY - camera.y) * camera.zoom + height / 2; }
     function toScreenSize(size) { return size * camera.zoom; }
+    function getPOPColor(state) {
+        if (state === 'collision') return '#f87171';
+        if (state === 'encounter') return '#facc15';
+        return '#22d3ee';
+    }
 
     function draw() {
         ctx.fillStyle = '#050510';
         ctx.fillRect(0, 0, width, height);
 
-        ctx.fillStyle = '#ffffff';
+        // Infinite Parallax Stars
         stars.forEach(star => {
-            const sx = toScreenX(star.x * 0.1 + camera.x * 0.9);
-            const sy = toScreenY(star.y * 0.1 + camera.y * 0.9);
-            if(sx > 0 && sx < width && sy > 0 && sy < height) {
-                ctx.beginPath();
-                ctx.arc(sx, sy, toScreenSize(star.size), 0, Math.PI*2);
-                ctx.fill();
-            }
+            let sx = (star.x - camera.x * star.depth * camera.zoom) % width;
+            if (sx < 0) sx += width;
+            let sy = (star.y - camera.y * star.depth * camera.zoom) % height;
+            if (sy < 0) sy += height;
+
+            ctx.fillStyle = `rgba(255, 255, 255, ${star.depth})`; 
+            ctx.beginPath();
+            ctx.arc(sx, sy, star.size, 0, Math.PI*2);
+            ctx.fill();
         });
 
         planets.forEach(p => {
@@ -479,32 +542,29 @@
             const pScreenY = toScreenY(p.y);
             const pScreenRadius = toScreenSize(p.radius);
 
-            const gradient = ctx.createRadialGradient(pScreenX, pScreenY, pScreenRadius * 0.9, pScreenX, pScreenY, pScreenRadius * 1.5);
-            let rgb = p.hasOcean ? '59, 130, 246' : '168, 85, 247';
-            gradient.addColorStop(0, `rgba(${rgb}, 0.6)`);
-            gradient.addColorStop(1, `rgba(${rgb}, 0)`);
-            
-            ctx.fillStyle = gradient;
-            ctx.beginPath();
-            ctx.arc(pScreenX, pScreenY, pScreenRadius * 1.5, 0, Math.PI*2);
-            ctx.fill();
+            // Atmosphere
+            if (p.hasOcean || p === alienPlanet || p === ares) {
+                const gradient = ctx.createRadialGradient(pScreenX, pScreenY, pScreenRadius * 0.9, pScreenX, pScreenY, pScreenRadius * 1.5);
+                let rgb = p.hasOcean ? '59, 130, 246' : (p === ares ? '248, 113, 113' : '168, 85, 247');
+                gradient.addColorStop(0, `rgba(${rgb}, 0.6)`);
+                gradient.addColorStop(1, `rgba(${rgb}, 0)`);
+                ctx.fillStyle = gradient;
+                ctx.beginPath(); ctx.arc(pScreenX, pScreenY, pScreenRadius * 1.5, 0, Math.PI*2); ctx.fill();
+            }
 
+            // Body
             const bodyGrad = ctx.createRadialGradient(pScreenX, pScreenY, 0, pScreenX, pScreenY, pScreenRadius);
             bodyGrad.addColorStop(0, p.color); 
-            bodyGrad.addColorStop(0.8, p.hasOcean ? '#2563eb' : '#9333ea');
-            bodyGrad.addColorStop(1, p.hasOcean ? '#93c5fd' : '#d8b4fe'); 
-            
+            let edgeColor = p.hasOcean ? '#2563eb' : (p === ares ? '#ef4444' : (p === luna ? '#d1d5db' : '#9333ea'));
+            bodyGrad.addColorStop(0.8, edgeColor);
             ctx.fillStyle = bodyGrad;
-            ctx.beginPath();
-            ctx.arc(pScreenX, pScreenY, pScreenRadius, 0, Math.PI*2);
-            ctx.fill();
+            ctx.beginPath(); ctx.arc(pScreenX, pScreenY, pScreenRadius, 0, Math.PI*2); ctx.fill();
 
             if (p.hasOcean) {
                 ctx.fillStyle = '#10b981'; 
                 ctx.beginPath();
                 ctx.arc(pScreenX - pScreenRadius*0.3, pScreenY - pScreenRadius*0.2, pScreenRadius*0.5, 0, Math.PI*2);
                 ctx.arc(pScreenX + pScreenRadius*0.4, pScreenY + pScreenRadius*0.3, pScreenRadius*0.4, 0, Math.PI*2);
-                ctx.arc(pScreenX - pScreenRadius*0.1, pScreenY + pScreenRadius*0.5, pScreenRadius*0.35, 0, Math.PI*2);
                 ctx.fill();
             }
         });
@@ -518,27 +578,62 @@
         starGlow.addColorStop(0, 'rgba(239, 68, 68, 0.8)');
         starGlow.addColorStop(1, 'rgba(239, 68, 68, 0)');
         ctx.fillStyle = starGlow;
-        ctx.beginPath();
-        ctx.arc(tScreenX, tScreenY, tScreenRadius * 3, 0, Math.PI*2);
-        ctx.fill();
+        ctx.beginPath(); ctx.arc(tScreenX, tScreenY, tScreenRadius * 3, 0, Math.PI*2); ctx.fill();
 
         ctx.fillStyle = targetStar.color;
-        ctx.beginPath();
-        ctx.arc(tScreenX, tScreenY, tScreenRadius, 0, Math.PI*2);
-        ctx.fill();
+        ctx.beginPath(); ctx.arc(tScreenX, tScreenY, tScreenRadius, 0, Math.PI*2); ctx.fill();
+
+        // Draw POP (Projected Orbital Paths) - Now safely runs everywhere!
+        if (!ship.isGrounded && !camera.mapView) {
+            
+            baseFrameCounter++;
+            // CPU SAVER: Only recalculate the base trajectory naturally or on thrust, NOT on pure rotation.
+            if (!cachedBaseTraj || baseFrameCounter > 5 || input.thrust) {
+                cachedBaseTraj = simulateTrajectory(false);
+                baseFrameCounter = 0;
+            }
+
+            // Solid Orbit Line
+            ctx.strokeStyle = getPOPColor(cachedBaseTraj.state);
+            ctx.lineWidth = 2;
+            ctx.globalAlpha = ship.isThrusting ? 0.3 : 0.8; 
+            ctx.beginPath();
+            ctx.moveTo(toScreenX(ship.x), toScreenY(ship.y));
+            cachedBaseTraj.path.forEach(pt => ctx.lineTo(toScreenX(pt.x), toScreenY(pt.y)));
+            ctx.stroke();
+            ctx.globalAlpha = 1.0;
+
+            // Dashed Burn Prediction Line
+            if (ship.isThrusting) {
+                burnFrameCounter++;
+                if (!cachedBurnTraj || burnFrameCounter > 3) {
+                    cachedBurnTraj = simulateTrajectory(true);
+                    burnFrameCounter = 0;
+                }
+                
+                ctx.strokeStyle = getPOPColor(cachedBurnTraj.state);
+                ctx.lineWidth = 2;
+                ctx.setLineDash([10, 10]);
+                ctx.lineDashOffset = -performance.now() / 20; 
+                ctx.beginPath();
+                ctx.moveTo(toScreenX(ship.x), toScreenY(ship.y));
+                cachedBurnTraj.path.forEach(pt => ctx.lineTo(toScreenX(pt.x), toScreenY(pt.y)));
+                ctx.stroke();
+                ctx.setLineDash([]);
+            }
+        }
 
         drawShip();
 
         // TACTICAL MAP OVERLAYS
         if (camera.mapView) {
-            ctx.fillStyle = '#3b82f6'; 
-            ctx.beginPath(); ctx.arc(toScreenX(earth.x), toScreenY(earth.y), 6, 0, Math.PI*2); ctx.fill();
-            ctx.fillStyle = 'rgba(255, 255, 255, 0.9)'; ctx.font = '12px "Space Mono"'; ctx.textAlign = 'center';
-            ctx.fillText("EARTH", toScreenX(earth.x), toScreenY(earth.y) - 15);
-
-            ctx.fillStyle = '#a855f7'; 
-            ctx.beginPath(); ctx.arc(toScreenX(alienPlanet.x), toScreenY(alienPlanet.y), 6, 0, Math.PI*2); ctx.fill();
-            ctx.fillText("PROXIMA PRIME", toScreenX(alienPlanet.x), toScreenY(alienPlanet.y) - 15);
+            planets.forEach(p => {
+                ctx.fillStyle = p.hasOcean ? '#3b82f6' : (p === ares ? '#ef4444' : '#a855f7');
+                if (p === luna) ctx.fillStyle = '#d1d5db';
+                ctx.beginPath(); ctx.arc(toScreenX(p.x), toScreenY(p.y), 6, 0, Math.PI*2); ctx.fill();
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.9)'; ctx.font = '12px "Space Mono"'; ctx.textAlign = 'center';
+                ctx.fillText(p.name, toScreenX(p.x), toScreenY(p.y) - 15);
+            });
 
             ctx.fillStyle = '#ef4444'; 
             ctx.beginPath(); ctx.arc(tScreenX, tScreenY, 8, 0, Math.PI*2); ctx.fill();
@@ -570,6 +665,7 @@
         ctx.translate(sScreenX, sScreenY);
         ctx.rotate(ship.angle + Math.PI/2); 
 
+        // Scoop Graphic
         if (ship.isScooping) {
             ctx.fillStyle = 'rgba(56, 189, 248, 0.3)';
             ctx.beginPath();
@@ -587,10 +683,11 @@
             }
         }
 
+        // Engine Flame (Scales with Throttle)
         if (ship.isThrusting) {
             ctx.fillStyle = '#f97316'; 
             ctx.beginPath();
-            const flameLength = sHeight + Math.random() * sHeight; 
+            const flameLength = (sHeight + Math.random() * sHeight) * ship.throttle; 
             ctx.moveTo(-sWidth*0.4, sHeight/2);
             ctx.lineTo(sWidth*0.4, sHeight/2);
             ctx.lineTo(0, sHeight/2 + flameLength);
@@ -606,6 +703,29 @@
             ctx.fill();
         }
 
+        // Auto-Deploying Landing Legs
+        if (ship.altitude < 2000) {
+            const deployRatio = Math.max(0, Math.min(1, (2000 - ship.altitude) / 500));
+            const legExt = sWidth * 0.9 * deployRatio;
+            const legDrop = sHeight * 0.4 * deployRatio;
+            
+            ctx.strokeStyle = '#9ca3af';
+            ctx.lineWidth = toScreenSize(2);
+            
+            ctx.beginPath();
+            ctx.moveTo(-sWidth/2, sHeight/2 - toScreenSize(2));
+            ctx.lineTo(-sWidth/2 - legExt, sHeight/2 + legDrop);
+            ctx.lineTo(-sWidth/2 - legExt - toScreenSize(3), sHeight/2 + legDrop);
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.moveTo(sWidth/2, sHeight/2 - toScreenSize(2));
+            ctx.lineTo(sWidth/2 + legExt, sHeight/2 + legDrop);
+            ctx.lineTo(sWidth/2 + legExt + toScreenSize(3), sHeight/2 + legDrop); 
+            ctx.stroke();
+        }
+
+        // Ship Body
         ctx.fillStyle = '#e2e8f0';
         ctx.beginPath();
         ctx.moveTo(0, -sHeight/2);
@@ -613,10 +733,13 @@
         ctx.lineTo(-sWidth/2, sHeight/2); 
         ctx.closePath();
         ctx.fill();
+        
+        ctx.fillStyle = '#94a3b8';
+        ctx.fillRect(-sWidth/4, 0, sWidth/2, sHeight/2);
 
         ctx.fillStyle = '#38bdf8';
         ctx.beginPath();
-        ctx.arc(0, 0, sWidth*0.2, 0, Math.PI*2);
+        ctx.arc(0, 0, sWidth*0.25, 0, Math.PI*2);
         ctx.fill();
 
         ctx.restore();
@@ -625,24 +748,16 @@
     function updateUI() {
         const velocity = Math.hypot(ship.vx, ship.vy);
         
-        let beta = velocity / C_SPEED;
-        beta = Math.min(beta, 0.9999);
-        const gamma = 1 / Math.sqrt(1 - beta * beta);
+        let engineBeta = velocity / C_SPEED;
+        engineBeta = Math.min(engineBeta, 0.9999);
+        let trueBeta = Math.pow(engineBeta, 3); 
         
-        const displayVelocity = beta * REAL_C;
+        const gamma = 1 / Math.sqrt(1 - trueBeta * trueBeta);
+        const displayVelocity = trueBeta * REAL_C;
 
-        const distToEarth = Math.hypot(earth.x - ship.x, earth.y - ship.y);
-        const distToAlien = Math.hypot(alienPlanet.x - ship.x, alienPlanet.y - ship.y);
-        let altitude;
-        if (distToEarth < distToAlien) {
-            altitude = distToEarth - earth.radius;
-        } else {
-            altitude = distToAlien - alienPlanet.radius;
-        }
-
-        uiAltitude.innerText = Math.max(0, altitude).toFixed(0);
+        uiAltitude.innerText = Math.max(0, ship.altitude).toFixed(0);
         uiVelocity.innerText = displayVelocity.toLocaleString('en-US', {maximumFractionDigits: 0});
-        uiVelocityC.innerText = beta.toFixed(3);
+        uiVelocityC.innerText = trueBeta.toFixed(4);
         
         const fuelPercent = (ship.fuel / MAX_FUEL) * 100;
         uiFuelBar.style.width = fuelPercent + '%';
