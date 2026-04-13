@@ -247,12 +247,13 @@
     const MAX_SCOOP_SPEED = C_SPEED * 0.5; 
     const HARVEST_TIME_REQUIRED = 5; 
 
-    // --- Celestial Bodies (Mapped exactly to requested uploads) ---
-    let earth = { name: "EARTH", x: 0, y: 0, radius: PLANET_RADIUS, color: '#1e3a8a', hasOcean: true, hasAtmosphere: true, atmHeight: 1200, imgUrl: 'planet00.jpg' };
-    let luna = { name: "LUNA", x: 18000, y: 0, radius: 600, color: '#9ca3af', hasOcean: false, hasAtmosphere: false, atmHeight: 0, imgUrl: 'sphere0.png' };
-    let ares = { name: "MARS", x: 60000, y: 40000, radius: 1500, color: '#b91c1c', hasOcean: false, hasAtmosphere: true, atmHeight: 800, imgUrl: 'planet08.jpg' };
-    let saturn = { name: "SATURN", x: 200000, y: -20000, radius: 8000, color: '#d97706', hasOcean: false, hasAtmosphere: true, atmHeight: 4000, imgUrl: 'planet05.jpg' };
-    let alienPlanet = { name: "PROXIMA PRIME", x: TARGET_DISTANCE - 60000, y: 0, radius: 1800, color: '#7e22ce', hasOcean: false, hasAtmosphere: true, atmHeight: 1500, imgUrl: 'planet09.png' };
+    // --- Celestial Bodies (Mapped to local assets/planets textures) ---
+    const PLANET_ASSET_BASE = 'assets/planets/';
+    let earth = { name: "EARTH", x: 0, y: 0, radius: PLANET_RADIUS, color: '#1e3a8a', hasOcean: true, hasAtmosphere: true, atmHeight: 1200, imgUrl: `${PLANET_ASSET_BASE}planet00.png` };
+    let luna = { name: "LUNA", x: 18000, y: 0, radius: 600, color: '#9ca3af', hasOcean: false, hasAtmosphere: false, atmHeight: 0, imgUrl: `${PLANET_ASSET_BASE}planet04.png` };
+    let ares = { name: "MARS", x: 60000, y: 40000, radius: 1500, color: '#b91c1c', hasOcean: false, hasAtmosphere: true, atmHeight: 800, imgUrl: `${PLANET_ASSET_BASE}planet08.png` };
+    let saturn = { name: "SATURN", x: 200000, y: -20000, radius: 8000, color: '#d97706', hasOcean: false, hasAtmosphere: true, atmHeight: 4000, imgUrl: `${PLANET_ASSET_BASE}planet05.png` };
+    let alienPlanet = { name: "PROXIMA PRIME", x: TARGET_DISTANCE - 60000, y: 0, radius: 1800, color: '#7e22ce', hasOcean: false, hasAtmosphere: true, atmHeight: 1500, imgUrl: `${PLANET_ASSET_BASE}planet09.png` };
     
     const planets = [earth, luna, ares, saturn, alienPlanet];
     
